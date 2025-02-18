@@ -1,0 +1,1009 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+
+Additional Info:
+----------------
+
+================================================================
+Directory Structure
+================================================================
+src/
+  config/
+    database.ts
+  middleware/
+    auth.ts
+    errorHandler.ts
+    validation.ts
+  models/
+    Game.ts
+  routes/
+    authRoutes.ts
+    gameRoutes.ts
+  services/
+    deckService.ts
+    eloService.ts
+    gameService.ts
+  tests/
+    gameService.test.ts
+    testUtils.ts
+  types/
+    game.ts
+  utils/
+    logger.ts
+  websocket/
+    gameSocket.ts
+  index.ts
+.gitignore
+package.json
+README.md
+tsconfig.json
+
+================================================================
+Files
+================================================================
+
+================
+File: src/config/database.ts
+================
+import mongoose from 'mongoose'
+
+export const connectDB = async () => {
+  try {
+    const mongoUri = process.env.MONGODB_URI
+    
+    if (!mongoUri) {
+      throw new Error('MONGODB_URI is not defined in environment variables')
+    }
+
+    await mongoose.connect(mongoUri)
+    console.log('Connected to MongoDB')
+  } catch (error) {
+    console.error('MongoDB connection error:', error)
+    throw error
+  }
+}
+
+================
+File: src/middleware/auth.ts
+================
+import jwt from 'jsonwebtoken';
+import { Request, Response, NextFunction } from 'express';
+
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token, authorization denied' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    // @ts-ignore
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Token is not valid' });
+  }
+};
+
+================
+File: src/middleware/errorHandler.ts
+================
+// src/middleware/errorHandler.ts
+import { Request, Response, NextFunction } from 'express';
+
+export class AppError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+export const errorHandler = (
+  err: AppError, 
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+) => {
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    status: 'error',
+    statusCode,
+    message: err.message
+  });
+};
+
+================
+File: src/middleware/validation.ts
+================
+// src/middleware/validation.ts
+import { body, validationResult } from 'express-validator';
+
+export const gameCreateValidation = [
+  body('player1Id').isMongoId().withMessage('Invalid player ID'),
+  body('player2Id').isMongoId().withMessage('Invalid player ID'),
+];
+
+export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+
+================
+File: src/models/Game.ts
+================
+// src/models/Game.ts
+import mongoose from 'mongoose';
+import { GameState } from '../types/game';
+
+const GameSchema = new mongoose.Schema<GameState>({
+  players: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Player' }],
+  currentPlayerIndex: Number,
+  board: [],
+  round: {},
+  status: String
+});
+
+export const GameModel = mongoose.model<GameState>('Game', GameSchema);
+
+// src/models/Player.ts
+const PlayerSchema = new mongoose.Schema({
+  username: String,
+  color: String,
+  elo: Number,
+  hand: [],
+  jail: []
+});
+
+export const PlayerModel = mongoose.model('Player', PlayerSchema);
+
+================
+File: src/routes/authRoutes.ts
+================
+// src/routes/authRoutes.ts
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { PlayerModel } from '../models/Game';
+
+const router = express.Router();
+
+router.post('/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await PlayerModel.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new player
+    const player = new PlayerModel({
+      username,
+      color: null,
+      elo: 1200,
+      hand: [],
+      jail: []
+    });
+
+    await player.save();
+
+    // Generate token
+    const token = jwt.sign(
+      { id: player._id },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1h' }
+    );
+
+    res.status(201).json({ token, player });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Find user
+    const player = await PlayerModel.findOne({ username });
+    if (!player) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, player.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { id: player._id },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1h' }
+    );
+
+    res.json({ token, player });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+});
+
+router.post('/create-player', async (req, res) => {
+  try {
+    // Add logging to see what's coming in
+    console.log('Request body:', req.body);
+
+    // Explicitly destructure username
+    const { username } = req.body || {};
+
+    // Validate username
+    if (!username) {
+      return res.status(400).json({
+        message: 'Username is required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await PlayerModel.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already taken' });
+    }
+
+    const player = new PlayerModel({
+      username,
+      elo: 1200,
+      hand: [],
+      jail: []
+    });
+
+    await player.save();
+
+    res.status(201).json({
+      message: 'Player created',
+      playerId: player._id,
+      username: player.username
+    });
+  } catch (error) {
+    console.error('Error creating player:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+
+export default router;
+
+================
+File: src/routes/gameRoutes.ts
+================
+// src/routes/gameRoutes.ts
+import express from 'express';
+import { GameService } from '../services/gameService';
+import { GameModel, PlayerModel } from '../models/Game';
+
+const router = express.Router();
+
+router.post('/create', async (req, res) => {
+  try {
+    const { player1Id, player2Id } = req.body;
+    const player1 = await PlayerModel.findById(player1Id);
+    const player2 = await PlayerModel.findById(player2Id);
+
+    if (!player1 || !player2) {
+      return res.status(404).json({ error: 'Players not found' });
+    }
+
+    const gameState = GameService.initializeGame(player1, player2);
+    const game = new GameModel(gameState);
+    await game.save();
+
+    res.status(201).json(game);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/:gameId/move', async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const move = req.body;
+
+    const game = await GameModel.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const updatedGameState = GameService.makeMove(game, move);
+    game.set(updatedGameState);
+    await game.save();
+
+    res.json(game);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
+
+================
+File: src/services/deckService.ts
+================
+// src/services/deckService.ts
+import { Card, Color, Suit } from '../types/game';
+
+export class DeckService {
+  static createDeck(color: Color): Card[] {
+    const suits = color === Color.Red ? [Suit.Hearts, Suit.Diamonds] : [Suit.Clubs, Suit.Spades];
+    const deck: Card[] = [];
+    
+    suits.forEach(suit => {
+      // Card numbers from 2 to 14 (Ace)
+      for (let number = 2; number <= 14; number++) {
+        const card: Card = {
+          id: `${color}_${number}_${suit}`,
+          color,
+          suit,
+          number,
+          victoryPoints: this.calculateVictoryPoints(number, suit),
+          played: false
+        };
+        deck.push(card);
+      }
+    });
+
+    return this.shuffleDeck(deck);
+  }
+
+  static shuffleDeck(deck: Card[]): Card[] {
+    return deck.sort(() => Math.random() - 0.5);
+  }
+
+  static calculateVictoryPoints(number: number, suit: Suit): number {
+    // Special rules for victory points
+    if (number >= 11) {
+      // Face cards
+      if ((suit === Suit.Spades || suit === Suit.Hearts) && number === 13) {
+        return 70; // Poison King
+      }
+      return 10; // Other face cards
+    }
+    return number; // Number cards are worth their face value
+  }
+}
+
+// src/services/gameService.ts
+import { GameState, Player, Card, Color } from '../types/game';
+import { DeckService } from './deckService';
+
+export class GameService {
+  static initializeGame(player1: Player, player2: Player): GameState {
+    // Create decks for each player
+    const redDeck = DeckService.createDeck(Color.Red);
+    const blackDeck = DeckService.createDeck(Color.Black);
+
+    // Initialize game state
+    return {
+      id: this.generateGameId(),
+      players: [player1, player2],
+      currentPlayerIndex: Math.random() < 0.5 ? 0 : 1,
+      board: this.createInitialBoard(),
+      round: {
+        activePlayer: player1,
+        inactivePlayer: player2,
+        turn: 1,
+        state: 'running'
+      },
+      status: 'waiting'
+    };
+  }
+
+  private static generateGameId(): string {
+    return Math.random().toString(36).substring(2, 15);
+  }
+
+  private static createInitialBoard() {
+    // Create an empty board with predefined columns
+    return Array(10).fill(null).map(() => ({
+      positions: [],
+      stakedCard: undefined
+    }));
+  }
+
+  static makeMove(game: GameState, move: any): GameState {
+    // Implement move logic
+    // This will be complex and depend on the specific rules of Cozen
+    
+    // Basic move progression
+    game.currentPlayerIndex = (game.currentPlayerIndex + 1) % 2;
+    
+    // Check for round or game end
+    if (this.checkRoundEnd(game)) {
+      game.round.state = 'complete';
+      
+      if (this.checkGameEnd(game)) {
+        game.status = 'complete';
+      }
+    }
+
+    return game;
+  }
+
+  static checkRoundEnd(game: GameState): boolean {
+    // Implement round end conditions
+    // For example, if a player has no cards left or certain victory points are reached
+    return false;
+  }
+
+  static checkGameEnd(game: GameState): boolean {
+    // Implement game end conditions
+    return false;
+  }
+
+  static evaluateHand(hand: Card[], stakedCard: Card): number {
+    // Implement hand evaluation logic from the original game
+    // This involves checking for pairs, runs, and special card interactions
+    return 0;
+  }
+}
+
+================
+File: src/services/eloService.ts
+================
+export class EloService {
+  static calculateRating(
+    playerRating: number, 
+    opponentRating: number, 
+    playerScore: number
+  ): number {
+    const k = 32; // K-factor
+    const expectedScore = 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
+    return playerRating + k * (playerScore - expectedScore);
+  }
+}
+
+================
+File: src/services/gameService.ts
+================
+// src/services/gameService.ts
+import { GameState, Player, Card, Color } from '../types/game';
+
+export class GameService {
+  static initializeGame(player1: Player, player2: Player): GameState {
+    // Initialize a new game state
+  }
+
+  static makeMove(game: GameState, move: Move): GameState {
+    // Apply a move to the game state
+  }
+
+  static evaluateHand(hand: Card[], stakedCard: Card): number {
+    // Scoring logic from the original evaluation
+  }
+
+  static checkRoundEnd(game: GameState): boolean {
+    // Determine if the round is over
+  }
+}
+
+// src/services/deckService.ts
+export class DeckService {
+  static createDeck(color: Color): Card[] {
+    // Generate a deck of cards for a specific color
+  }
+
+  static shuffleDeck(deck: Card[]): Card[] {
+    // Shuffle the deck
+  }
+}
+
+================
+File: src/tests/gameService.test.ts
+================
+import { GameService } from '../services/gameService';
+import { createMockPlayer, createMockCard } from './testUtils';
+
+describe('GameService', () => {
+  it('should initialize a new game correctly', () => {
+    const player1 = createMockPlayer();
+    const player2 = createMockPlayer();
+    
+    const game = GameService.initializeGame(player1, player2);
+    
+    expect(game.players).toHaveLength(2);
+    expect(game.status).toBe('waiting');
+  });
+});
+
+================
+File: src/tests/testUtils.ts
+================
+// src/tests/testUtils.ts
+import { Player, Card, Color, Suit } from '../types/game';
+import { v4 as uuidv4 } from 'uuid';
+
+export const createMockPlayer = (overrides: Partial<Player> = {}): Player => ({
+  id: uuidv4(),
+  username: `testuser_${Math.random().toString(36).substring(7)}`,
+  color: Math.random() > 0.5 ? Color.Red : Color.Black,
+  hand: [],
+  jail: [],
+  elo: 1200,
+  ...overrides
+});
+
+export const createMockCard = (overrides: Partial<Card> = {}): Card => ({
+  id: uuidv4(),
+  color: Math.random() > 0.5 ? Color.Red : Color.Black,
+  suit: Object.values(Suit)[Math.floor(Math.random() * 4)],
+  number: Math.floor(Math.random() * 13) + 2, // 2-14
+  victoryPoints: 0,
+  played: false,
+  ...overrides
+});
+
+================
+File: src/types/game.ts
+================
+// src/types/game.ts
+export enum Color {
+  Red = 'red',
+  Black = 'black'
+}
+
+export enum Suit {
+  Hearts = 'hearts',
+  Diamonds = 'diamonds',
+  Clubs = 'clubs',
+  Spades = 'spades'
+}
+
+export interface Card {
+  id: string;
+  color: Color;
+  suit: Suit;
+  number: number;
+  victoryPoints: number;
+  played: boolean;
+}
+
+export interface Player {
+  id: string;
+  username: string;
+  color: Color;
+  hand: Card[];
+  jail: Card[];
+  elo: number;
+}
+
+export interface GameState {
+  id: string;
+  players: [Player, Player];
+  currentPlayerIndex: number;
+  board: Column[];
+  round: Round;
+  status: 'waiting' | 'in_progress' | 'complete';
+}
+
+export interface Column {
+  positions: Position[];
+  stakedCard?: Card;
+}
+
+export interface Position {
+  card?: Card;
+  color: Color;
+}
+
+export interface Round {
+  activePlayer: Player;
+  inactivePlayer: Player;
+  turn: number;
+  state: 'running' | 'last_play' | 'complete';
+}
+
+================
+File: src/utils/logger.ts
+================
+// src/utils/logger.ts
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple(),
+  }));
+}
+
+export default logger;
+
+================
+File: src/websocket/gameSocket.ts
+================
+// src/websocket/gameSocket.ts
+import { Server } from 'socket.io';
+import http from 'http';
+
+export const initializeWebSocket = (server: http.Server) => {
+  const io = new Server(server, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
+  io.on('connection', (socket) => {
+    console.log('New client connected');
+
+    socket.on('joinGame', (gameId) => {
+      socket.join(gameId);
+    });
+
+    socket.on('makeMove', (move) => {
+      // Process move and broadcast to game room
+      io.to(move.gameId).emit('moveUpdate', move);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Client disconnected');
+    });
+  });
+
+  return io;
+};
+
+================
+File: src/index.ts
+================
+import express from 'express';
+import cors from 'cors';
+import { connectDB } from './config/database';
+import gameRoutes from './routes/gameRoutes';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import path from 'path';
+
+const app = express();
+
+// Load .env file
+dotenv.config({
+  path: path.resolve(__dirname, '../.env')
+});
+
+// Middleware setup
+app.use(cors());
+
+// Body parser middleware - IMPORTANT: This needs to come before your routes
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Logging middleware for debugging requests
+app.use((req, res, next) => {
+  console.log('Request method:', req.method);
+  console.log('Request path:', req.path);
+  console.log('Request headers:', req.headers);
+  console.log('Request body:', req.body);
+  next();
+});
+
+// Routes
+app.use('/games', gameRoutes);
+
+// Basic route for testing body parser
+app.post('/auth/create-player', (req, res) => {
+  console.log('Request body:', req.body);
+  if (!req.body) {
+    return res.status(400).json({ error: 'No request body' });
+  }
+  res.json(req.body);
+});
+
+const start = async () => {
+  try {
+    await connectDB();
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+  }
+};
+
+export default {
+  port: process.env.PORT || 3000,
+  database: {
+    uri: process.env.MONGODB_URI!,
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET!,
+    expiration: process.env.JWT_EXPIRATION || '1h',
+  },
+  environment: process.env.NODE_ENV || 'development',
+};
+
+start();
+
+================
+File: .gitignore
+================
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+lib-cov
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+web_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+# Comment in the public line in if your project uses Gatsby and not Next.js
+# https://nextjs.org/blog/next-9-1#public-directory-support
+# public
+
+# vuepress build output
+.vuepress/dist
+
+# vuepress v2.x temp and cache directory
+.temp
+.cache
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Repomix
+repomix-output.txt
+
+================
+File: package.json
+================
+{
+  "name": "cozen-v2",
+  "version": "1.0.0",
+  "description": "A strategic card game API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "dependencies": {
+    "@types/body-parser": "^1.19.5",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.0",
+    "lodash": "^4.17.21",
+    "mongoose": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.11",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.16",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.4",
+    "ts-jest": "^29.1.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
+
+================
+File: README.md
+================
+# cozen-v2
+A reboot of Cozen
+
+================
+File: tsconfig.json
+================
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}
+
+
+
+================================================================
+End of Codebase
+================================================================
