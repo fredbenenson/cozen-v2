@@ -23,7 +23,7 @@ For a complete overview of game rules, please refer to the [RULES.md](RULES.md) 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/cozen-v2.git
+git clone https://github.com/fredbenenson/cozen-v2.git
 cd cozen-v2
 ```
 
