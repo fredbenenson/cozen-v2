@@ -1,4 +1,3 @@
-// src/types/game.ts
 import { Document, Types } from 'mongoose';
 
 export enum Color {
@@ -63,6 +62,10 @@ export interface BaseGameState {
   round: Round;
   status: 'waiting' | 'in_progress' | 'complete';
   winner?: Types.ObjectId;
+  decks?: {
+    [Color.Red]: Card[];
+    [Color.Black]: Card[];
+  };
 }
 
 // Mongoose document interface

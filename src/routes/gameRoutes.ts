@@ -1,4 +1,3 @@
-// src/routes/gameRoutes.ts
 import express from 'express';
 import { GameService } from '../services/gameService';
 import { GameModel, PlayerModel } from '../models/Game';
@@ -21,7 +20,8 @@ router.post('/create', async (req, res) => {
 
     res.status(201).json(game);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -41,7 +41,8 @@ router.post('/:gameId/move', async (req, res) => {
 
     res.json(game);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ error: errorMessage });
   }
 });
 

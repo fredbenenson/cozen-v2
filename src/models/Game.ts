@@ -1,6 +1,5 @@
-// src/models/Game.ts
 import mongoose from 'mongoose';
-import { BaseGameState, GameState } from '../types/game';
+import { BaseGameState, GameState, Color } from '../types/game';
 import bcrypt from 'bcryptjs';
 
 // Player Schema
@@ -16,7 +15,7 @@ const PlayerSchema = new mongoose.Schema({
   },
   color: {
     type: String,
-    enum: ['red', 'black'],
+    enum: Object.values(Color),
     default: null
   },
   elo: {
@@ -40,12 +39,8 @@ const PlayerSchema = new mongoose.Schema({
 // Add password hashing middleware
 PlayerSchema.pre('save', async function(next) {
   const player = this;
-
-  // Only hash the password if it has been modified (or is new)
   if (!player.isModified('password')) return next();
-
   try {
-    // Check if password exists before hashing
     if (player.password) {
       const salt = await bcrypt.genSalt(10);
       const hash = await bcrypt.hash(player.password, salt);
@@ -103,9 +98,10 @@ const GameSchema = new mongoose.Schema<GameState>({
 
 // Interfaces
 export interface IPlayer extends mongoose.Document {
+  _id: mongoose.Types.ObjectId;
   username: string;
   password?: string;
-  color: 'red' | 'black' | null;
+  color: Color | null;
   elo: number;
   currentGames: mongoose.Types.ObjectId[];
   hand: any[];

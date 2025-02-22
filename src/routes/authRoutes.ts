@@ -1,4 +1,3 @@
-// src/routes/authRoutes.ts
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -23,6 +22,7 @@ router.post('/register', async (req, res) => {
     // Create new player
     const player = new PlayerModel({
       username,
+      password: hashedPassword,
       color: null,
       elo: 1200,
       hand: [],
@@ -48,14 +48,24 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required' });
+    }
+
     // Find user
     const player = await PlayerModel.findOne({ username });
     if (!player) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Get stored password hash
+    const storedHash = player.password;
+    if (!storedHash) {
+      return res.status(400).json({ message: 'Password not set for this account' });
+    }
+
     // Check password
-    const isMatch = await bcrypt.compare(password, player.password);
+    const isMatch = await bcrypt.compare(password, storedHash);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -75,20 +85,15 @@ router.post('/login', async (req, res) => {
 
 router.post('/create-player', async (req, res) => {
   try {
-    // Add logging to see what's coming in
     console.log('Request body:', req.body);
-
-    // Explicitly destructure username
     const { username } = req.body || {};
 
-    // Validate username
     if (!username) {
       return res.status(400).json({
         message: 'Username is required'
       });
     }
 
-    // Check if user already exists
     const existingUser = await PlayerModel.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: 'Username already taken' });
@@ -116,6 +121,5 @@ router.post('/create-player', async (req, res) => {
     });
   }
 });
-
 
 export default router;
