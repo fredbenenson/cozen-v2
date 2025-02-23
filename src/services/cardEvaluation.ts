@@ -28,6 +28,16 @@ export class CardEvaluation {
     }
   }
 
+  public static numberToCardName(num: number): string {
+    switch (num) {
+      case 11: return 'J';
+      case 12: return 'Q';
+      case 13: return 'K';
+      case 14: return 'A';
+      default: return num.toString();
+    }
+  }
+
   public static getWinningHand(
     h1: number[],
     h2: number[],
@@ -102,7 +112,7 @@ export class CardEvaluation {
           results.hand1Wins = card1 > card2;
           results.winningCard = card1 > card2 ? card1 : card2;
           winningCardFound = true;
-          this.debug('Found winning card:', results.winningCard);
+          this.debug('Found winning card:', this.numberToCardName(results.winningCard));
           this.debug('Winner:', results.hand1Wins ? 'Hand1' : 'Hand2');
           break;
         } else {

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
 let mongoServer: MongoMemoryServer;
+global.console = require('console');
 
 // Disconnect from any existing connection
 const disconnect = async () => {
@@ -53,4 +54,5 @@ afterAll(async () => {
   if (mongoServer) {
     await mongoServer.stop();
   }
+
 });

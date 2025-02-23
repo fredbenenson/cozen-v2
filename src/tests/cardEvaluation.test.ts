@@ -272,6 +272,24 @@ describe('CardEvaluation', () => {
       });
     });
 
+    describe('card number to name conversion', () => {
+      it('converts face card numbers to letters', () => {
+        expect(CardEvaluation.numberToCardName(11)).toBe('J');
+        expect(CardEvaluation.numberToCardName(12)).toBe('Q');
+        expect(CardEvaluation.numberToCardName(13)).toBe('K');
+        expect(CardEvaluation.numberToCardName(14)).toBe('A');
+      });
+
+      it('keeps numbers as strings for non-face cards', () => {
+        expect(CardEvaluation.numberToCardName(2)).toBe('2');
+        expect(CardEvaluation.numberToCardName(10)).toBe('10');
+      });
+
+      it('handles invalid card numbers', () => {
+        expect(CardEvaluation.numberToCardName(1)).toBe('1');  // Low ace
+        expect(CardEvaluation.numberToCardName(15)).toBe('15'); // Invalid but handled
+      });
+    });
 
   });
 });
