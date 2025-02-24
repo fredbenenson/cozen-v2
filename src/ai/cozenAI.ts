@@ -1,297 +1,207 @@
-import { CardEvaluation } from "../services/cardEvaluation";
+import { Move, Color } from '../types/game';
+import { Player } from '../types/player';
+import { Round } from '../types/round';
+import _ from 'lodash';
 
-export enum AIDifficulty {
-  EASY = "easy",
-  MEDIUM = "medium",
-  HARD = "hard",
+import { AIDifficulty, DIFFICULTY_VALUES, MoveOption } from './aiTypes';
+import { rpois, filterStakedPairs, deduplicateHands } from './aiUtils';
+import { Minimax, MinimaxSearchResult } from './minimax';
+
+/**
+ * Result of AI move calculation including the move and stats
+ */
+export interface AIDecisionResult {
+  move: Move | null;
+  searchResult: MinimaxSearchResult;
+  selectedMoveIndex: number;
+  finalCandidateMoves: MoveOption[];
+  adjustedDifficulty: number;
 }
 
-export interface AIDecisionContext {
-  hand: number[];
-  stake: number;
-  difficulty: AIDifficulty;
-  cardsPlayed: number[];
-  opponentCardCount: number;
-}
-
-interface GameState {
-  hand: number[];
-  opponentCards: number[];
-  stake: number;
-  strength: number;
-}
-
+/**
+ * Cozen AI implementation based on minimax algorithm with alpha-beta pruning
+ */
 export class CozenAI {
-  private static readonly MAX_DEPTH = 4;
-  private static readonly MAX_NODES = 1000;
-  private static readonly DIFFICULTY_LAMBDAS = {
-    [AIDifficulty.EASY]: 2.0, // More random
-    [AIDifficulty.MEDIUM]: 1.2, // Somewhat random
-    [AIDifficulty.HARD]: 0.5, // Most optimal
-  };
+  private player: Player;
+  private game: any;
+  private maxDepth: number;
+  private difficulty: number;
+  private debugEnabled: boolean = false;
 
-  private static nodeCount = 0;
-  private static debugEnabled = false;
-  private static debugMoves: any[] = [];
-  private static debugDepth = 0;
-  private static currentContext: AIDecisionContext;
+  /**
+   * Create a new AI instance
+   *
+   * @param game The game state
+   * @param player The AI player
+   * @param difficulty The AI difficulty level
+   * @param searchDepth The search depth for minimax
+   */
+  constructor(game: any, player: Player, difficulty: AIDifficulty = AIDifficulty.MEDIUM, searchDepth: number = 4) {
+    this.player = player;
+    this.game = game;
+    this.maxDepth = -searchDepth; // Negative because we count down
+    this.difficulty = DIFFICULTY_VALUES[difficulty];
+  }
 
-  public static enableDebug(): void {
+  /**
+   * Enable debug output
+   */
+  public enableDebug(): void {
     this.debugEnabled = true;
   }
 
-  public static disableDebug(): void {
+  /**
+   * Disable debug output
+   */
+  public disableDebug(): void {
     this.debugEnabled = false;
   }
 
-  public static shouldChallengeCozen(context: AIDecisionContext): boolean {
-    this.nodeCount = 0;
-    this.debugMoves = [];
-    this.currentContext = context; // Store for debugging
+  /**
+   * Calculate and return the optimal move with search statistics
+   */
+  public calculateMoveWithStats(round?: Round): AIDecisionResult {
+    const currentRound = round || (this.game && this.game.round);
 
-    const initialState: GameState = {
-      hand: [...context.hand],
-      opponentCards: [...context.cardsPlayed],
-      stake: context.stake,
-      strength: CardEvaluation.evaluateHand(context.hand, context.stake)
-        .strength,
+    const emptyResult: AIDecisionResult = {
+      move: null,
+      searchResult: { moves: [], nodeCount: 0, elapsedTimeMs: 0 },
+      selectedMoveIndex: -1,
+      finalCandidateMoves: [],
+      adjustedDifficulty: this.difficulty
     };
 
-    // Calculate the best move score
-    const score = this.minimax(
-      initialState,
-      this.MAX_DEPTH,
-      true,
-      -Infinity,
-      Infinity,
-    );
+    if (!currentRound) {
+      console.error('No round available for AI to calculate move');
+      return emptyResult;
+    }
+
+    // Don't calculate moves for completed rounds or if AI is not the active player
+    if (currentRound.state === 'complete' || currentRound.activePlayer !== this.player) {
+      return emptyResult;
+    }
+
+    // Make sure the player has cards
+    if (!this.player.hand || !Array.isArray(this.player.hand) || this.player.hand.length === 0) {
+      return emptyResult;
+    }
+
+    // Adjust difficulty based on hand size
+    let adjustedDifficulty = this.difficulty;
+    for (let i = 5; i > this.player.hand.length; i--) {
+      adjustedDifficulty *= 0.75; // DIFFICULTY_SCALAR
+    }
 
     if (this.debugEnabled) {
-      this.summarizeSearch();
+      console.log(`AI calculating move at ${adjustedDifficulty} difficulty level`);
     }
 
-    // Use Poisson distribution to potentially choose suboptimal move
-    return this.shouldMakeMove(score, context.difficulty);
-  }
+    // Initialize minimax search algorithm
+    const minimax = new Minimax(this.player.color, this.debugEnabled);
 
-  private static minimax(
-    state: GameState,
-    depth: number,
-    isMaximizing: boolean,
-    alpha: number,
-    beta: number,
-  ): number {
-    this.nodeCount++;
+    // Start minimax search
+    const searchResult = minimax.search(currentRound, this.maxDepth);
 
-    // Terminal conditions
-    if (
-      this.nodeCount > this.MAX_NODES ||
-      depth === 0 ||
-      state.hand.length === 0
-    ) {
-      return state.strength;
-    }
-
-    const moves = this.generateMoves(state);
-
-    if (isMaximizing) {
-      let maxScore = -Infinity;
-      for (const move of moves) {
-        // For each move, we need to consider ALL possible opponent responses
-        const newState = this.applyMove(state, move);
-        const score = this.minimax(newState, depth - 1, false, alpha, beta);
-
-        if (depth === this.MAX_DEPTH) {
-          this.debugMoves.push({ move, score });
-        }
-
-        maxScore = Math.max(maxScore, score);
-        alpha = Math.max(alpha, score);
-        if (beta <= alpha) break;
-      }
-      return maxScore;
-    } else {
-      let minScore = Infinity;
-      // Generate opponent's possible moves
-      const opponentMoves = this.generateOpponentMoves(
-        state.opponentCards.length,
-      );
-      for (const move of opponentMoves) {
-        const newState = {
-          ...state,
-          opponentCards: [...state.opponentCards, ...move],
+    // Check if we found any moves
+    if (!searchResult.moves || searchResult.moves.length === 0) {
+      // Fallback: just stake a random card if possible
+      if (this.player.availableStakes && this.player.availableStakes.length > 0) {
+        const fallbackMove = {
+          playerId: this.player.name || '',
+          cards: [this.player.hand[0]],
+          column: this.player.availableStakes[0],
+          isStake: true
         };
-        const score = this.minimax(newState, depth - 1, true, alpha, beta);
-        minScore = Math.min(minScore, score);
-        beta = Math.min(beta, score);
-        if (beta <= alpha) break;
+
+        return {
+          move: fallbackMove,
+          searchResult,
+          selectedMoveIndex: -1,
+          finalCandidateMoves: [],
+          adjustedDifficulty
+        };
       }
-      return minScore;
-    }
-  }
-
-  private static generateMoves(state: GameState): any[] {
-    const moves: any[] = [];
-    const hand = [...state.hand].sort((a, b) => a - b);
-
-    // Single cards
-    for (let i = 0; i < hand.length; i++) {
-      moves.push({
-        cards: [hand[i]],
-        strength: CardEvaluation.evaluateHand([hand[i]], state.stake).strength,
-      });
+      return emptyResult;
     }
 
-    // Pairs
-    for (let i = 0; i < hand.length - 1; i++) {
-      for (let j = i + 1; j < hand.length; j++) {
-        if (hand[i] === hand[j]) {
-          moves.push({
-            cards: [hand[i], hand[j]],
-            strength: CardEvaluation.evaluateHand(
-              [hand[i], hand[j]],
-              state.stake,
-            ).strength,
-          });
-        }
+    // Sort moves by score (descending) and then by card count (ascending)
+    let moves = _.chain(searchResult.moves)
+      .sortBy((m: MoveOption) => m.cards.length)
+      .sortBy((m: MoveOption) => m.score ? -m.score : 0)
+      .value();
+
+    // Filter out moves that split pairs
+    filterStakedPairs(moves, this.player.hand);
+
+    // Remove duplicate moves and those that split pairs
+    moves = deduplicateHands(moves)
+      .filter((m: MoveOption) => !m.splitPair);
+
+    if (moves.length === 0) {
+      // Fallback: just stake a random card if possible
+      if (this.player.availableStakes && this.player.availableStakes.length > 0) {
+        const fallbackMove = {
+          playerId: this.player.name || '',
+          cards: [this.player.hand[0]],
+          column: this.player.availableStakes[0],
+          isStake: true
+        };
+
+        return {
+          move: fallbackMove,
+          searchResult,
+          selectedMoveIndex: -1,
+          finalCandidateMoves: [],
+          adjustedDifficulty
+        };
       }
+      return emptyResult;
     }
 
-    // Runs (all possible lengths)
-    for (let len = 2; len <= hand.length; len++) {
-      for (let i = 0; i <= hand.length - len; i++) {
-        const run = hand.slice(i, i + len);
-        if (this.isRun(run)) {
-          moves.push({
-            cards: [...run],
-            strength: CardEvaluation.evaluateHand(run, state.stake).strength,
-          });
-        }
-      }
+    // Select a move based on difficulty (using Poisson distribution)
+    const moveIndex = Math.min(rpois(adjustedDifficulty), moves.length - 1);
+    const chosenMove = moves[moveIndex];
+
+    if (this.debugEnabled) {
+      // console.log('Scored moves:');
+      // console.log(moves);
+      // console.log('Total nodes evaluated:', searchResult.nodeCount);
+      // console.log('Chosen move:', chosenMove);
     }
 
-    return moves;
-  }
+    // Make sure we have valid cards to play
+    const validCardsToPlay = chosenMove.cards
+      .map((cardId: string) => this.player.hand.find(c => c && c.id === cardId))
+      .filter((card: any) => card !== undefined);
 
-  private static isRun(cards: number[]): boolean {
-    for (let i = 1; i < cards.length; i++) {
-      if (cards[i] !== cards[i - 1] + 1) return false;
+    if (validCardsToPlay.length === 0 && !chosenMove.isStake) {
+      return emptyResult;
     }
-    return true;
-  }
 
-  private static generateOpponentMoves(currentCards: number): number[][] {
-    // Generate possible opponent moves based on remaining cards
-    const possibleMoves: number[][] = [];
-    // Single cards
-    for (let i = 1; i <= 13; i++) {
-      possibleMoves.push([i]);
-    }
-    // Pairs
-    for (let i = 1; i <= 13; i++) {
-      possibleMoves.push([i, i]);
-    }
-    // Runs (length 3)
-    for (let i = 1; i <= 11; i++) {
-      possibleMoves.push([i, i + 1, i + 2]);
-    }
-    return possibleMoves;
-  }
+    // Convert to Move interface
+    const selectedMove = {
+      playerId: this.player.name || '',
+      cards: validCardsToPlay as any[], // TypeScript needs this cast
+      column: chosenMove.column,
+      isStake: chosenMove.isStake
+    };
 
-  private static applyMove(state: GameState, move: any): GameState {
-    const newHand = state.hand.filter((card) => !move.cards.includes(card));
     return {
-      hand: newHand,
-      opponentCards: state.opponentCards,
-      stake: state.stake,
-      strength: CardEvaluation.evaluateHand(newHand, state.stake).strength,
+      move: selectedMove,
+      searchResult,
+      selectedMoveIndex: moveIndex,
+      finalCandidateMoves: moves,
+      adjustedDifficulty
     };
   }
 
-  private static shouldMakeMove(
-    score: number,
-    difficulty: AIDifficulty,
-  ): boolean {
-    const lambda = this.DIFFICULTY_LAMBDAS[difficulty];
-    const randomFactor = this.rpois(lambda);
-    return score > randomFactor;
-  }
-
-  private static rpois(lambda: number): number {
-    const L = Math.exp(-lambda);
-    let k = 0;
-    let p = 1;
-
-    do {
-      k++;
-      p *= Math.random();
-    } while (p > L);
-
-    return k - 1;
-  }
-  private static logTopMoves(): void {
-    if (!this.debugEnabled) return;
-
-    console.log("\n=== Top 10 Moves ===");
-    const sortedMoves = [...this.debugMoves].sort((a, b) => b.score - a.score);
-    const topMoves = sortedMoves.slice(0, 10);
-
-    console.table(
-      topMoves.map((move, i) => ({
-        rank: i + 1,
-        score: move.score.toFixed(2),
-        cards: move.move.cards.join(","),
-        strength: move.move.strength,
-        depth: this.MAX_DEPTH,
-      })),
-    );
-
-    console.log(`\nTotal moves considered: ${this.debugMoves.length}`);
-    console.log(`Total nodes evaluated: ${this.nodeCount}`);
-    console.log("===========================\n");
-  }
-
-  private static summarizeSearch(): void {
-    if (!this.debugEnabled) return;
-
-    console.log("\n=== AI Decision Summary ===");
-    console.log("Game State:");
-    console.log(
-      JSON.stringify(
-        {
-          opponentPlayedCards: this.currentContext.opponentCardCount,
-          stake: this.currentContext.stake,
-          aiHand: this.currentContext.hand,
-        },
-        null,
-        2,
-      ),
-    );
-
-    // Top moves summary only
-    console.log("\nTop Moves:");
-    const topMoves = [...this.debugMoves]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map((move, i) => ({
-        rank: i + 1,
-        score: move.score.toFixed(2),
-        cards: move.move.cards,
-        type: this.categorizeMoveType(move.move),
-      }));
-
-    console.table(topMoves);
-    console.log(`\nTotal nodes evaluated: ${this.nodeCount}`);
-    console.log("===========================\n");
-  }
-
-  private static categorizeMoveType(move: any): string {
-    const cards = move.cards;
-    if (cards.length === 1) return "Single";
-    if (cards.length === 2) {
-      return cards[0] === cards[1] ? "Pair" : "Run2";
-    }
-    if (this.isRun(cards)) return `Run${cards.length}`;
-    return "Other";
+  /**
+   * Original calculate move method (now calls the extended version)
+   */
+  public calculateMove(round?: Round): Move | null {
+    return this.calculateMoveWithStats(round).move;
   }
 }
+
+// Re-export for convenience
+export { AIDifficulty } from './aiTypes';

@@ -11,4 +11,5 @@ export interface Player {
   stake_offset: number;
   drawUp: () => void;
   reset: (options: { newDeck: boolean; shuffled: boolean }) => void;
+  id?: string;
 }
