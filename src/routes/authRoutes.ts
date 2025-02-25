@@ -1,7 +1,8 @@
+// src/routes/authRoutes.ts
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PlayerModel } from '../models/Game';
+import { UserModel } from '../models/User';
 
 const router = express.Router();
 
@@ -10,35 +11,31 @@ router.post('/register', async (req, res) => {
     const { username, password } = req.body;
 
     // Check if user already exists
-    const existingUser = await PlayerModel.findOne({ username });
+    const existingUser = await UserModel.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new player
-    const player = new PlayerModel({
+    // Create new user
+    const user = new UserModel({
       username,
-      password: hashedPassword,
+      password, // Will be hashed by pre-save hook
       color: null,
       elo: 1200,
       hand: [],
       jail: []
     });
 
-    await player.save();
+    await user.save();
 
     // Generate token
     const token = jwt.sign(
-      { id: player._id },
+      { id: user._id },
       process.env.JWT_SECRET!,
       { expiresIn: '1h' }
     );
 
-    res.status(201).json({ token, player });
+    res.status(201).json({ token, user });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -53,31 +50,25 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user
-    const player = await PlayerModel.findOne({ username });
-    if (!player) {
+    const user = await UserModel.findOne({ username });
+    if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Get stored password hash
-    const storedHash = player.password;
-    if (!storedHash) {
-      return res.status(400).json({ message: 'Password not set for this account' });
-    }
-
     // Check password
-    const isMatch = await bcrypt.compare(password, storedHash);
+    const isMatch = await user.verifyPassword(password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // Generate token
     const token = jwt.sign(
-      { id: player._id },
+      { id: user._id },
       process.env.JWT_SECRET!,
       { expiresIn: '1h' }
     );
 
-    res.json({ token, player });
+    res.json({ token, user });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -94,24 +85,24 @@ router.post('/create-player', async (req, res) => {
       });
     }
 
-    const existingUser = await PlayerModel.findOne({ username });
+    const existingUser = await UserModel.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: 'Username already taken' });
     }
 
-    const player = new PlayerModel({
+    const user = new UserModel({
       username,
       elo: 1200,
       hand: [],
       jail: []
     });
 
-    await player.save();
+    await user.save();
 
     res.status(201).json({
       message: 'Player created',
-      playerId: player._id,
-      username: player.username
+      playerId: user._id,
+      username: user.username
     });
   } catch (error) {
     console.error('Error creating player:', error);

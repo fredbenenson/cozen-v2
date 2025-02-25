@@ -1,7 +1,7 @@
 import { GameService } from './services/gameService';
 import { DeckService } from './services/deckService';
 import { Color, Card, Move, Suit, BaseGameState } from './types/game';
-import { PlayerModel, IPlayer } from './models/Game';
+import { UserModel, IUser } from './models/User'; // Updated import
 import readline from 'readline';
 import { Types } from 'mongoose';
 
@@ -10,8 +10,8 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-function createTestPlayer(username: string, color: Color): IPlayer {
-  return new PlayerModel({
+function createTestPlayer(username: string, color: Color): IUser { // Updated return type
+  return new UserModel({
     _id: new Types.ObjectId(),
     username,
     color,

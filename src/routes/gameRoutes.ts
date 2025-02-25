@@ -1,14 +1,16 @@
+// src/routes/gameRoutes.ts
 import express from 'express';
 import { GameService } from '../services/gameService';
-import { GameModel, PlayerModel } from '../models/Game';
+import { GameModel } from '../models/Game';
+import { UserModel } from '../models/User';
 
 const router = express.Router();
 
 router.post('/create', async (req, res) => {
   try {
     const { player1Id, player2Id } = req.body;
-    const player1 = await PlayerModel.findById(player1Id);
-    const player2 = await PlayerModel.findById(player2Id);
+    const player1 = await UserModel.findById(player1Id);
+    const player2 = await UserModel.findById(player2Id);
 
     if (!player1 || !player2) {
       return res.status(404).json({ error: 'Players not found' });
