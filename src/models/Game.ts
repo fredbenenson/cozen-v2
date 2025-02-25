@@ -1,17 +1,14 @@
 // src/models/Game.ts
-import mongoose from 'mongoose';
+import mongoose, { Schema, Types } from 'mongoose';
 import { GameState } from '../types/game';
 
 // Game Schema
-const GameSchema = new mongoose.Schema<GameState>({
+const GameSchema = new Schema<GameState>({
   players: {
-    type: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User' // Changed from 'Player' to 'User'
-    }],
+    type: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     required: true,
     validate: {
-      validator: function(players: mongoose.Types.ObjectId[]) {
+      validator: function(players: Types.ObjectId[]) {
         return players.length > 0;
       },
       message: 'At least one player is required'
@@ -22,10 +19,10 @@ const GameSchema = new mongoose.Schema<GameState>({
     default: 0
   },
   board: [{
-    type: mongoose.Schema.Types.Mixed
+    type: Schema.Types.Mixed
   }],
   round: {
-    type: mongoose.Schema.Types.Mixed
+    type: Schema.Types.Mixed
   },
   status: {
     type: String,
@@ -33,8 +30,8 @@ const GameSchema = new mongoose.Schema<GameState>({
     default: 'waiting'
   },
   winner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User' // Changed from 'Player' to 'User'
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true
