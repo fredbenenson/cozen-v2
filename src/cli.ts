@@ -1,16 +1,17 @@
 import { GameService } from './services/gameService';
 import { DeckService } from './services/deckService';
 import { Color, Card, Move, Suit, BaseGameState } from './types/game';
-import { UserModel, IUser } from './models/User'; // Updated import
+import { UserModel, IUser } from './models/User';
 import readline from 'readline';
 import { Types } from 'mongoose';
+import { Round } from './types/round';
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-function createTestPlayer(username: string, color: Color): IUser { // Updated return type
+function createTestPlayer(username: string, color: Color): IUser {
   return new UserModel({
     _id: new Types.ObjectId(),
     username,
@@ -39,6 +40,11 @@ async function setupGame() {
 
   // Initialize game
   const gameState = GameService.initializeGame(player1, player2) as BaseGameState;
+
+  // Safety check if round is defined
+  if (!gameState.round) {
+    throw new Error("Game round failed to initialize");
+  }
 
   // Make sure the round's active/inactive players have hands
   gameState.round.activePlayer.hand = player1.hand;
@@ -101,9 +107,17 @@ function printGameState(gameState: BaseGameState) {
   console.log('GAME STATE'.padStart(width/2 + 5).padEnd(width));
   console.log(separator);
 
+  // Safety check if round is defined
+  if (!gameState.round) {
+    console.log("No active round to display");
+    return;
+  }
+
+  const round = gameState.round;
+
   // Print black player's information
-  const blackPlayer = gameState.round.activePlayer.color === Color.Black ?
-    gameState.round.activePlayer : gameState.round.inactivePlayer;
+  const blackPlayer = round.activePlayer.color === Color.Black ?
+    round.activePlayer : round.inactivePlayer;
   console.log('\nBLACK PLAYER:');
   console.log('Hand:', blackPlayer.hand.map(c => printCard(c, true)).join(' '));
   console.log('Jail:', blackPlayer.jail.map(c => printCard(c)).join(' ') || 'empty');
@@ -143,8 +157,8 @@ function printGameState(gameState: BaseGameState) {
   }
 
   // Print red player's information
-  const redPlayer = gameState.round.activePlayer.color === Color.Red ?
-    gameState.round.activePlayer : gameState.round.inactivePlayer;
+  const redPlayer = round.activePlayer.color === Color.Red ?
+    round.activePlayer : round.inactivePlayer;
   console.log('\nRED PLAYER:');
   console.log('Hand:', redPlayer.hand.map(c => printCard(c, true)).join(' '));
   console.log('Jail:', redPlayer.jail.map(c => printCard(c)).join(' ') || 'empty');
@@ -152,7 +166,7 @@ function printGameState(gameState: BaseGameState) {
 
   // Print current state
   console.log('\nCURRENT STATE:');
-  console.log('Active player:', gameState.round.activePlayer.color.toUpperCase());
+  console.log('Active player:', round.activePlayer.color.toUpperCase());
   console.log('Game status:', gameState.status);
 
   console.log(separator);
@@ -163,8 +177,14 @@ async function gameLoop() {
     const { gameState, player1, player2 } = await setupGame();
 
     const promptMove = () => {
+      // Safety check if round is defined
+      if (!gameState.round) {
+        console.log("No active round available");
+        rl.close();
+        return;
+      }
+
       const activeColor = gameState.round.activePlayer.color;
-      const prefix = activeColor === Color.Red ? '' : '';
 
       console.log('\nAvailable moves:');
       console.log('stake <number> <column>  (e.g., "stake 5 2")');
@@ -177,13 +197,20 @@ async function gameLoop() {
           process.exit(0);
         }
 
+        // Safety check if round is still defined (could have changed between prompts)
+        if (!gameState.round) {
+          console.log("No active round available");
+          rl.close();
+          return;
+        }
+
         const [action, ...args] = input.split(' ');
         let move: Move;
 
         if (action === 'stake') {
           const card = createCard(args[0], activeColor);
           move = {
-            playerId: gameState.round.activePlayer.id,
+            playerId: gameState.round.activePlayer.id || "",
             cards: [card],
             column: parseInt(args[1]),
             isStake: true
@@ -191,7 +218,7 @@ async function gameLoop() {
         } else if (action === 'play') {
           const [cards, column] = args;
           move = {
-            playerId: gameState.round.activePlayer.id,
+            playerId: gameState.round.activePlayer.id || "",
             cards: cards.split(',').map(id => createCard(id, activeColor)),
             column: parseInt(column),
             isStake: false
