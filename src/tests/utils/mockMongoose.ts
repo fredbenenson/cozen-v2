@@ -1,12 +1,15 @@
+// src/tests/utils/mockMongoose.ts
 import { Types } from 'mongoose';
-import { IPlayer } from '../../models/Game';
+import { IUser } from '../../models/User';
 import { Color } from '../../types/game';
+import { Player } from '../../types/player';
+import { PlayerFactory } from '../../factories/PlayerFactory';
 
 // Basic mock of ValidationError since mongoose.Error.ValidationError is complex
 class MockValidationError extends Error {
   errors: { [key: string]: any };
   name: string;
-  
+
   constructor() {
     super('Validation failed');
     this.name = 'ValidationError';
@@ -40,8 +43,9 @@ export const createMockMongooseDocument = () => ({
   errors: new MockValidationError()
 });
 
-export const createMockPlayer = (overrides?: Partial<IPlayer>): IPlayer => {
-  const defaultPlayer = {
+// Create a mock user (database model)
+export const createMockUser = (overrides?: Partial<IUser>): IUser => {
+  const defaultUser = {
     _id: new Types.ObjectId(),
     username: `testuser_${Math.random().toString(36).substring(7)}`,
     password: undefined,
@@ -55,7 +59,12 @@ export const createMockPlayer = (overrides?: Partial<IPlayer>): IPlayer => {
     verifyPassword: jest.fn().mockResolvedValue(true),
     ...createMockMongooseDocument(),
     ...overrides
-  } as IPlayer;
+  } as IUser;
 
-  return defaultPlayer;
+  return defaultUser;
+};
+
+// Create a mock player (game object)
+export const createMockGamePlayer = (color: Color, name?: string): Player => {
+  return PlayerFactory.createMockPlayer(color, name);
 };

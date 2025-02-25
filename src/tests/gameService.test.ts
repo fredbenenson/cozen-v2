@@ -1,49 +1,170 @@
-import { GameService } from '../services/gameService';
-import { Color } from '../types/game';
-import { createMockPlayer } from './utils/mockMongoose';
+// src/tests/gameService.test.ts
+import { GameService } from "../services/gameService";
+import { RoundService } from "../services/round";
+import { Color, Move, Suit } from "../types/game"; // Add Suit import
+import { Player } from "../types/player";
+import { createMockUser } from "./utils/mockMongoose";
+import { Types } from "mongoose";
+import { PlayerFactory } from "../factories/PlayerFactory"; // Add this import
 
-describe('GameService', () => {
-  it('should initialize a new game correctly', () => {
-    const player1 = createMockPlayer();
-    const player2 = createMockPlayer({ color: Color.Black });
+describe("GameService", () => {
+  it("should initialize a new game correctly", () => {
+    const user1 = createMockUser({ color: Color.Red });
+    const user2 = createMockUser({ color: Color.Black });
 
-    const game = GameService.initializeGame(player1, player2);
+    const game = GameService.initializeGame(user1, user2);
 
     expect(game.players).toHaveLength(2);
-    expect(game.players[0].toString()).toBe(player1._id.toString());
-    expect(game.players[1].toString()).toBe(player2._id.toString());
-    expect(game.status).toBe('waiting');
+    expect(game.players[0].toString()).toBe(user1._id.toString());
+    expect(game.players[1].toString()).toBe(user2._id.toString());
+    expect(game.status).toBe("in_progress");
+    expect(game.round).toBeDefined();
   });
 
-  it('should handle move execution', () => {
-    const player1 = createMockPlayer();
-    const player2 = createMockPlayer({ color: Color.Black });
+  it("should properly handle complete round and set up the next round", () => {
+    const user1 = createMockUser({ color: Color.Red });
+    const user2 = createMockUser({ color: Color.Black });
 
-    const game = GameService.initializeGame(player1, player2);
+    const game = GameService.initializeGame(user1, user2);
 
-    const move = {
-      playerId: player1._id.toString(),
-      cards: [],
-      column: 0,
-      isStake: true
+    // Set the round state to complete
+    if (game.round) {
+      game.round.state = "complete";
+    }
+
+    // Reset spy counters
+    jest.clearAllMocks();
+
+    // Mock the returnHandCards and checkForWinner methods
+    const returnHandCardsSpy = jest
+      .spyOn(RoundService, "returnHandCards")
+      .mockImplementation(() => {});
+    const checkForWinnerSpy = jest
+      .spyOn(RoundService, "checkForWinner")
+      .mockReturnValue(null);
+
+    // Call handleRoundCompletion
+    GameService["handleRoundCompletion"](game);
+
+    // Verify the methods were called
+    expect(returnHandCardsSpy).toHaveBeenCalled();
+    expect(checkForWinnerSpy).toHaveBeenCalled();
+
+    // Verify the game status
+    expect(game.status).toBe("in_progress");
+
+    // Clean up
+    returnHandCardsSpy.mockRestore();
+    checkForWinnerSpy.mockRestore();
+  });
+
+  it("should detect a winner and end the game", () => {
+    const user1 = createMockUser({ color: Color.Red });
+    const user2 = createMockUser({ color: Color.Black });
+
+    const game = GameService.initializeGame(user1, user2);
+
+    // Use PlayerFactory to create a winning player
+    const winningPlayer = PlayerFactory.createFromUser(user1, Color.Red);
+    winningPlayer.victory_points = 70; // Set victory points to trigger win condition
+
+    // Set the round state to complete
+    if (game.round) {
+      game.round.state = "complete";
+    }
+
+    // Mock the returnHandCards and checkForWinner methods
+    jest.spyOn(RoundService, "returnHandCards").mockImplementation(() => {});
+    jest.spyOn(RoundService, "checkForWinner").mockReturnValue(winningPlayer);
+
+    // Call handleRoundCompletion
+    GameService["handleRoundCompletion"](game);
+
+    // Verify the game is complete and player1 is the winner
+    expect(game.status).toBe("complete");
+    expect(game.winner).toBeDefined();
+    expect(game.winner?.toString()).toBe(user1._id.toString());
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it("should properly handle a player's move", () => {
+    const user1 = createMockUser({ color: Color.Red });
+    const user2 = createMockUser({ color: Color.Black });
+
+    const game = GameService.initializeGame(user1, user2);
+
+    // Create a sample card for the move
+    const sampleCard = {
+      id: "test-card-1",
+      color: Color.Red,
+      suit: Suit.Hearts,
+      number: 5,
+      victoryPoints: 5,
+      played: false,
     };
 
-    const updatedGame = GameService.makeMove(game, move);
-    expect(updatedGame.currentPlayerIndex).toBe(1); // Should switch to other player
+    // Create a move
+    const move: Move = {
+      playerId: user1._id.toString(),
+      cards: [sampleCard],
+      column: 5,
+      isStake: true,
+    };
+
+    // Mock the makeMove method to avoid modifying the actual round
+    const makeMoveSpy = jest
+      .spyOn(RoundService, "makeMove")
+      .mockImplementation(() => {});
+
+    // Make the move
+    GameService.makeMove(game, move);
+
+    // Verify the method was called
+    expect(makeMoveSpy).toHaveBeenCalled();
+
+    // Clean up
+    makeMoveSpy.mockRestore();
   });
 
-  it('should create a valid board configuration', () => {
-    const player1 = createMockPlayer();
-    const player2 = createMockPlayer({ color: Color.Black });
+  it("should not process moves for completed games", () => {
+    const user1 = createMockUser({ color: Color.Red });
+    const user2 = createMockUser({ color: Color.Black });
 
-    const game = GameService.initializeGame(player1, player2);
+    const game = GameService.initializeGame(user1, user2);
 
-    expect(game.board).toBeDefined();
-    expect(Array.isArray(game.board)).toBe(true);
-    expect(game.board.length).toBeGreaterThan(0);
-    game.board.forEach(column => {
-      expect(column.positions).toBeDefined();
-      expect(Array.isArray(column.positions)).toBe(true);
-    });
+    // Set the game as complete
+    game.status = "complete";
+
+    // Create a sample card for the move
+    const sampleCard = {
+      id: "test-card-1",
+      color: Color.Red,
+      suit: Suit.Hearts,
+      number: 5,
+      victoryPoints: 5,
+      played: false,
+    };
+
+    // Create a move
+    const move: Move = {
+      playerId: user1._id.toString(),
+      cards: [sampleCard],
+      column: 5,
+      isStake: true,
+    };
+
+    // Mock the makeMove method to verify it's not called
+    const makeMoveSpy = jest.spyOn(RoundService, "makeMove");
+
+    // Make the move
+    GameService.makeMove(game, move);
+
+    // Verify the method was not called
+    expect(makeMoveSpy).not.toHaveBeenCalled();
+
+    // Clean up
+    makeMoveSpy.mockRestore();
   });
 });

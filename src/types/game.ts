@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { Round } from './round';
 
 export enum Color {
   Red = 'red',
@@ -37,13 +38,6 @@ export interface Move {
   isStake: boolean;
 }
 
-export interface Round {
-  activePlayer: Player;
-  inactivePlayer: Player;
-  turn: number;
-  state: 'running' | 'last_play' | 'complete';
-}
-
 export interface Column {
   positions: Position[];
   stakedCard?: Card;
@@ -59,7 +53,7 @@ export interface BaseGameState {
   players: Types.ObjectId[];
   currentPlayerIndex: number;
   board: Column[];
-  round: Round;
+  round: Round | null;
   status: 'waiting' | 'in_progress' | 'complete';
   winner?: Types.ObjectId;
   decks?: {

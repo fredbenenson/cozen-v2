@@ -1,69 +1,13 @@
+// src/models/Game.ts
 import mongoose from 'mongoose';
-import { BaseGameState, GameState, Color } from '../types/game';
-import bcrypt from 'bcryptjs';
-
-// Player Schema
-const PlayerSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  password: {
-    type: String,
-    required: false
-  },
-  color: {
-    type: String,
-    enum: Object.values(Color),
-    default: null
-  },
-  elo: {
-    type: Number,
-    default: 1200
-  },
-  currentGames: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Game'
-  }],
-  hand: [{
-    type: mongoose.Schema.Types.Mixed
-  }],
-  jail: [{
-    type: mongoose.Schema.Types.Mixed
-  }]
-}, {
-  timestamps: true
-});
-
-// Add password hashing middleware
-PlayerSchema.pre('save', async function(next) {
-  const player = this;
-  if (!player.isModified('password')) return next();
-  try {
-    if (player.password) {
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(player.password, salt);
-      player.password = hash;
-    }
-    next();
-  } catch (error) {
-    next(error as Error);
-  }
-});
-
-// Add password verification method
-PlayerSchema.methods.verifyPassword = async function(candidatePassword: string): Promise<boolean> {
-  if (!this.password) return false;
-  return bcrypt.compare(candidatePassword, this.password);
-};
+import { GameState } from '../types/game';
 
 // Game Schema
 const GameSchema = new mongoose.Schema<GameState>({
   players: {
     type: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Player'
+      ref: 'User' // Changed from 'Player' to 'User'
     }],
     required: true,
     validate: {
@@ -90,27 +34,13 @@ const GameSchema = new mongoose.Schema<GameState>({
   },
   winner: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Player'
+    ref: 'User' // Changed from 'Player' to 'User'
   }
 }, {
   timestamps: true
 });
 
-// Interfaces
-export interface IPlayer extends mongoose.Document {
-  _id: mongoose.Types.ObjectId;
-  username: string;
-  password?: string;
-  color: Color | null;
-  elo: number;
-  currentGames: mongoose.Types.ObjectId[];
-  hand: any[];
-  jail: any[];
-  createdAt: Date;
-  updatedAt: Date;
-  verifyPassword(password: string): Promise<boolean>;
-}
-
-// Create and export models
-export const PlayerModel = mongoose.model<IPlayer>('Player', PlayerSchema);
+// Create and export model
 export const GameModel = mongoose.model<GameState>('Game', GameSchema);
+
+export default GameModel;
