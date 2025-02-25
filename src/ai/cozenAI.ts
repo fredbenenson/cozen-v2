@@ -1,9 +1,22 @@
-import _ from 'lodash';
-import { AIDifficulty, DIFFICULTY_VALUES, DIFFICULTY_SCALAR, AIMove, AIDecisionResult } from './aiTypes';
-import { Player } from '../types/player';
-import { Round } from '../types/round';
-import { Color } from '../types/game';
-import { rpois, deduplicateHands, filterStakedPairs, copyRound, hidePoison, generateHandPermutations } from './aiUtils';
+import _ from "lodash";
+import {
+  AIDifficulty,
+  DIFFICULTY_VALUES,
+  DIFFICULTY_SCALAR,
+  AIMove,
+  AIDecisionResult,
+} from "./aiTypes";
+import { Player } from "../types/player";
+import { Round } from "../types/round";
+import { Color } from "../types/game";
+import {
+  rpois,
+  deduplicateHands,
+  filterStakedPairs,
+  copyRound,
+  hidePoison,
+  generateHandPermutations,
+} from "./aiUtils";
 
 /**
  * Implementation of the CozenAI based on the original AIOpponent
@@ -21,18 +34,23 @@ export class CozenAI {
   /**
    * Create a new AI instance
    */
-  constructor(game: any, player: Player, difficulty: AIDifficulty = AIDifficulty.MEDIUM, searchDepth: number = 4) {
+  constructor(
+    game: any,
+    player: Player,
+    difficulty: AIDifficulty = AIDifficulty.MEDIUM,
+    searchDepth: number = 4,
+  ) {
     this.player = player;
     this.game = game;
     this.maxDepth = searchDepth * -1; // Negative to match original implementation
     this.difficulty = DIFFICULTY_VALUES[difficulty];
 
     if (this.debugEnabled) {
-      console.log('AI Opponent initialized with:', {
+      console.log("AI Opponent initialized with:", {
         player: player.name,
         color: player.color,
         difficulty,
-        searchDepth
+        searchDepth,
       });
     }
   }
@@ -69,17 +87,24 @@ export class CozenAI {
 
     const currentRound = round || (this.game && this.game.round);
     if (!currentRound) {
-      console.error('No round available for AI to calculate move');
+      console.error("No round available for AI to calculate move");
       return this.createEmptyResult();
     }
 
     // Don't calculate moves for completed rounds or if AI is not the active player
-    if (currentRound.state === 'complete' || currentRound.activePlayer !== this.player) {
+    if (
+      currentRound.state === "complete" ||
+      currentRound.activePlayer !== this.player
+    ) {
       return this.createEmptyResult();
     }
 
     // Make sure the player has cards
-    if (!this.player.hand || !Array.isArray(this.player.hand) || this.player.hand.length === 0) {
+    if (
+      !this.player.hand ||
+      !Array.isArray(this.player.hand) ||
+      this.player.hand.length === 0
+    ) {
       return this.createEmptyResult();
     }
 
@@ -90,12 +115,14 @@ export class CozenAI {
     }
 
     if (this.debugEnabled) {
-      console.log(`AI calculating move at ${adjustedDifficulty} difficulty level`);
+      console.log(
+        `AI calculating move at ${adjustedDifficulty} difficulty level`,
+      );
     }
 
     // Set the round name for node tracking
     if (currentRound.name === undefined) {
-      currentRound.name = '';
+      currentRound.name = "";
     }
 
     // Start the minimax search from the current game state
@@ -111,20 +138,25 @@ export class CozenAI {
     filterStakedPairs(moves, this.player.hand);
 
     // Remove duplicate moves and those that split pairs
-    moves = deduplicateHands(moves)
-      .filter((m) => !m.splitPair);
+    moves = deduplicateHands(moves).filter((m) => !m.splitPair);
 
     // Handle the case where no valid moves were found
     if (moves.length === 0) {
       // Fallback: just stake a random card if possible
-      if (this.player.availableStakes && this.player.availableStakes.length > 0 && this.player.hand.length > 0) {
-        const fallbackMove = {
-          cards: [this.player.hand[0].id || this.player.hand[0]],
+      if (
+        this.player.availableStakes &&
+        this.player.availableStakes.length > 0 &&
+        this.player.hand.length > 0
+      ) {
+        const fallbackMove: AIMove = {
+          cards: [typeof this.player.hand[0].id === 'string'
+            ? this.player.hand[0].id
+            : `${this.player.hand[0].color}_${this.player.hand[0].number}`],
           column: this.player.availableStakes[0],
           didStake: true,
-          isStake: true,
+          isStake: true,  // Make sure this is not undefined
           playerName: this.player.name || '',
-          gameId: this.game?.key || ''
+          gameId: typeof this.game?.key === 'string' ? this.game.key : ''
         };
 
         return {
@@ -133,7 +165,7 @@ export class CozenAI {
           candidateMoves: [fallbackMove],
           nodeCount: this.totalNodeCount,
           elapsedTimeMs: performance.now() - startTime,
-          adjustedDifficulty
+          adjustedDifficulty,
         };
       }
       return this.createEmptyResult();
@@ -144,10 +176,10 @@ export class CozenAI {
     const chosenMove = moves[moveIndex];
 
     if (this.debugEnabled) {
-      console.log('Total nodes evaluated:', this.totalNodeCount);
-      console.log('Moves evaluated:', moves.length);
-      console.log('Selected move index:', moveIndex);
-      console.log('Selected move:', chosenMove);
+      console.log("Total nodes evaluated:", this.totalNodeCount);
+      console.log("Moves evaluated:", moves.length);
+      console.log("Selected move index:", moveIndex);
+      console.log("Selected move:", chosenMove);
     }
 
     return {
@@ -156,7 +188,7 @@ export class CozenAI {
       candidateMoves: moves,
       nodeCount: this.totalNodeCount,
       elapsedTimeMs: performance.now() - startTime,
-      adjustedDifficulty
+      adjustedDifficulty,
     };
   }
 
@@ -170,7 +202,7 @@ export class CozenAI {
       candidateMoves: [],
       nodeCount: 0,
       elapsedTimeMs: 0,
-      adjustedDifficulty: this.difficulty
+      adjustedDifficulty: this.difficulty,
     };
   }
 
@@ -178,19 +210,28 @@ export class CozenAI {
    * Minimax algorithm with alpha-beta pruning
    * Core AI search function, port of the original implementation
    */
-  private minimax(round: any, depth: number, maximizing: boolean, alpha: number, beta: number): number {
+  private minimax(
+    round: any,
+    depth: number,
+    maximizing: boolean,
+    alpha: number,
+    beta: number,
+  ): number {
     // Terminal condition or max depth reached
-    if (round.state === 'complete' || depth <= this.maxDepth) {
+    if (round.state === "complete" || depth <= this.maxDepth) {
       hidePoison(round, this.player.color);
 
-      if (typeof round.score_board === 'function') {
+      if (typeof round.score_board === "function") {
         round.score_board();
       }
 
       // Calculate victory points difference (from AI's perspective)
-      const vpDiff = this.player.color === Color.Black
-        ? (round.victory_point_scores?.black || 0) - (round.victory_point_scores?.red || 0)
-        : (round.victory_point_scores?.red || 0) - (round.victory_point_scores?.black || 0);
+      const vpDiff =
+        this.player.color === Color.Black
+          ? (round.victory_point_scores?.black || 0) -
+            (round.victory_point_scores?.red || 0)
+          : (round.victory_point_scores?.red || 0) -
+            (round.victory_point_scores?.black || 0);
 
       return vpDiff;
     }
@@ -209,7 +250,7 @@ export class CozenAI {
         this.totalNodeCount++;
 
         // Apply move to the child state
-        if (typeof child.move === 'function') {
+        if (typeof child.move === "function") {
           child.move(move);
         }
 
@@ -220,9 +261,11 @@ export class CozenAI {
         // Store moves at the root level
         if (depth === 0) {
           if (this.debugEnabled) {
-            process.stdout.write(`Analyzing moves: ${((index / moves.length) * 100).toFixed(0)}%\r`);
+            process.stdout.write(
+              `Analyzing moves: ${((index / moves.length) * 100).toFixed(0)}%\r`,
+            );
           }
-          this.moveScores.push({...move, score: child.score});
+          this.moveScores.push({ ...move, score: child.score });
         }
 
         // Alpha-beta pruning
@@ -245,7 +288,7 @@ export class CozenAI {
         this.totalNodeCount++;
 
         // Apply move to the child state
-        if (typeof child.move === 'function') {
+        if (typeof child.move === "function") {
           child.move(move);
         }
 
@@ -268,17 +311,21 @@ export class CozenAI {
   /**
    * Generate all possible moves for the current state
    */
+
   private generateMoves(round: any): AIMove[] {
     // Generate wager moves
-    const wagers = this.generateWagerMoves(round).map(move => ({
+    const wagers = this.generateWagerMoves(round).map((move) => ({
       ...move,
       didStake: false,
-      isStake: false
+      isStake: false,
     }));
 
     // Generate stake moves
     const stakes: AIMove[] = [];
-    if (round.activePlayer.availableStakes && round.activePlayer.availableStakes.length > 0) {
+    if (
+      round.activePlayer.availableStakes &&
+      round.activePlayer.availableStakes.length > 0
+    ) {
       round.activePlayer.hand.forEach((card: any) => {
         stakes.push({
           cards: [card.id || card.card_id || card],
@@ -288,13 +335,15 @@ export class CozenAI {
           strength: 0,
           value: card.victoryPoints || card.victory_points || 0,
           playerName: round.activePlayer.name,
-          gameId: this.game?.key
+          gameId: this.game?.key || "",
         });
       });
     }
 
     // Combine and sort all possible moves
-    return _.chain(wagers.concat(stakes))
+    const typedWagers = wagers as AIMove[];
+    const typedStakes = stakes as AIMove[];
+    return _.chain(typedWagers.concat(typedStakes))
       .sortBy((m) => m.strength || 0)
       .sortBy((m) => -(m.cards.length))
       .value();
@@ -303,74 +352,78 @@ export class CozenAI {
   /**
    * Generate all possible wager moves
    */
-  private generateWagerMoves(round: any): AIMove[] {
-    const allMoves: AIMove[] = [];
+   private generateWagerMoves(round: any): AIMove[] {
+     const allMoves: AIMove[] = [];
 
-    // Get all staked columns
-    const stakedColumns = this.getStakedColumns(round);
+     // Get all staked columns
+     const stakedColumns = this.getStakedColumns(round);
 
-    // Skip if no staked columns
-    if (stakedColumns.length === 0) {
-      return allMoves;
-    }
+     // Skip if no staked columns
+     if (stakedColumns.length === 0) {
+       return allMoves;
+     }
 
-    // Generate all permutations of the hand
-    const permutations = generateHandPermutations(round.activePlayer.hand);
+     // Generate all permutations of the hand
+     const permutations = generateHandPermutations(round.activePlayer.hand);
 
-    // For each staked column, evaluate all possible card combinations
-    stakedColumns.forEach(column => {
-      // Get the stake card
-      const stakeCardPosition = this.getStakeCardPosition(round, column);
-      if (!stakeCardPosition || !stakeCardPosition.card) return;
+     // For each staked column, evaluate all possible card combinations
+     stakedColumns.forEach(column => {
+       // Get the stake card
+       const stakeCardPosition = this.getStakeCardPosition(round, column);
+       if (!stakeCardPosition || !stakeCardPosition.card) return;
 
-      const stakeCard = stakeCardPosition.card;
+       const stakeCard = stakeCardPosition.card;
 
-      // For each permutation, calculate its strength
-      permutations.forEach(hand => {
-        if (hand.length === 0) return;
+       // For each permutation, calculate its strength
+       permutations.forEach(hand => {
+         if (hand.length === 0) return;
 
-        // Get card numbers
-        const cardNumbers = hand.map((c: any) => c.number);
+         // Get card numbers
+         const cardNumbers = hand.map((c: any) => c.number);
 
-        // Evaluate hand strength
-        const score = this.evaluateHand(
-          cardNumbers,
-          stakeCard.owner === round.activePlayer ? stakeCard.number : -1
-        );
+         // Evaluate hand strength
+         const score = this.evaluateHand(
+           cardNumbers,
+           stakeCard.owner === round.activePlayer ? stakeCard.number : -1
+         );
 
-        // Calculate total value of the hand
-        const value = hand.reduce((sum: number, card: any) => {
-          return sum + (card.victoryPoints || card.victory_points || 0);
-        }, 0);
+         // Calculate total value of the hand
+         const value = hand.reduce((sum: number, card: any) => {
+           return sum + (card.victoryPoints || card.victory_points || 0);
+         }, 0);
 
-        // Create the move
-        allMoves.push({
-          cards: hand.map((c: any) => c.id || c.card_id),
-          column,
-          strength: score.value,
-          value,
-          playerName: round.activePlayer.name,
-          gameId: this.game?.key
-        });
-      });
-    });
+         // Create the move
+         allMoves.push({
+           cards: hand.map((c: any) => c.id || c.card_id || ''),
+           column,
+           strength: score.value,
+           value,
+           playerName: round.activePlayer.name,
+           gameId: this.game?.key || "",
+           didStake: false,
+           isStake: false
+         });
+       });
+     });
 
-    return allMoves;
-  }
+     return allMoves;
+   }
 
   /**
    * Get all columns that have staked cards
    */
   private getStakedColumns(round: any): number[] {
     // Look for columns with staked cards
-    if (round.staked_columns && typeof round.staked_columns === 'function') {
+    if (round.staked_columns && typeof round.staked_columns === "function") {
       // Original implementation method
       return round.staked_columns();
     } else if (round.columns && Array.isArray(round.columns)) {
       // New implementation format
       return round.columns
         .map((column: any, index: number) =>
-          (column.stakedCard || this.getStakeCardPosition(round, index)) ? index : -1
+          column.stakedCard || this.getStakeCardPosition(round, index)
+            ? index
+            : -1,
         )
         .filter((index: number) => index !== -1);
     }
@@ -406,7 +459,7 @@ export class CozenAI {
     }
 
     // Fallback to imported evaluator if available
-    const CardEvaluation = require('../services/cardEvaluation');
+    const CardEvaluation = require("../services/cardEvaluation");
     if (CardEvaluation && CardEvaluation.evaluateHand) {
       return { value: CardEvaluation.evaluateHand(hand, stake).strength };
     }
@@ -429,10 +482,10 @@ export class CozenAI {
     let currentRun = 1;
 
     for (let i = 1; i < sortedHand.length; i++) {
-      if (sortedHand[i] === sortedHand[i-1] + 1) {
+      if (sortedHand[i] === sortedHand[i - 1] + 1) {
         currentRun++;
         longestRun = Math.max(longestRun, currentRun);
-      } else if (sortedHand[i] !== sortedHand[i-1]) {
+      } else if (sortedHand[i] !== sortedHand[i - 1]) {
         currentRun = 1;
       }
     }
@@ -446,4 +499,4 @@ export class CozenAI {
 }
 
 // Re-export for convenience
-export { AIDifficulty } from './aiTypes';
+export { AIDifficulty } from "./aiTypes";

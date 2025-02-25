@@ -23,18 +23,18 @@ export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
 /**
  * Represents a move with additional metadata for AI evaluation
  */
-export interface AIMove {
-  cards: string[];
-  column: number;
-  didStake: boolean;
-  isStake?: boolean;  // For compatibility with both naming conventions
-  playerName?: string;
-  gameId?: string;
-  strength?: number;
-  value?: number;
-  score?: number;
-  splitPair?: boolean;
-}
+ export interface AIMove {
+   cards: string[];  // Should always be string[] for consistency
+   column: number;
+   didStake: boolean;
+   isStake: boolean; // Make this required to avoid undefined issues
+   playerName?: string;
+   gameId?: string;
+   strength?: number;
+   value?: number;
+   score?: number;
+   splitPair?: boolean;
+ }
 
 /**
  * Result of AI move calculation including the move and stats
