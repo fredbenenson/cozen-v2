@@ -1,10 +1,10 @@
 import _ from 'lodash';
-import { MoveOption } from './aiTypes';
+import { AIMove } from './aiTypes';
 import { Color } from '../types/game';
 
 /**
  * Generate a random number using Poisson distribution
- * This adds controlled randomness to the AI decision making
+ * Matches the original implementation's behavior
  */
 export function rpois(lambda: number): number {
   const L = Math.exp(-lambda);
@@ -21,14 +21,25 @@ export function rpois(lambda: number): number {
 
 /**
  * Remove duplicated moves (same cards played to the same column)
+ * Direct port from the original implementation
  */
-export function deduplicateHands(moves: MoveOption[]): MoveOption[] {
-  const deDupedMoves: MoveOption[] = [];
+export function deduplicateHands(moves: AIMove[]): AIMove[] {
+  const deDupedMoves: AIMove[] = [];
   const moveIDs: string[] = [];
 
   moves.forEach(move => {
-    // Create a unique ID for each move
-    const moveID = `${move.column}:${move.cards.sort().join(',')}`;
+    let moveID = `${move.column}:`;
+
+    // Ensure cards are sorted for consistent deduplication
+    const sortedCards = [...move.cards].sort();
+
+    sortedCards.forEach(card => {
+      if (card.includes('_')) {
+        moveID += card.split('_')[1];
+      } else {
+        moveID += card; // Handle the case where it's already just the ID
+      }
+    });
 
     if (!moveIDs.includes(moveID)) {
       moveIDs.push(moveID);
@@ -41,19 +52,31 @@ export function deduplicateHands(moves: MoveOption[]): MoveOption[] {
 
 /**
  * Mark moves that unnecessarily split pairs
+ * Direct port from the original implementation
  */
-export function filterStakedPairs(moves: MoveOption[], hand: any[]): void {
+export function filterStakedPairs(moves: AIMove[], hand: any[]): void {
   moves.forEach(move => {
-    if (move.isStake && move.cards.length > 0) {
-      const cardId = move.cards[0];
-      const card = hand.find(c => c.id === cardId);
-      if (!card) return;
+    if (move.didStake && move.cards.length > 0) {
+      // Handle both string IDs and card objects
+      let cardId = move.cards[0];
+      let cardNumber: number;
 
-      // Count how many cards of this number are in the hand
-      const sameNumberCount = hand.filter(c => c.number === card.number).length;
+      // Extract the card number from the ID
+      if (typeof cardId === 'string' && cardId.includes('_')) {
+        cardNumber = parseInt(cardId.split('_')[1]);
+      } else if (typeof cardId === 'object' && cardId.number) {
+        cardNumber = cardId.number;
+      } else {
+        return; // Skip if we can't determine the card number
+      }
 
-      // If staking would split a pair, mark it
-      if (sameNumberCount > 1) {
+      // Get all card numbers in hand
+      const handCardNumbers = hand.map(c =>
+        typeof c === 'object' ? c.number : parseInt(c.split('_')[1])
+      );
+
+      // Check if staking would split a pair
+      if (handCardNumbers.filter(c => c === cardNumber).length > 1) {
         move.splitPair = true;
       }
     }
@@ -63,25 +86,27 @@ export function filterStakedPairs(moves: MoveOption[], hand: any[]): void {
 /**
  * Make a deep copy of a round for simulation
  */
-export function copyRound(round: any, index: number): any {
+export function copyRound(round: any, i: number): any {
   const copy = _.cloneDeep(round);
-  copy.name = `${round.name || 'root'}-${index}`;
+  copy.name = `${round.name || 'root'}-${i}`;
   return copy;
 }
 
 /**
  * Hide opponent's poison king (70 VP card) during evaluation
+ * to prevent AI from "cheating" by seeing it
  */
 export function hidePoison(round: any, playerColor: Color): void {
   if (!round) return;
 
   const opponentColor = playerColor === Color.Red ? Color.Black : Color.Red;
 
-  // Handle round.columns if it exists
+  // Handle all places where poison king could appear
   if (round.columns && Array.isArray(round.columns)) {
     round.columns.forEach((column: any) => {
       if (!column) return;
 
+      // Check cards in positions
       if (column.positions && Array.isArray(column.positions)) {
         column.positions.forEach((position: any) => {
           if (!position || !position.card) return;
@@ -93,7 +118,7 @@ export function hidePoison(round: any, playerColor: Color): void {
         });
       }
 
-      // Check staked card
+      // Check the staked card
       if (column.stakedCard &&
           column.stakedCard.color === opponentColor &&
           column.stakedCard.victoryPoints === 70) {
@@ -101,4 +126,38 @@ export function hidePoison(round: any, playerColor: Color): void {
       }
     });
   }
+
+  // Also check in flattened format (for compatibility with original implementation)
+  if (round.columns && typeof round.columns === 'object') {
+    _.chain(round.columns)
+      .flatten()
+      .filter((p: any) => p && p.card && p.card.owner &&
+              p.card.owner.color === opponentColor &&
+              p.card.victory_points === 70)
+      .value()
+      .forEach((c: any) => {
+        c.card.victory_points = 10;
+      });
+  }
+}
+
+/**
+ * Generate all permutations of cards from a hand
+ * Direct port from the original implementation
+ */
+export function generateHandPermutations(hand: any[]): any[][] {
+  const result: any[][] = [];
+
+  const combine = (start: any[], rest: any[]): void => {
+    if (start.length > 0) {
+      result.push(start);
+    }
+
+    for (let i = 0; i < rest.length; i++) {
+      combine([...start, rest[i]], rest.slice(i + 1));
+    }
+  };
+
+  combine([], hand);
+  return result;
 }

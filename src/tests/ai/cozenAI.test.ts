@@ -128,9 +128,9 @@ describe('CozenAI', () => {
 
       const move = ai.calculateMove();
       expect(move).not.toBeNull();
-      expect(move?.isStake).toBe(true);
+      expect(move?.didStake || move?.isStake).toBeTruthy();
       expect(move?.column).toBe(2);
-      expect(move?.playerId).toBe(blackPlayer.name);
+      expect(move?.playerName || move?.playerId).toBe(blackPlayer.name);
     });
 
     it('should evaluate and return the best move for a simple scenario', () => {
@@ -158,15 +158,18 @@ describe('CozenAI', () => {
         setupGameColumn(0, createMockCard(Color.Red, 7), blackPositions, redPositions)
       ];
 
+      // Add score_board method for evaluation
+      round.score_board = jest.fn();
+
       // Make the move
       const move = ai.calculateMove();
 
       // Verify we got a valid move
       expect(move).not.toBeNull();
-      expect(move?.playerId).toBe(blackPlayer.name);
+      expect(move?.playerName || move?.playerId).toBe(blackPlayer.name);
 
       // Check if the pair was played (most likely best move)
-      if (!move?.isStake) {
+      if (!(move?.didStake || move?.isStake)) {
         expect(move?.cards.length).toBeGreaterThan(0);
       }
     });
@@ -262,6 +265,10 @@ describe('CozenAI', () => {
         black: 9  // Black has 9 points from red's cards
       };
 
+      // Add score_board method for evaluation
+      round.score_board = jest.fn();
+      round.move = jest.fn();
+
       // Make sure the round is in running state
       round.state = 'running';
       round.turn = 7; // Mid-game turn
@@ -274,19 +281,18 @@ describe('CozenAI', () => {
       const result = ai.calculateMoveWithStats();
 
       // Print the search results
-      console.log(AITestVisualization.printTopMoves(result.finalCandidateMoves));
+      console.log(AITestVisualization.printTopMoves(result.candidateMoves));
       console.log(AITestVisualization.formatSearchSummary(
-        result.searchResult.nodeCount,
-        result.searchResult.elapsedTimeMs,
-        result.finalCandidateMoves[result.selectedMoveIndex]
+        result.nodeCount,
+        result.elapsedTimeMs,
+        result.candidateMoves[result.moveIndex]
       ));
 
       // Verify we got a valid move
       expect(result.move).not.toBeNull();
       // More detailed assertion about expected behavior
-      expect(result.searchResult.nodeCount).toBeGreaterThan(10);
+      expect(result.nodeCount).toBeGreaterThan(10);
     });
-
   });
 
   describe('AI decision visualization', () => {
@@ -345,6 +351,10 @@ describe('CozenAI', () => {
         setupGameColumn(1, createMockCard(Color.Black, 10), blackPositions1, redPositions1)
       );
 
+      // Add score_board method for evaluation
+      round.score_board = jest.fn();
+      round.move = jest.fn();
+
       // Print the initial board state
       console.log(AITestVisualization.printBoard(round));
 
@@ -352,17 +362,17 @@ describe('CozenAI', () => {
       const result = ai.calculateMoveWithStats();
 
       // Print the search results
-      console.log(AITestVisualization.printTopMoves(result.finalCandidateMoves));
+      console.log(AITestVisualization.printTopMoves(result.candidateMoves));
       console.log(AITestVisualization.formatSearchSummary(
-        result.searchResult.nodeCount,
-        result.searchResult.elapsedTimeMs,
-        result.finalCandidateMoves[result.selectedMoveIndex]
+        result.nodeCount,
+        result.elapsedTimeMs,
+        result.candidateMoves[result.moveIndex]
       ));
 
       // Verify we got valid search stats
-      expect(result.searchResult.nodeCount).toBeGreaterThan(0);
-      expect(result.searchResult.elapsedTimeMs).toBeGreaterThan(0);
-      expect(result.finalCandidateMoves.length).toBeGreaterThan(0);
+      expect(result.nodeCount).toBeGreaterThan(0);
+      expect(result.elapsedTimeMs).toBeGreaterThan(0);
+      expect(result.candidateMoves.length).toBeGreaterThan(0);
 
       // Verify we got a valid move
       expect(result.move).not.toBeNull();
@@ -393,6 +403,10 @@ describe('CozenAI', () => {
         setupGameColumn(0, createMockCard(Color.Red, 7), blackPositions, redPositions)
       ];
 
+      // Add score_board method for evaluation
+      round.score_board = jest.fn();
+      round.move = jest.fn();
+
       // Print the initial board state
       console.log("Testing difficulty variations");
       console.log(AITestVisualization.printBoard(round));
@@ -415,9 +429,9 @@ describe('CozenAI', () => {
 
         console.log(`\n=== DIFFICULTY: ${difficulty} ===`);
         console.log(AITestVisualization.formatSearchSummary(
-          result.searchResult.nodeCount,
-          result.searchResult.elapsedTimeMs,
-          result.finalCandidateMoves[result.selectedMoveIndex]
+          result.nodeCount,
+          result.elapsedTimeMs,
+          result.candidateMoves[result.moveIndex]
         ));
 
         // Verify we got a valid move for each difficulty

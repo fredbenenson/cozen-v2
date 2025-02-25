@@ -1,7 +1,7 @@
 import { Color, Suit } from '../../types/game';
 import { Player } from '../../types/player';
 import { Round, Position } from '../../types/round';
-import { MoveOption } from '../../ai/aiTypes';
+import { AIMove } from '../../ai/aiTypes';
 
 /**
  * Utility to visualize AI thinking and board state for tests
@@ -18,9 +18,9 @@ export class AITestVisualization {
     output += separator + '\n\n';
 
     // Print black player's information
-    const blackPlayer = round.activePlayer?.color === Color.Black ? 
+    const blackPlayer = round.activePlayer?.color === Color.Black ?
       round.activePlayer : round.inactivePlayer;
-    
+
     if (blackPlayer) {
       output += 'BLACK PLAYER:\n';
       output += `Hand: ${blackPlayer.hand.map(c => this.formatCard(c)).join(' ')}\n`;
@@ -29,12 +29,12 @@ export class AITestVisualization {
 
     // Print board
     output += 'BOARD:\n';
-    
+
     if (round.columns && round.columns.length > 0) {
       // Print column headers
       output += '     ' + Array.from({length: round.columns.length}, (_, i) => i.toString().padStart(8)).join('') + '\n';
       output += '     ' + '↓'.padStart(8).repeat(round.columns.length) + '\n\n';
-      
+
       // Get positions by row
       const rows: { [row: number]: Array<Position|undefined> } = {};
       round.columns.forEach((column, colIndex) => {
@@ -88,9 +88,9 @@ export class AITestVisualization {
     }
 
     // Print red player's information
-    const redPlayer = round.activePlayer?.color === Color.Red ? 
+    const redPlayer = round.activePlayer?.color === Color.Red ?
       round.activePlayer : round.inactivePlayer;
-    
+
     if (redPlayer) {
       output += '\nRED PLAYER:\n';
       output += `Hand: ${redPlayer.hand.map(c => this.formatCard(c)).join(' ')}\n`;
@@ -110,19 +110,19 @@ export class AITestVisualization {
   /**
    * Format a move for display
    */
-  static formatMove(move: MoveOption, index: number): string {
-    const moveType = move.isStake ? 'Stake' : 'Wager';
+  static formatMove(move: AIMove, index: number): string {
+    const moveType = move.isStake || move.didStake ? 'Stake' : 'Wager';
     const cards = move.cards.join(',');
     const strength = move.strength !== undefined ? move.strength : 'N/A';
     const score = move.score !== undefined ? move.score.toFixed(2) : 'N/A';
-    
+
     return `${index + 1}. ${moveType} | Column: ${move.column} | Cards: ${cards} | Strength: ${strength} | Score: ${score}`;
   }
 
   /**
    * Print top moves with scores
    */
-  static printTopMoves(moves: MoveOption[], limit: number = 10): string {
+  static printTopMoves(moves: AIMove[], limit: number = 10): string {
     if (!moves || moves.length === 0) {
       return 'No moves available\n';
     }
@@ -133,27 +133,27 @@ export class AITestVisualization {
 
     let output = `\nTOP ${Math.min(limit, sortedMoves.length)} MOVES:\n`;
     output += `${'='.repeat(80)}\n`;
-    
+
     sortedMoves.forEach((move, index) => {
       output += this.formatMove(move, index) + '\n';
     });
-    
+
     return output;
   }
 
   /**
    * Return a formatted search summary
    */
-  static formatSearchSummary(nodeCount: number, elapsedTimeMs: number, chosenMove?: MoveOption): string {
+  static formatSearchSummary(nodeCount: number, elapsedTimeMs: number, chosenMove?: AIMove): string {
     let output = '\nSEARCH SUMMARY:\n';
     output += `${'='.repeat(80)}\n`;
     output += `Nodes examined: ${nodeCount}\n`;
     output += `Time taken: ${elapsedTimeMs.toFixed(2)}ms\n`;
-    
+
     if (chosenMove) {
       output += `\nCHOSEN MOVE:\n${this.formatMove(chosenMove, 0)}\n`;
     }
-    
+
     return output;
   }
 
@@ -162,15 +162,15 @@ export class AITestVisualization {
    */
   private static formatCard(card: any): string {
     if (!card) return '·';
-    
+
     const numberStr = this.formatCardNumber(card.number);
     let suitStr = '';
-    
+
     if (card.suit === Suit.Hearts) suitStr = '♥';
     else if (card.suit === Suit.Diamonds) suitStr = '♦';
     else if (card.suit === Suit.Clubs) suitStr = '♣';
     else if (card.suit === Suit.Spades) suitStr = '♠';
-    
+
     return `${numberStr}${suitStr}`;
   }
 

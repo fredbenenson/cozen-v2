@@ -1,7 +1,15 @@
 // Export the main CozenAI class and AIDifficulty enum
 export { CozenAI, AIDifficulty } from './cozenAI';
 
-// Export other utilities if they need to be accessed externally
-export { Minimax } from './minimax';
-export { AIMoveGenerator } from './aiMoveGenerator';
-export { AIEvaluation } from './aiEvaluation';
+// Export types
+export { AIMove, AIDecisionResult } from './aiTypes';
+
+// Export utility functions if needed elsewhere
+export {
+  rpois,
+  deduplicateHands,
+  filterStakedPairs,
+  copyRound,
+  hidePoison,
+  generateHandPermutations
+} from './aiUtils';

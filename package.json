@@ -12,7 +12,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts"
+    "format": "prettier --write src/**/*.ts",
+    "visualize-minimax": "ts-node src/scripts/visualizeMinimaxSearch.ts",
+     "improved-minimax": "ts-node src/scripts/improvedMinimaxVisualizer.ts"
   },
   "dependencies": {
     "@types/body-parser": "^1.19.5",

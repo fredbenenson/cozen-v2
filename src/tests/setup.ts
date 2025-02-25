@@ -5,6 +5,22 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 let mongoServer: MongoMemoryServer;
 global.console = require('console');
 
+if (!global.performance) {
+  // global.performance = {
+  //   now: () => Date.now()
+  // } as Performance;
+}
+
+// Setup global.console for test logging
+global.console = {
+  ...console,
+  // You can customize console behavior for tests here
+  log: process.env.DEBUG ? console.log : jest.fn(),
+  error: console.error,
+  warn: console.warn,
+  info: process.env.DEBUG ? console.info : jest.fn()
+};
+
 // Disconnect from any existing connection
 const disconnect = async () => {
   try {

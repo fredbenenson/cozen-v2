@@ -1,5 +1,4 @@
-import { Move } from '../types/game';
-import { Round } from '../types/round';
+import { Card } from '../types/game';
 
 export enum AIDifficulty {
   NOVICE = 'novice',
@@ -9,10 +8,10 @@ export enum AIDifficulty {
   NIGHTMARE = 'nightmare'
 }
 
-// The difficulty scaling factor
+// The difficulty scaling factor (matches original implementation)
 export const DIFFICULTY_SCALAR = 0.75;
 
-// Base difficulty values - lower numbers create smarter AI
+// Base difficulty values - matches the original implementation exactly
 export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
   [AIDifficulty.NOVICE]: 1 / (DIFFICULTY_SCALAR ** 4),
   [AIDifficulty.EASY]: 0.7 / (DIFFICULTY_SCALAR ** 4),
@@ -22,12 +21,15 @@ export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
 };
 
 /**
- * Represents a possible move with additional metadata for AI evaluation
+ * Represents a move with additional metadata for AI evaluation
  */
-export interface MoveOption {
+export interface AIMove {
   cards: string[];
   column: number;
-  isStake: boolean;
+  didStake: boolean;
+  isStake?: boolean;  // For compatibility with both naming conventions
+  playerName?: string;
+  gameId?: string;
   strength?: number;
   value?: number;
   score?: number;
@@ -35,19 +37,13 @@ export interface MoveOption {
 }
 
 /**
- * Node in the game tree for minimax search
+ * Result of AI move calculation including the move and stats
  */
-export interface GameNode {
-  source: string;
-  target: string;
-  n: number;
-  depth: number;
-  score: number;
-  childState: string;
-  alphaBeta: string;
-  beatAlphaBeta: boolean;
-  maximizing: boolean;
-  cards: string;
-  column: number;
-  isStake: boolean;
+export interface AIDecisionResult {
+  move: AIMove | null;
+  moveIndex: number;
+  candidateMoves: AIMove[];
+  nodeCount: number;
+  elapsedTimeMs: number;
+  adjustedDifficulty: number;
 }
