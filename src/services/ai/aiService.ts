@@ -1,7 +1,7 @@
-// src/services/aiService.ts
-import { CozenAI, AIDifficulty } from '../ai/cozenAI';
-import { GameState, Move, BaseGameState } from '../types/game';
-import { Player } from '../types/player';
+// src/services/ai/aiService.ts
+import { CozenAI, AIDifficulty } from '../../ai/cozenAI';
+import { GameState, Move, BaseGameState } from '../../types/game';
+import { Player } from '../../types/player';
 
 export class AIService {
   /**
@@ -32,11 +32,11 @@ export class AIService {
     // Convert from AIMove to game Move
     const move: Move = {
       playerId: activePlayer.id || '',
-      cards: result.move.cards.map(cardId => {
+      cards: result.move.cards.map((cardId: string) => {
         // Find the card in the player's hand
-        const card = activePlayer.hand.find(c => c.id === cardId);
+        const card = activePlayer.hand.find((c: any) => c.id === cardId);
         return card!;
-      }).filter(card => card !== undefined),
+      }).filter((card: any) => card !== undefined),
       column: result.move.column,
       isStake: !!result.move.isStake
     };
@@ -48,13 +48,13 @@ export class AIService {
    * Add a route to get an AI move
    */
   public static addAIMoveRoute(router: any) {
-    router.post('/games/:gameId/ai-move', async (req, res) => {
+    router.post('/games/:gameId/ai-move', async (req: any, res: any) => {
       try {
         const { gameId } = req.params;
         const { difficulty, searchDepth } = req.body;
 
         // Find the game
-        const gameModel = require('../models/Game').GameModel;
+        const gameModel = require('../../models/Game').GameModel;
         const game = await gameModel.findById(gameId);
 
         if (!game) {
@@ -62,7 +62,7 @@ export class AIService {
         }
 
         // Calculate AI move
-        const difficultyLevel = difficulty ? AIDifficulty[difficulty.toUpperCase()] : AIDifficulty.MEDIUM;
+        const difficultyLevel = difficulty ? AIDifficulty[difficulty.toUpperCase() as keyof typeof AIDifficulty] : AIDifficulty.MEDIUM;
         const move = AIService.calculateMove(game, difficultyLevel, searchDepth || 4);
 
         if (!move) {
@@ -70,7 +70,7 @@ export class AIService {
         }
 
         // Apply the move
-        const gameService = require('./gameService').GameService;
+        const gameService = require('../gameService').GameService;
         const updatedGameState = gameService.makeMove(game, move);
 
         // Save the updated game

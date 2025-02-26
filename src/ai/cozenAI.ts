@@ -18,6 +18,23 @@ import {
   generateHandPermutations,
 } from "./aiUtils";
 
+// Define a custom interface that we'll use for AI operations
+// Without extending Round to avoid type conflicts
+interface AIRound {
+  state: string;
+  activePlayer: Player;
+  name?: string;
+  score?: number;
+  move?: (move: AIMove) => void;
+  score_board?: () => void;
+  victory_point_scores?: {
+    black: number;
+    red: number;
+  };
+  staked_columns?: () => number[];
+  columns: any[];
+}
+
 /**
  * Implementation of the CozenAI based on the original AIOpponent
  * Simplified to match the behavior of the original implementation
@@ -120,13 +137,15 @@ export class CozenAI {
       );
     }
 
-    // Set the round name for node tracking
-    if (currentRound.name === undefined) {
-      currentRound.name = "";
-    }
+    // Convert the Round to our AIRound interface
+    const aiRound: AIRound = {
+      ...currentRound as any,
+      name: "",
+      columns: currentRound.columns || []
+    };
 
     // Start the minimax search from the current game state
-    this.minimax(currentRound, 0, true, -Infinity, Infinity);
+    this.minimax(aiRound, 0, true, -Infinity, Infinity);
 
     // Sort moves by score (descending) and then by card count (ascending)
     let moves = _.chain(this.moveScores)
@@ -211,7 +230,7 @@ export class CozenAI {
    * Core AI search function, port of the original implementation
    */
   private minimax(
-    round: any,
+    round: AIRound,
     depth: number,
     maximizing: boolean,
     alpha: number,
@@ -219,7 +238,8 @@ export class CozenAI {
   ): number {
     // Terminal condition or max depth reached
     if (round.state === "complete" || depth <= this.maxDepth) {
-      hidePoison(round, this.player.color);
+      // Cast to any to avoid type errors with hidePoison function
+      hidePoison(round as any, this.player.color);
 
       if (typeof round.score_board === "function") {
         round.score_board();
@@ -245,7 +265,8 @@ export class CozenAI {
 
       for (let index = 0; index < moves.length; index++) {
         const move = moves[index];
-        const child = copyRound(round, index);
+        // Cast the round to any to avoid type issues with copyRound
+        const child = copyRound(round as any, index) as AIRound;
 
         this.totalNodeCount++;
 
@@ -283,7 +304,8 @@ export class CozenAI {
 
       for (let index = 0; index < moves.length; index++) {
         const move = moves[index];
-        const child = copyRound(round, index);
+        // Cast the round to any to avoid type issues with copyRound
+        const child = copyRound(round as any, index) as AIRound;
 
         this.totalNodeCount++;
 
@@ -311,8 +333,7 @@ export class CozenAI {
   /**
    * Generate all possible moves for the current state
    */
-
-  private generateMoves(round: any): AIMove[] {
+  private generateMoves(round: AIRound): AIMove[] {
     // Generate wager moves
     const wagers = this.generateWagerMoves(round).map((move) => ({
       ...move,
@@ -352,7 +373,7 @@ export class CozenAI {
   /**
    * Generate all possible wager moves
    */
-   private generateWagerMoves(round: any): AIMove[] {
+   private generateWagerMoves(round: AIRound): AIMove[] {
      const allMoves: AIMove[] = [];
 
      // Get all staked columns
@@ -412,7 +433,7 @@ export class CozenAI {
   /**
    * Get all columns that have staked cards
    */
-  private getStakedColumns(round: any): number[] {
+  private getStakedColumns(round: AIRound): number[] {
     // Look for columns with staked cards
     if (round.staked_columns && typeof round.staked_columns === "function") {
       // Original implementation method
@@ -434,12 +455,18 @@ export class CozenAI {
   /**
    * Get the stake card position in a column
    */
-  private getStakeCardPosition(round: any, columnIndex: number): any {
+  private getStakeCardPosition(round: AIRound, columnIndex: number): any {
+    // Make sure columns is defined and has the item we're looking for
+    if (!round.columns || !Array.isArray(round.columns) ||
+        columnIndex < 0 || columnIndex >= round.columns.length) {
+      return null;
+    }
+
     // Handle different possible structures
     if (round.columns[columnIndex] && round.columns[columnIndex].stakedCard) {
       // New structure with stakedCard property
       return { card: round.columns[columnIndex].stakedCard };
-    } else if (round.columns && round.columns[columnIndex]) {
+    } else if (round.columns[columnIndex]) {
       // Original implementation with positions array
       const maxCards = 5; // MAX_CARDS_PER_HAND constant
       return round.columns[columnIndex][maxCards];

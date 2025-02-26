@@ -4,9 +4,10 @@ import http from 'http';
 import { Move } from '../types/game';
 import { GameModel } from '../models/Game';
 import { GameService } from '../services/gameService';
-import { AIService } from '../services/aiService';
+import { AIService } from '../services/ai/aiService';
 import { AIDifficulty } from '../ai/cozenAI';
 
+// Extend the Move interface to include gameId
 interface GameMove extends Move {
   gameId: string;
 }
@@ -88,7 +89,10 @@ export const initializeWebSocket = (server: http.Server) => {
         }
 
         // Apply the move
-        const updatedGameState = GameService.makeMove(game, { ...move, gameId: request.gameId });
+        // We need to cast the move to GameMove to satisfy TypeScript
+        const moveWithGameId = { ...move, gameId: request.gameId } as GameMove;
+        const updatedGameState = GameService.makeMove(game, moveWithGameId);
+
         game.set(updatedGameState);
         await game.save();
 

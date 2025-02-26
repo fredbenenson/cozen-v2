@@ -23,18 +23,18 @@ export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
 /**
  * Represents a move with additional metadata for AI evaluation
  */
- export interface AIMove {
-   cards: string[];  // Should always be string[] for consistency
-   column: number;
-   didStake: boolean;
-   isStake: boolean; // Make this required to avoid undefined issues
-   playerName?: string;
-   gameId?: string;
-   strength?: number;
-   value?: number;
-   score?: number;
-   splitPair?: boolean;
- }
+export interface AIMove {
+  cards: string[];  // Should always be string[] for consistency
+  column: number;
+  didStake: boolean;
+  isStake: boolean; // Make this required to avoid undefined issues
+  playerName?: string;
+  gameId?: string;
+  strength?: number;
+  value?: number;
+  score?: number;
+  splitPair?: boolean;
+}
 
 /**
  * Result of AI move calculation including the move and stats
@@ -46,4 +46,34 @@ export interface AIDecisionResult {
   nodeCount: number;
   elapsedTimeMs: number;
   adjustedDifficulty: number;
+}
+
+/**
+ * Option for a potential move considered by the AI
+ */
+export interface MoveOption {
+  cards: string[];
+  column: number;
+  isStake: boolean;
+  strength?: number;
+  value?: number;
+  score?: number;
+}
+
+/**
+ * Graph node for minimax tree visualization
+ */
+export interface GameNode {
+  source: string;
+  target: string;
+  n: number;
+  depth: number;
+  score: number;
+  childState: string;
+  alphaBeta: string;
+  beatAlphaBeta: boolean;
+  maximizing: boolean;
+  cards: string;
+  column: number;
+  isStake: boolean;
 }

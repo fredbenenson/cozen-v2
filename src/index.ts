@@ -9,7 +9,7 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { initializeWebSocket } from './websocket/gameSocket';
-import { AIService } from './services/aiService';
+import { AIService } from './services/ai/aiService';
 
 const app = express();
 const server = http.createServer(app);

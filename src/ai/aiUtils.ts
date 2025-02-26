@@ -1,6 +1,8 @@
 // src/ai/aiUtils.ts
 import _ from 'lodash';
 import { AIMove } from './aiTypes';
+import { Round } from '../types/round';
+import { Color } from '../types/game';
 
 /**
  * Generates a random number from a Poisson distribution.
@@ -105,6 +107,49 @@ export function filterStakedPairs(moves: AIMove[], hand: any[]): void {
       if (handCardNumbers.filter(c => c === cardNumber).length > 1) {
         move.splitPair = true;
       }
+    }
+  });
+}
+
+/**
+ * Create a deep copy of a Round for the minimax algorithm
+ * @param round The round to copy
+ * @param index Optional index for naming
+ * @returns A deep copy of the round
+ */
+export function copyRound(round: Round, index?: number): Round & { name?: string; score?: number } {
+  // Deep copy the round object
+  const copy = _.cloneDeep(round) as Round & { name?: string; score?: number };
+
+  // Set a name for the copy if an index is provided
+  if (index !== undefined) {
+    const roundName = (round as any).name || 'root';
+    copy.name = `${roundName}_${index}`;
+  }
+
+  return copy;
+}
+
+/**
+ * Hide "poison" (high value) cards from the opponent in evaluation
+ * Used to avoid biasing AI decisions
+ * @param round The round to modify
+ * @param playerColor The color of the current player
+ */
+export function hidePoison(round: Round, playerColor: Color): void {
+  // Implementation depends on how you define "poison" cards
+  // This could be hiding kings or other high-value cards
+
+  // Example implementation - hide opponent's king values
+  if (!round || !round.redPlayer || !round.blackPlayer) return;
+
+  const opponentPlayer = playerColor === Color.Red ? round.blackPlayer : round.redPlayer;
+
+  // If the opponent has kings in hand, temporarily reduce their value for evaluation
+  opponentPlayer.hand.forEach(card => {
+    if (card.number === 13) { // King
+      (card as any).originalValue = card.victoryPoints;
+      card.victoryPoints = 10; // Reduce to normal face card value
     }
   });
 }
