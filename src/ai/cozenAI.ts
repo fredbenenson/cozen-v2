@@ -347,26 +347,128 @@ export class CozenAI {
       round.activePlayer.availableStakes &&
       round.activePlayer.availableStakes.length > 0
     ) {
+      // Get all available stake columns and sort by preference
+      // (player's side first, as they're more valuable)
+      const availableColumns = [...round.activePlayer.availableStakes].sort((a, b) => {
+        const playerColor = round.activePlayer.color;
+        const isPlayerSideA = (playerColor === Color.Red && a >= 5) || (playerColor === Color.Black && a < 5);
+        const isPlayerSideB = (playerColor === Color.Red && b >= 5) || (playerColor === Color.Black && b < 5);
+
+        // Player's side columns first
+        if (isPlayerSideA && !isPlayerSideB) return -1;
+        if (!isPlayerSideA && isPlayerSideB) return 1;
+
+        // Then middle columns (4-5)
+        const distFromCenterA = Math.min(Math.abs(a - 4), Math.abs(a - 5));
+        const distFromCenterB = Math.min(Math.abs(b - 4), Math.abs(b - 5));
+        return distFromCenterA - distFromCenterB;
+      });
+
+      // For each card, create a stake move for each available column
       round.activePlayer.hand.forEach((card: any) => {
-        stakes.push({
-          cards: [card.id || card.card_id || card],
-          column: round.activePlayer.availableStakes[0],
-          didStake: true,
-          isStake: true,
-          strength: 0,
-          value: card.victoryPoints || card.victory_points || 0,
-          playerName: round.activePlayer.name,
-          gameId: this.game?.key || "",
+        // Get the card number for evaluation
+        const cardNumber = typeof card === 'object' ? (card.number || 0) :
+          (typeof card === 'string' && card.includes('_')) ?
+          parseInt(card.split('_')[1]) : 0;
+
+        // Calculate initial stake value based on card value
+        let stakeValue = (card.victoryPoints || card.victory_points || 0) * 0.5;
+
+        // Check if there's a matching card in hand to form a pair later
+        const cardNumbers = round.activePlayer.hand.map((c: any) =>
+          typeof c === 'object' ? c.number :
+          (typeof c === 'string' && c.includes('_')) ? parseInt(c.split('_')[1]) : 0
+        );
+
+        // Count occurrences of this card in hand
+        const pairPotential = cardNumbers.filter(n => n === cardNumber).length;
+        if (pairPotential > 1) {
+          stakeValue += 2; // Bonus for having a potential pair
+        }
+
+        // Add a move for each available column
+        availableColumns.forEach(column => {
+          // Adjust value based on column position
+          let columnValue = stakeValue;
+
+          // Prefer player's side of the board
+          const playerColor = round.activePlayer.color;
+          const isPlayerSide = (playerColor === Color.Red && column >= 5) ||
+                              (playerColor === Color.Black && column < 5);
+          if (isPlayerSide) {
+            columnValue += 0.5;
+          }
+
+          // Create the move
+          stakes.push({
+            cards: [card.id || card.card_id || card],
+            column,
+            didStake: true,
+            isStake: true,
+            strength: pairPotential > 1 ? 2 : 0, // Strength for having pair potential
+            value: columnValue,
+            score: columnValue, // Initial score estimate
+            playerName: round.activePlayer.name || "",
+            gameId: this.game?.key || "",
+          });
         });
       });
     }
 
-    // Combine and sort all possible moves
+    // Combine all possible moves
     const typedWagers = wagers as AIMove[];
     const typedStakes = stakes as AIMove[];
-    return _.chain(typedWagers.concat(typedStakes))
-      .sortBy((m) => m.strength || 0)
-      .sortBy((m) => -(m.cards.length))
+    const allMoves = typedWagers.concat(typedStakes);
+
+    // For each move, calculate a heuristic score if one isn't set
+    allMoves.forEach(move => {
+      if (move.score === undefined) {
+        // For stake moves
+        if (move.isStake) {
+          // Get the card number being staked
+          const cardId = move.cards[0];
+          let cardNumber = 0;
+
+          if (typeof cardId === 'string' && cardId.includes('_')) {
+            cardNumber = parseInt(cardId.split('_')[1]);
+          } else if (typeof cardId === 'object') {
+            cardNumber = (cardId as any).number || 0;
+          }
+
+          // Evaluate staking this card
+          const hValue = this.evaluateHand([cardNumber], -1).value;
+          move.score = hValue + (move.strength || 0) + (move.value || 0);
+        }
+        // For play moves
+        else {
+          // Get card numbers from IDs
+          const cardNumbers = move.cards.map(id => {
+            if (typeof id === 'string' && id.includes('_')) {
+              return parseInt(id.split('_')[1]);
+            } else if (typeof id === 'object') {
+              return (id as any).number || 0;
+            }
+            return 0;
+          }).filter(n => n > 0);
+
+          // Get stake card number if available
+          let stakeNumber = -1;
+          const stakeColumn = round.columns[move.column];
+          if (stakeColumn && stakeColumn.stakedCard) {
+            stakeNumber = stakeColumn.stakedCard.number || -1;
+          }
+
+          // Evaluate hand strength
+          const hValue = this.evaluateHand(cardNumbers, stakeNumber).value;
+          move.score = hValue + (move.strength || 0);
+        }
+      }
+    });
+
+    // Sort moves: first by score (descending), then by card count (ascending for efficiency)
+    return _.chain(allMoves)
+      .sortBy((m) => m.cards.length)
+      .sortBy((m) => -(m.score || 0))
       .value();
   }
 
@@ -482,29 +584,50 @@ export class CozenAI {
   private evaluateHand(hand: number[], stake: number): { value: number } {
     // Try to use the existing evaluator if available
     if (this.game && this.game.evaluator && this.game.evaluator.evaluateHand) {
-      return this.game.evaluator.evaluateHand(hand, stake);
+      const result = this.game.evaluator.evaluateHand(hand, stake);
+      return { value: result.strength || 0 };
     }
 
     // Fallback to imported evaluator if available
-    const CardEvaluation = require("../services/cardEvaluation");
-    if (CardEvaluation && CardEvaluation.evaluateHand) {
-      return { value: CardEvaluation.evaluateHand(hand, stake).strength };
+    try {
+      const CardEvaluation = require("../services/cardEvaluation").CardEvaluation;
+      if (CardEvaluation && typeof CardEvaluation.evaluateHand === 'function') {
+        const result = CardEvaluation.evaluateHand(hand, stake);
+        if (this.debugEnabled) {
+          console.log("CardEvaluation result:", result);
+        }
+        return { value: result.strength || 0 };
+      }
+    } catch (error) {
+      if (this.debugEnabled) {
+        console.log("Error using CardEvaluation:", error);
+      }
+      // Continue to fallback implementation
     }
 
     // Basic implementation if no evaluator is available
     // This is a simplified version with just pairs and straights
     let value = 0;
 
+    // Include stake in calculations if it's a valid card
+    let handWithStake = [...hand];
+    if (stake !== -1 && stake > 0) {
+      handWithStake.push(stake);
+    }
+
     // Count pairs (worth 3 points each)
-    const counts = _.countBy(hand);
+    const counts = _.countBy(handWithStake);
     for (const number in counts) {
       if (counts[number] >= 2) {
         value += 3;
+        if (this.debugEnabled) {
+          console.log(`Found pair of ${number}s: +3 points`);
+        }
       }
     }
 
     // Check for straights (worth 1 point per card)
-    const sortedHand = [...hand].sort((a, b) => a - b);
+    const sortedHand = [...handWithStake].sort((a, b) => a - b);
     let longestRun = 1;
     let currentRun = 1;
 
@@ -519,6 +642,37 @@ export class CozenAI {
 
     if (longestRun >= 2) {
       value += longestRun;
+      if (this.debugEnabled) {
+        console.log(`Found straight of length ${longestRun}: +${longestRun} points`);
+      }
+    }
+
+    // For stakes, add a small bonus for potential future plays
+    if (stake === -1 && this.player.hand) {
+      // This is a stake move, check if we're setting up for a future pair
+      const stakeCard = hand[0]; // Assuming first card in hand array is the one being staked
+
+      // Look through the player's hand for potential matches
+      const cardsInHand = this.player.hand.map((c: any) => c.number);
+      if (cardsInHand.includes(stakeCard)) {
+        // We have a match in hand for a future pair
+        value += 1; // Small bonus for setting up future pair
+        if (this.debugEnabled) {
+          console.log(`Staking ${stakeCard} with match in hand: +1 point bonus`);
+        }
+      }
+
+      // If staking a high card, that's also valuable
+      if (stakeCard >= 11) {
+        value += (stakeCard - 10) * 0.2; // Small bonus based on card value
+        if (this.debugEnabled) {
+          console.log(`Staking high card ${stakeCard}: +${(stakeCard - 10) * 0.2} bonus`);
+        }
+      }
+    }
+
+    if (this.debugEnabled) {
+      console.log(`Total hand value: ${value}`);
     }
 
     return { value };

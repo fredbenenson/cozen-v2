@@ -253,55 +253,92 @@ function printGameState(gameState: BaseGameState) {
 }
 
 // Function to get available AI move
-function getAIMove(gameState: BaseGameState, ai: CozenAI): Move | null {
-  // Calculate AI move
-  console.log("AI is thinking...");
+function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> {
+  return new Promise((resolve) => {
+    // Calculate AI move
+    console.log("AI is thinking...");
 
-  // Safety check for null round
-  if (!gameState.round) {
-    console.log("No active round for AI to use");
-    return null;
-  }
+    // Safety check for null round
+    if (!gameState.round) {
+      console.log("No active round for AI to use");
+      resolve(null);
+      return;
+    }
 
-  const aiMoveResult = ai.calculateMoveWithStats(gameState.round);
+    const aiMoveResult = ai.calculateMoveWithStats(gameState.round);
 
-  if (!aiMoveResult.move) {
-    console.log("AI couldn't determine a valid move");
-    return null;
-  }
+    if (!aiMoveResult.move) {
+      console.log("AI couldn't determine a valid move");
+      resolve(null);
+      return;
+    }
 
-  const aiMove = aiMoveResult.move;
+    const aiMove = aiMoveResult.move;
+    const aiMoves = aiMoveResult.candidateMoves || [];
 
-  // Ensure column is defined
-  if (aiMove.column === undefined) {
-    console.log("AI move has undefined column");
-    return null;
-  }
+    // Ensure column is defined
+    if (aiMove.column === undefined) {
+      console.log("AI move has undefined column");
+      resolve(null);
+      return;
+    }
 
-  console.log(`AI chose: ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column} with ${aiMove.cards.length} cards`);
+    // Display top 10 moves (or fewer if less available)
+    console.log("\n=== AI's Top Moves ===");
+    const topMoves = aiMoves.slice(0, 10);
+    
+    topMoves.forEach((moveOption, index) => {
+      const isSelectedMove = moveOption === aiMove;
+      const prefix = isSelectedMove ? "→ " : "  ";
+      
+      // Extract card numbers from card IDs
+      const cardIds = moveOption.cards.map(id => {
+        if (typeof id !== 'string') return 'unknown';
+        
+        // Parse the card ID format (color_number_suit or just number)
+        const parts = id.split('_');
+        return parts.length > 1 ? parts[1] : id;
+      }).join(',');
+      
+      // Make sure score exists and is a number before formatting
+      const scoreDisplay = moveOption.score !== undefined ? 
+        moveOption.score.toFixed(2) : 
+        'N/A';
+      
+      console.log(`${prefix}${index + 1}. ${moveOption.isStake ? 'Stake' : 'Play'} ${cardIds} to column ${moveOption.column} (Score: ${scoreDisplay})`);
+    });
 
-  return {
-    playerId: gameState.round.activePlayer.id || "",
-    cards: aiMove.cards.map(cardId => {
-      // Try to find the card in the player's hand
-      const card = gameState.round!.activePlayer.hand.find(c => c.id === cardId);
-      // If found, return it; otherwise create a new card from ID
-      if (card) return card;
+    console.log(`\nAI will ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column} with ${aiMove.cards.length} cards`);
+    console.log("Press Enter to continue...");
 
-      // Parse the card ID format (color_number_suit)
-      const [colorStr, numberStr, suitStr] = cardId.split('_');
-      return {
-        id: cardId,
-        color: colorStr as Color,
-        number: parseInt(numberStr),
-        suit: suitStr as Suit,
-        victoryPoints: 0, // Will be calculated by service
-        played: false
+    // Wait for user input before continuing
+    rl.question('', () => {
+      const moveToReturn = {
+        playerId: gameState.round!.activePlayer.id || "",
+        cards: aiMove.cards.map(cardId => {
+          // Try to find the card in the player's hand
+          const card = gameState.round!.activePlayer.hand.find(c => c.id === cardId);
+          // If found, return it; otherwise create a new card from ID
+          if (card) return card;
+
+          // Parse the card ID format (color_number_suit)
+          const [colorStr, numberStr, suitStr] = cardId.split('_');
+          return {
+            id: cardId,
+            color: colorStr as Color,
+            number: parseInt(numberStr),
+            suit: suitStr as Suit,
+            victoryPoints: 0, // Will be calculated by service
+            played: false
+          };
+        }),
+        column: aiMove.column,
+        isStake: aiMove.isStake
       };
-    }),
-    column: aiMove.column,
-    isStake: aiMove.isStake
-  };
+      
+      resolve(moveToReturn);
+    });
+  });
 }
 
 // Function to show help
@@ -441,46 +478,47 @@ async function gameLoop() {
 
       // If it's AI's turn, make the AI move
       if (isAITurn && ai) {
-        const aiMove = getAIMove(gameState, ai);
-        if (aiMove) {
-          console.log(`AI is making a move: ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column}`);
-          const updatedState = GameService.makeMove(gameState, aiMove) as BaseGameState;
+        getAIMove(gameState, ai).then(aiMove => {
+          if (aiMove) {
+            console.log(`AI is making a move: ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column}`);
+            const updatedState = GameService.makeMove(gameState, aiMove) as BaseGameState;
 
-          // Small pause before showing the updated state
-          setTimeout(() => {
-            printGameState(updatedState);
+            // Small pause before showing the updated state
+            setTimeout(() => {
+              printGameState(updatedState);
 
-            // Check for game end
-            if (updatedState.status === 'complete') {
-              console.log('\nGame over!');
-              const blackScore = updatedState.round?.blackPlayer.victory_points || 0;
-              const redScore = updatedState.round?.redPlayer.victory_points || 0;
+              // Check for game end
+              if (updatedState.status === 'complete') {
+                console.log('\nGame over!');
+                const blackScore = updatedState.round?.blackPlayer.victory_points || 0;
+                const redScore = updatedState.round?.redPlayer.victory_points || 0;
 
-              if (blackScore > redScore) {
-                console.log('Black player wins!');
-              } else if (redScore > blackScore) {
-                console.log('Red player wins!');
-              } else {
-                console.log('The game is a tie!');
-              }
-
-              rl.question('\nPlay again? (y/n): ', (answer) => {
-                if (answer.toLowerCase() === 'y') {
-                  gameLoop();
+                if (blackScore > redScore) {
+                  console.log('Black player wins!');
+                } else if (redScore > blackScore) {
+                  console.log('Red player wins!');
                 } else {
-                  console.log('Thanks for playing!');
-                  rl.close();
-                  process.exit(0);
+                  console.log('The game is a tie!');
                 }
-              });
-            } else {
-              promptMove();
-            }
-          }, 1000);
-        } else {
-          console.log("AI couldn't make a valid move. Game might be in an invalid state.");
-          rl.close();
-        }
+
+                rl.question('\nPlay again? (y/n): ', (answer) => {
+                  if (answer.toLowerCase() === 'y') {
+                    gameLoop();
+                  } else {
+                    console.log('Thanks for playing!');
+                    rl.close();
+                    process.exit(0);
+                  }
+                });
+              } else {
+                promptMove();
+              }
+            }, 500);
+          } else {
+            console.log("AI couldn't make a valid move. Game might be in an invalid state.");
+            rl.close();
+          }
+        });
         return;
       }
 
