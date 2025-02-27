@@ -5,10 +5,15 @@ import { UserModel, IUser } from './models/User';
 import readline from 'readline';
 import { Types } from 'mongoose';
 import { Round } from './types/round';
+import { CozenAI, AIDifficulty } from './ai/cozenAI';
+import { Player } from './types/player';
 
+// Create an interface that supports command history and improved input
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
+  terminal: true,
+  prompt: '> '
 });
 
 function createTestPlayer(username: string, color: Color): IUser {
@@ -25,18 +30,22 @@ function createTestPlayer(username: string, color: Color): IUser {
   });
 }
 
-async function setupGame() {
+async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, difficulty: AIDifficulty = AIDifficulty.MEDIUM) {
   // Create test players
-  const player1 = createTestPlayer('player1', Color.Red);
-  const player2 = createTestPlayer('player2', Color.Black);
+  const player1 = createTestPlayer(useAI && aiColor === Color.Red ? 'AI' : 'player1', Color.Red);
+  const player2 = createTestPlayer(useAI && aiColor === Color.Black ? 'AI' : 'player2', Color.Black);
 
-  // Create initial decks for each player
+  // Create proper decks for each player using DeckService
   const redDeck = DeckService.createDeck(Color.Red);
   const blackDeck = DeckService.createDeck(Color.Black);
 
+  // Shuffle the decks
+  const shuffledRedDeck = DeckService.shuffleDeck(redDeck);
+  const shuffledBlackDeck = DeckService.shuffleDeck(blackDeck);
+
   // Deal initial hands
-  player1.hand = redDeck.slice(0, 5);
-  player2.hand = blackDeck.slice(0, 5);
+  player1.hand = shuffledRedDeck.slice(0, 5);
+  player2.hand = shuffledBlackDeck.slice(0, 5);
 
   // Initialize game
   const gameState = GameService.initializeGame(player1, player2) as BaseGameState;
@@ -52,38 +61,39 @@ async function setupGame() {
 
   // Add remaining decks to game state
   gameState.decks = {
-    [Color.Red]: redDeck.slice(5),
-    [Color.Black]: blackDeck.slice(5)
+    [Color.Red]: shuffledRedDeck.slice(5),
+    [Color.Black]: shuffledBlackDeck.slice(5)
   };
 
-  console.log('\nGame initialized!');
+  // Set up AI if requested
+  let ai: CozenAI | null = null;
+
+  if (useAI) {
+    // Need to get the player as Player type, not IUser
+    const aiPlayer = aiColor === Color.Red ?
+      (gameState.round?.redPlayer as Player) :
+      (gameState.round?.blackPlayer as Player);
+
+    if (aiPlayer) {
+      ai = new CozenAI(gameState, aiPlayer, difficulty);
+      console.log(`\nGame initialized with AI (${aiColor}) at ${difficulty} difficulty!`);
+    }
+  } else {
+    console.log('\nGame initialized for two human players!');
+  }
+
   console.log('\nCurrent board state:');
   printGameState(gameState);
 
-  return { gameState, player1, player2 };
+  return { gameState, player1, player2, ai };
 }
 
-function createCard(input: string, color: Color): Card {
-  // Allow both R_2 and 2 formats
-  const numberStr = input.includes('_') ? input.split('_')[1] : input;
-  const number = parseInt(numberStr);
-
-  // Determine suit based on color
-  const suit = color === Color.Red ?
-    (Math.random() < 0.5 ? Suit.Hearts : Suit.Diamonds) :
-    (Math.random() < 0.5 ? Suit.Clubs : Suit.Spades);
-
-  return {
-    id: `${color}_${number}_${suit}`,
-    color,
-    suit,
-    number,
-    victoryPoints: DeckService.calculateVictoryPoints(number, suit),
-    played: false
-  };
+// Find a card in player's hand by number
+function findCardByNumber(player: Player, cardNumber: number): Card | undefined {
+  return player.hand.find(card => card.number === cardNumber);
 }
 
-function printCard(card: Card, showId: boolean = false): string {
+function printCard(card: Card, showId: boolean = false, showColor: boolean = true): string {
   const suitSymbol = card.suit === Suit.Hearts ? '♥'
     : card.suit === Suit.Diamonds ? '♦'
     : card.suit === Suit.Clubs ? '♣'
@@ -95,16 +105,27 @@ function printCard(card: Card, showId: boolean = false): string {
     : card.number === 14 ? 'A'
     : card.number.toString();
 
-  const display = `${numberStr}${suitSymbol}`;
+  // Add ANSI color codes for terminal display
+  const colorCode = showColor ? (card.color === Color.Red ? '\x1b[31m' : '\x1b[30m') : '';
+  const resetCode = showColor ? '\x1b[0m' : '';
+
+  const display = `${colorCode}${numberStr}${suitSymbol}${resetCode}`;
   return showId ? `${display}(${card.id})` : display;
 }
 
 function printGameState(gameState: BaseGameState) {
-  const width = 80;
+  const width = 100;
   const separator = '='.repeat(width);
+  const dimText = '\x1b[2m'; // Dim ANSI code
+  const resetText = '\x1b[0m'; // Reset ANSI code
+  const redBg = '\x1b[41m';    // Red background
+  const blackBg = '\x1b[40m';  // Black background
+  const whiteBg = '\x1b[47m';  // White background for stake row
+  const brightText = '\x1b[1m'; // Bright text
 
+  console.clear(); // Clear the terminal for a cleaner display
   console.log('\n' + separator);
-  console.log('GAME STATE'.padStart(width/2 + 5).padEnd(width));
+  console.log(`${brightText}COZEN GAME STATE${resetText}`.padStart(width/2 + 8).padEnd(width));
   console.log(separator);
 
   // Safety check if round is defined
@@ -115,66 +136,283 @@ function printGameState(gameState: BaseGameState) {
 
   const round = gameState.round;
 
+  // Print scores and status
+  console.log(`\n${brightText}SCORES:${resetText}`);
+  const blackScore = round.blackPlayer.victory_points || 0;
+  const redScore = round.redPlayer.victory_points || 0;
+  console.log(`Black: ${blackScore}   Red: ${redScore}`);
+
+  // Print active player indicator
+  const activePlayerColor = round.activePlayer.color === Color.Red ?
+    `${redBg}\x1b[37m RED ${resetText}` :
+    `${blackBg}\x1b[37m BLACK ${resetText}`;
+  console.log(`\n${brightText}ACTIVE PLAYER: ${resetText}${activePlayerColor}`);
+
   // Print black player's information
-  const blackPlayer = round.activePlayer.color === Color.Black ?
-    round.activePlayer : round.inactivePlayer;
-  console.log('\nBLACK PLAYER:');
-  console.log('Hand:', blackPlayer.hand.map(c => printCard(c, true)).join(' '));
-  console.log('Jail:', blackPlayer.jail.map(c => printCard(c)).join(' ') || 'empty');
-  console.log('Deck remaining:', gameState.decks?.[Color.Black].length);
+  const blackPlayer = round.blackPlayer;
+  const blackIsActive = round.activePlayer.color === Color.Black;
+  const blackPrefix = blackIsActive ? '➤ ' : '  ';
+  console.log(`\n${blackBg}\x1b[37m BLACK PLAYER ${resetText}`);
+
+  // Print hand with card numbers in parentheses to make it clear what to use in commands
+  console.log(`${blackPrefix}Hand: ${blackPlayer.hand.map(c =>
+    `${printCard(c)} (${c.number})`
+  ).join(' ')}`);
+
+  console.log(`  Stakes available: ${blackPlayer.availableStakes?.join(', ') || 'none'}`);
+  console.log(`  Jail: ${blackPlayer.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
+  console.log(`  Deck remaining: ${gameState.decks?.[Color.Black]?.length || 0}`);
 
   // Print board
   console.log('\nBOARD:');
-  console.log('     ' + Array.from({length: 10}, (_, i) => i.toString().padStart(8)).join(''));
-  console.log('     ' + '↓'.padStart(8).repeat(10));
+
+  // Column headers
+  let colHeaderRow = '       ';
+  for (let col = 0; col < 10; col++) {
+    colHeaderRow += col.toString().padEnd(4);
+  }
+  console.log(colHeaderRow);
+
+  // Column markers
+  let colMarkerRow = '      ';
+  for (let col = 0; col < 10; col++) {
+    colMarkerRow += ' ↓  ';
+  }
+  console.log(colMarkerRow);
 
   // Black's play area (top)
-  for (let row = 0; row < 5; row++) {
-    let rowStr = row.toString().padStart(2) + ' B: ';
+  for (let row = 1; row < 5; row++) {
+    let rowStr = row.toString().padStart(2) + ` ${blackBg}\x1b[37mB${resetText}: `;
     for (let col = 0; col < 10; col++) {
-      const position = gameState.board[col]?.positions?.[row];
-      rowStr += (position?.card ? printCard(position.card) : '·').padStart(8);
+      // Check if there's a card in this position
+      const card = round.board?.[row]?.[col]?.card;
+      const display = card ? `${printCard(card)}  ` : `${dimText}[ ]${resetText} `;
+      rowStr += display.padEnd(4);
     }
     console.log(rowStr);
   }
 
   // Stakes row (middle)
-  let stakeRow = ' S:   ';
+  let stakeRow = `${whiteBg}\x1b[30mS${resetText}:    `;
   for (let col = 0; col < 10; col++) {
-    const stake = gameState.board[col]?.stakedCard;
-    stakeRow += (stake ? printCard(stake) : '·').padStart(8);
+    // Check for staked card in this column
+    const stakeCard = round.columns?.[col]?.stakedCard;
+    const display = stakeCard ? `${printCard(stakeCard)}  ` : `${dimText}[ ]${resetText} `;
+    stakeRow += display.padEnd(4);
   }
   console.log(stakeRow);
 
   // Red's play area (bottom)
-  for (let row = 6; row < 11; row++) {
-    let rowStr = (row-6).toString().padStart(2) + ' R: ';
+  for (let row = 1; row < 5; row++) {
+    let rowStr = row.toString().padStart(2) + ` ${redBg}\x1b[37mR${resetText}: `;
     for (let col = 0; col < 10; col++) {
-      const position = gameState.board[col]?.positions?.[row];
-      rowStr += (position?.card ? printCard(position.card) : '·').padStart(8);
+      // Check if there's a card in this position (offset for red's area)
+      const position = round.board?.[5 + row]?.[col];
+      const card = position?.card;
+      const display = card ? printCard(card) : `${dimText}[ ]${resetText} `;
+      rowStr += display.padEnd(4);
     }
     console.log(rowStr);
   }
 
   // Print red player's information
-  const redPlayer = round.activePlayer.color === Color.Red ?
-    round.activePlayer : round.inactivePlayer;
-  console.log('\nRED PLAYER:');
-  console.log('Hand:', redPlayer.hand.map(c => printCard(c, true)).join(' '));
-  console.log('Jail:', redPlayer.jail.map(c => printCard(c)).join(' ') || 'empty');
-  console.log('Deck remaining:', gameState.decks?.[Color.Red].length);
+  const redPlayer = round.redPlayer;
+  const redIsActive = round.activePlayer.color === Color.Red;
+  const redPrefix = redIsActive ? '➤ ' : '  ';
+  console.log(`\n${redBg}\x1b[37m RED PLAYER ${resetText}`);
 
-  // Print current state
-  console.log('\nCURRENT STATE:');
-  console.log('Active player:', round.activePlayer.color.toUpperCase());
-  console.log('Game status:', gameState.status);
+  // Print hand with card numbers in parentheses to make it clear what to use in commands
+  console.log(`${redPrefix}Hand: ${redPlayer.hand.map(c =>
+    `${printCard(c)} (${c.number})`
+  ).join(' ')}`);
+
+  console.log(`  Stakes available: ${redPlayer.availableStakes?.join(', ') || 'none'}`);
+  console.log(`  Jail: ${redPlayer.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
+  console.log(`  Deck remaining: ${gameState.decks?.[Color.Red]?.length || 0}`);
+
+  // Print help information at the bottom
+  console.log('\nCOMMANDS:');
+  console.log('  stake <card_number> <column>     e.g. "stake 5 3"');
+  console.log('  play <card_number>,... <column>  e.g. "play 7,8 0"');
+  console.log('  help                             Show this help text');
+  console.log('  quit                             Exit the game');
 
   console.log(separator);
 }
 
+// Function to get available AI move
+function getAIMove(gameState: BaseGameState, ai: CozenAI): Move | null {
+  // Calculate AI move
+  console.log("AI is thinking...");
+
+  // Safety check for null round
+  if (!gameState.round) {
+    console.log("No active round for AI to use");
+    return null;
+  }
+
+  const aiMoveResult = ai.calculateMoveWithStats(gameState.round);
+
+  if (!aiMoveResult.move) {
+    console.log("AI couldn't determine a valid move");
+    return null;
+  }
+
+  const aiMove = aiMoveResult.move;
+
+  // Ensure column is defined
+  if (aiMove.column === undefined) {
+    console.log("AI move has undefined column");
+    return null;
+  }
+
+  console.log(`AI chose: ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column} with ${aiMove.cards.length} cards`);
+
+  return {
+    playerId: gameState.round.activePlayer.id || "",
+    cards: aiMove.cards.map(cardId => {
+      // Try to find the card in the player's hand
+      const card = gameState.round!.activePlayer.hand.find(c => c.id === cardId);
+      // If found, return it; otherwise create a new card from ID
+      if (card) return card;
+
+      // Parse the card ID format (color_number_suit)
+      const [colorStr, numberStr, suitStr] = cardId.split('_');
+      return {
+        id: cardId,
+        color: colorStr as Color,
+        number: parseInt(numberStr),
+        suit: suitStr as Suit,
+        victoryPoints: 0, // Will be calculated by service
+        played: false
+      };
+    }),
+    column: aiMove.column,
+    isStake: aiMove.isStake
+  };
+}
+
+// Function to show help
+function showHelp() {
+  console.log('\n== COZEN GAME COMMANDS ==');
+  console.log('stake <card_number> <column>    Stake a card in a column');
+  console.log('play <number>,<number> <column> Play cards to a column');
+  console.log('hand                           Show your current hand');
+  console.log('board                          Show the game board');
+  console.log('help                           Show this help');
+  console.log('quit                           Exit the game');
+  console.log('\nEXAMPLES:');
+  console.log('stake 7 2  - Stake the 7 card in column 2');
+  console.log('play 3,4 0 - Play the 3 and 4 cards to column 0');
+}
+
+// Setup game with configurable options
+async function setupGameWithOptions() {
+  console.log('\n== COZEN CARD GAME ==');
+  console.log('Welcome to Cozen! Choose your game mode:');
+  console.log('1. Human vs Human');
+  console.log('2. Human vs AI (you play as Red)');
+  console.log('3. Human vs AI (you play as Black)');
+  console.log('4. Quit');
+
+  return new Promise<{ gameState: BaseGameState, player1: IUser, player2: IUser, ai: CozenAI | null }>((resolve, reject) => {
+    rl.question('\nEnter your choice (1-4): ', async (choice) => {
+      try {
+        switch (choice) {
+          case '1':
+            resolve(await setupGame(false));
+            break;
+          case '2':
+            resolve(await setupGame(true, Color.Black, AIDifficulty.MEDIUM));
+            break;
+          case '3':
+            resolve(await setupGame(true, Color.Red, AIDifficulty.MEDIUM));
+            break;
+          case '4':
+            console.log('Goodbye!');
+            rl.close();
+            process.exit(0);
+          default:
+            console.log('Invalid choice, please try again.');
+            resolve(await setupGameWithOptions());
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
 async function gameLoop() {
   try {
-    const { gameState, player1, player2 } = await setupGame();
+    // Ask player for game type
+    const { gameState, player1, player2, ai } = await setupGameWithOptions();
+
+    // Function to validate the move is legal
+    const isValidMove = (move: Move): boolean => {
+      // Ensure move has a defined column
+      if (move.column === undefined) {
+        console.log('Move has undefined column');
+        return false;
+      }
+
+      // Check if the column is valid
+      if (move.column < 0 || move.column > 9) {
+        console.log('Invalid column number (must be 0-9)');
+        return false;
+      }
+
+      // Ensure we have a round
+      if (!gameState.round) {
+        console.log('No active round available');
+        return false;
+      }
+
+      // For stake moves, check if player has an available stake at that column
+      if (move.isStake) {
+        // Check if this is a valid column for this player based on color
+        const playerColor = gameState.round.activePlayer.color;
+        const validRange = playerColor === Color.Red ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4];
+
+        if (!validRange.includes(move.column)) {
+          console.log(`Column ${move.column} is out of range for ${playerColor} player (valid: ${validRange.join(', ')})`);
+          return false;
+        }
+
+        // Check if this column already has a staked card
+        if (gameState.round.columns[move.column]?.stakedCard) {
+          console.log(`Column ${move.column} already has a staked card`);
+          return false;
+        }
+
+        // Now check if it's in the player's available stakes
+        if (!gameState.round.activePlayer.availableStakes?.includes(move.column)) {
+          console.log(`Column ${move.column} is not available for staking`);
+          return false;
+        }
+      } else {
+        // For play moves, check if there's a staked card in the column
+        if (!gameState.round.columns[move.column]?.stakedCard) {
+          console.log(`Column ${move.column} has no staked card`);
+          return false;
+        }
+      }
+
+      // Check if player has the specified cards in hand
+      const validCards = move.cards.every(card => {
+        // Check if playing valid card numbers
+        const cardInHand = gameState.round!.activePlayer.hand.some(c =>
+          c.number === card.number && c.color === gameState.round!.activePlayer.color
+        );
+
+        if (!cardInHand) {
+          console.log(`You don't have a ${card.number} in your hand`);
+        }
+        return cardInHand;
+      });
+
+      return validCards;
+    };
 
     const promptMove = () => {
       // Safety check if round is defined
@@ -186,53 +424,182 @@ async function gameLoop() {
 
       const activeColor = gameState.round.activePlayer.color;
 
-      console.log('\nAvailable moves:');
-      console.log('stake <number> <column>  (e.g., "stake 5 2")');
-      console.log('play <number>,<number> <column>  (e.g., "play 3,4 1")');
-      console.log('quit');
+      // Check if it's AI's turn by comparing the active player's color with the AI's color
+      const isAITurn = ai && ((ai as any).player?.color === activeColor);
 
-      rl.question('\nEnter move: ', (input) => {
+      // If it's AI's turn, make the AI move
+      if (isAITurn && ai) {
+        const aiMove = getAIMove(gameState, ai);
+        if (aiMove) {
+          console.log(`AI is making a move: ${aiMove.isStake ? 'stake' : 'play'} to column ${aiMove.column}`);
+          const updatedState = GameService.makeMove(gameState, aiMove) as BaseGameState;
+
+          // Small pause before showing the updated state
+          setTimeout(() => {
+            printGameState(updatedState);
+
+            // Check for game end
+            if (updatedState.status === 'complete') {
+              console.log('\nGame over!');
+              const blackScore = updatedState.round?.blackPlayer.victory_points || 0;
+              const redScore = updatedState.round?.redPlayer.victory_points || 0;
+
+              if (blackScore > redScore) {
+                console.log('Black player wins!');
+              } else if (redScore > blackScore) {
+                console.log('Red player wins!');
+              } else {
+                console.log('The game is a tie!');
+              }
+
+              rl.question('\nPlay again? (y/n): ', (answer) => {
+                if (answer.toLowerCase() === 'y') {
+                  gameLoop();
+                } else {
+                  console.log('Thanks for playing!');
+                  rl.close();
+                  process.exit(0);
+                }
+              });
+            } else {
+              promptMove();
+            }
+          }, 1000);
+        } else {
+          console.log("AI couldn't make a valid move. Game might be in an invalid state.");
+          rl.close();
+        }
+        return;
+      }
+
+      // Show prompt for human player
+      rl.question('> ', (input) => {
+        input = input.trim().toLowerCase();
+
+        // Handle special commands
         if (input === 'quit') {
+          console.log('Thanks for playing!');
           rl.close();
           process.exit(0);
+        } else if (input === 'help') {
+          showHelp();
+          promptMove();
+          return;
+        } else if (input === 'hand') {
+          if (gameState.round) {
+            console.log('Your hand:',
+              gameState.round.activePlayer.hand.map(c =>
+                `${printCard(c, false)} (${c.number})`
+              ).join(' ')
+            );
+          } else {
+            console.log('No active round available');
+          }
+          promptMove();
+          return;
+        } else if (input === 'board') {
+          printGameState(gameState);
+          promptMove();
+          return;
         }
 
-        // Safety check if round is still defined (could have changed between prompts)
+        // Safety check if round is still defined
         if (!gameState.round) {
           console.log("No active round available");
           rl.close();
           return;
         }
 
+        // Parse and execute move
         const [action, ...args] = input.split(' ');
-        let move: Move;
+        let move: Move | null = null;
 
-        if (action === 'stake') {
-          const card = createCard(args[0], activeColor);
-          move = {
-            playerId: gameState.round.activePlayer.id || "",
-            cards: [card],
-            column: parseInt(args[1]),
-            isStake: true
-          };
-        } else if (action === 'play') {
-          const [cards, column] = args;
-          move = {
-            playerId: gameState.round.activePlayer.id || "",
-            cards: cards.split(',').map(id => createCard(id, activeColor)),
-            column: parseInt(column),
-            isStake: false
-          };
-        } else {
-          console.log('Invalid move format');
+        try {
+          if (action === 'stake' && args.length >= 2) {
+            // Find the specified card in player's hand
+            const cardNumber = parseInt(args[0]);
+            const column = parseInt(args[1]);
+
+            // Find the actual card in the player's hand
+            const cardInHand = findCardByNumber(gameState.round.activePlayer, cardNumber);
+
+            if (!cardInHand) {
+              console.log(`You don't have a ${cardNumber} in your hand`);
+              promptMove();
+              return;
+            }
+
+            // Create move
+            move = {
+              playerId: gameState.round.activePlayer.id || "",
+              cards: [cardInHand], // Using the actual card object
+              column,
+              isStake: true
+            };
+          } else if (action === 'play' && args.length >= 2) {
+            const [cardsStr, columnStr] = args;
+            const column = parseInt(columnStr);
+            const cardNumbers = cardsStr.split(',').map(n => parseInt(n));
+
+            // Find the cards in player's hand
+            const cardsToPlay = cardNumbers.map(num => {
+              const card = findCardByNumber(gameState.round!.activePlayer, num);
+              if (!card) {
+                throw new Error(`Card ${num} not found in your hand`);
+              }
+              return card;
+            });
+
+            move = {
+              playerId: gameState.round.activePlayer.id || "",
+              cards: cardsToPlay,
+              column,
+              isStake: false
+            };
+          } else {
+            console.log('Invalid move format. Type "help" for command syntax.');
+            promptMove();
+            return;
+          }
+
+          // Validate move
+          if (move && isValidMove(move)) {
+            const updatedState = GameService.makeMove(gameState, move) as BaseGameState;
+            printGameState(updatedState);
+
+            // Check for game end
+            if (updatedState.status === 'complete') {
+              console.log('\nGame over!');
+              const blackScore = updatedState.round?.blackPlayer.victory_points || 0;
+              const redScore = updatedState.round?.redPlayer.victory_points || 0;
+
+              if (blackScore > redScore) {
+                console.log('Black player wins!');
+              } else if (redScore > blackScore) {
+                console.log('Red player wins!');
+              } else {
+                console.log('The game is a tie!');
+              }
+
+              rl.question('\nPlay again? (y/n): ', (answer) => {
+                if (answer.toLowerCase() === 'y') {
+                  gameLoop();
+                } else {
+                  console.log('Thanks for playing!');
+                  rl.close();
+                  process.exit(0);
+                }
+              });
+            } else {
+              promptMove();
+            }
+          } else {
+            promptMove();
+          }
+        } catch (error) {
+          console.error('Error making move:', error);
           promptMove();
-          return;
         }
-
-        console.log('Making move:', move);
-        const updatedState = GameService.makeMove(gameState, move) as BaseGameState;
-        printGameState(updatedState);
-        promptMove();
       });
     };
 

@@ -526,4 +526,4 @@ export class CozenAI {
 }
 
 // Re-export for convenience
-export { AIDifficulty } from "./aiTypes";
+export { AIDifficulty, AIMove } from "./aiTypes";

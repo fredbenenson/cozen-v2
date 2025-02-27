@@ -7,14 +7,15 @@
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
+    "cli": "ts-node src/cli.ts",
     "test": "jest --verbose",
     "test:silent": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
-    "visualize-minimax": "ts-node src/scripts/visualizeMinimaxSearch.ts",
-     "improved-minimax": "ts-node src/scripts/improvedMinimaxVisualizer.ts"
+    "analyze-ai-moves": "ts-node src/tools/aiMoveAnalyzer.ts",
+    "inspect-ai-generator": "ts-node src/tools/aiMoveInspector.ts"
   },
   "dependencies": {
     "@types/body-parser": "^1.19.5",
