@@ -113,6 +113,51 @@ function printCard(card: Card, showId: boolean = false, showColor: boolean = tru
   return showId ? `${display}(${card.id})` : display;
 }
 
+function printPlayerInfo(
+  player: Player, 
+  isActive: boolean, 
+  deckSize: number,
+  resetText: string
+) {
+  const prefix = isActive ? '➤ ' : '  ';
+  const bgColor = player.color === Color.Red ? '\x1b[41m' : '\x1b[40m';
+  const playerLabel = player.color === Color.Red ? 'RED PLAYER' : 'BLACK PLAYER';
+  
+  console.log(`\n${bgColor}\x1b[37m ${playerLabel} ${resetText}`);
+  
+  // Print hand with card numbers in parentheses
+  console.log(`${prefix}Hand: ${player.hand.map(c =>
+    `${printCard(c)} (${c.number})`
+  ).join(' ')}`);
+
+  console.log(`  Stakes available: ${player.availableStakes?.join(', ') || 'none'}`);
+  console.log(`  Jail: ${player.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
+  console.log(`  Deck remaining: ${deckSize || 0}`);
+}
+
+function printPlayArea(
+  round: Round, 
+  playerColor: Color, 
+  dimText: string, 
+  resetText: string
+) {
+  const bgColor = playerColor === Color.Red ? '\x1b[41m' : '\x1b[40m';
+  const colorChar = playerColor === Color.Red ? 'R' : 'B';
+  const rowOffset = playerColor === Color.Red ? 5 : 0;
+  
+  for (let row = 1; row < 5; row++) {
+    let rowStr = row.toString().padStart(2) + ` ${bgColor}\x1b[37m${colorChar}${resetText}: `;
+    for (let col = 0; col < 10; col++) {
+      // Check if there's a card in this position (with offset for red)
+      const position = round.board?.[rowOffset + row]?.[col];
+      const card = position?.card;
+      const display = card ? `${printCard(card)}  ` : `${dimText}[ ]${resetText} `;
+      rowStr += display.padEnd(4);
+    }
+    console.log(rowStr);
+  }
+}
+
 function printGameState(gameState: BaseGameState) {
   const width = 100;
   const separator = '='.repeat(width);
@@ -149,19 +194,12 @@ function printGameState(gameState: BaseGameState) {
   console.log(`\n${brightText}ACTIVE PLAYER: ${resetText}${activePlayerColor}`);
 
   // Print black player's information
-  const blackPlayer = round.blackPlayer;
-  const blackIsActive = round.activePlayer.color === Color.Black;
-  const blackPrefix = blackIsActive ? '➤ ' : '  ';
-  console.log(`\n${blackBg}\x1b[37m BLACK PLAYER ${resetText}`);
-
-  // Print hand with card numbers in parentheses to make it clear what to use in commands
-  console.log(`${blackPrefix}Hand: ${blackPlayer.hand.map(c =>
-    `${printCard(c)} (${c.number})`
-  ).join(' ')}`);
-
-  console.log(`  Stakes available: ${blackPlayer.availableStakes?.join(', ') || 'none'}`);
-  console.log(`  Jail: ${blackPlayer.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
-  console.log(`  Deck remaining: ${gameState.decks?.[Color.Black]?.length || 0}`);
+  printPlayerInfo(
+    round.blackPlayer, 
+    round.activePlayer.color === Color.Black, 
+    gameState.decks?.[Color.Black]?.length || 0,
+    resetText
+  );
 
   // Print board
   console.log('\nBOARD:');
@@ -181,16 +219,7 @@ function printGameState(gameState: BaseGameState) {
   console.log(colMarkerRow);
 
   // Black's play area (top)
-  for (let row = 1; row < 5; row++) {
-    let rowStr = row.toString().padStart(2) + ` ${blackBg}\x1b[37mB${resetText}: `;
-    for (let col = 0; col < 10; col++) {
-      // Check if there's a card in this position
-      const card = round.board?.[row]?.[col]?.card;
-      const display = card ? `${printCard(card)}  ` : `${dimText}[ ]${resetText} `;
-      rowStr += display.padEnd(4);
-    }
-    console.log(rowStr);
-  }
+  printPlayArea(round, Color.Black, dimText, resetText);
 
   // Stakes row (middle)
   let stakeRow = `${whiteBg}\x1b[30mS${resetText}:    `;
@@ -203,32 +232,15 @@ function printGameState(gameState: BaseGameState) {
   console.log(stakeRow);
 
   // Red's play area (bottom)
-  for (let row = 1; row < 5; row++) {
-    let rowStr = row.toString().padStart(2) + ` ${redBg}\x1b[37mR${resetText}: `;
-    for (let col = 0; col < 10; col++) {
-      // Check if there's a card in this position (offset for red's area)
-      const position = round.board?.[5 + row]?.[col];
-      const card = position?.card;
-      const display = card ? printCard(card) : `${dimText}[ ]${resetText} `;
-      rowStr += display.padEnd(4);
-    }
-    console.log(rowStr);
-  }
+  printPlayArea(round, Color.Red, dimText, resetText);
 
   // Print red player's information
-  const redPlayer = round.redPlayer;
-  const redIsActive = round.activePlayer.color === Color.Red;
-  const redPrefix = redIsActive ? '➤ ' : '  ';
-  console.log(`\n${redBg}\x1b[37m RED PLAYER ${resetText}`);
-
-  // Print hand with card numbers in parentheses to make it clear what to use in commands
-  console.log(`${redPrefix}Hand: ${redPlayer.hand.map(c =>
-    `${printCard(c)} (${c.number})`
-  ).join(' ')}`);
-
-  console.log(`  Stakes available: ${redPlayer.availableStakes?.join(', ') || 'none'}`);
-  console.log(`  Jail: ${redPlayer.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
-  console.log(`  Deck remaining: ${gameState.decks?.[Color.Red]?.length || 0}`);
+  printPlayerInfo(
+    round.redPlayer, 
+    round.activePlayer.color === Color.Red, 
+    gameState.decks?.[Color.Red]?.length || 0,
+    resetText
+  );
 
   // Print help information at the bottom
   console.log('\nCOMMANDS:');
