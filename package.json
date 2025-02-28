@@ -15,7 +15,10 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "analyze-ai-moves": "ts-node src/tools/aiMoveAnalyzer.ts",
-    "inspect-ai-generator": "ts-node src/tools/aiMoveInspector.ts"
+    "inspect-ai-generator": "ts-node src/tools/aiMoveInspector.ts",
+    "visualize-minimax": "ts-node src/tools/visualizeMinimaxCLI.ts",
+    "visualize-minimax:help": "echo 'Usage: npm run visualize-minimax:custom -- [outputPath] [maxNodes] [maxDepth]'",
+    "visualize-minimax:custom": "ts-node src/tools/visualizeMinimaxCLI.ts"
   },
   "dependencies": {
     "@types/body-parser": "^1.19.5",

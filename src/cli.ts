@@ -7,6 +7,11 @@ import { Types } from 'mongoose';
 import { Round } from './types/round';
 import { CozenAI, AIDifficulty } from './ai/cozenAI';
 import { Player } from './types/player';
+import { 
+  printGameState, 
+  findCardByNumber,
+  printCard
+} from './utils/gameVisualizer';
 
 // Create an interface that supports command history and improved input
 const rl = readline.createInterface({
@@ -67,174 +72,11 @@ async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, d
   }
 
   console.log('\nCurrent board state:');
-  printGameState(gameState);
+  printGameState(gameState, true); // true = show commands
 
   return { gameState, player1, player2, ai };
 }
 
-// Find a card in player's hand by number
-function findCardByNumber(player: Player, cardNumber: number): Card | undefined {
-  return player.hand.find(card => card.number === cardNumber);
-}
-
-function printCard(card: Card, showId: boolean = false, showColor: boolean = true): string {
-  const suitSymbol = card.suit === Suit.Hearts ? '♥'
-    : card.suit === Suit.Diamonds ? '♦'
-    : card.suit === Suit.Clubs ? '♣'
-    : '♠';
-
-  const numberStr = card.number === 11 ? 'J'
-    : card.number === 12 ? 'Q'
-    : card.number === 13 ? 'K'
-    : card.number === 14 ? 'A'
-    : card.number.toString();
-
-  // Add ANSI color codes for terminal display
-  const colorCode = showColor ? (card.color === Color.Red ? '\x1b[31m' : '\x1b[30m') : '';
-  const resetCode = showColor ? '\x1b[0m' : '';
-
-  const display = `${colorCode}${numberStr}${suitSymbol}${resetCode}`;
-  return showId ? `${display}(${card.id})` : display;
-}
-
-function printPlayerInfo(
-  player: Player, 
-  isActive: boolean, 
-  deckSize: number,
-  resetText: string
-) {
-  const prefix = isActive ? '➤ ' : '  ';
-  const bgColor = player.color === Color.Red ? '\x1b[41m' : '\x1b[40m';
-  const playerLabel = player.color === Color.Red ? 'RED PLAYER' : 'BLACK PLAYER';
-  
-  console.log(`\n${bgColor}\x1b[37m ${playerLabel} ${resetText}`);
-  
-  // Print hand with card numbers in parentheses
-  console.log(`${prefix}Hand: ${player.hand.map(c =>
-    `${printCard(c)} (${c.number})`
-  ).join(' ')}`);
-
-  console.log(`  Stakes available: ${player.availableStakes?.join(', ') || 'none'}`);
-  console.log(`  Jail: ${player.jail.map(c => printCard(c)).join(' ') || 'empty'}`);
-  console.log(`  Deck remaining: ${deckSize || 0}`);
-}
-
-function printPlayArea(
-  round: Round, 
-  playerColor: Color, 
-  dimText: string, 
-  resetText: string
-) {
-  const bgColor = playerColor === Color.Red ? '\x1b[41m' : '\x1b[40m';
-  const colorChar = playerColor === Color.Red ? 'R' : 'B';
-  const rowOffset = playerColor === Color.Red ? 5 : 0;
-  
-  for (let row = 1; row < 5; row++) {
-    let rowStr = row.toString().padStart(2) + ` ${bgColor}\x1b[37m${colorChar}${resetText}: `;
-    for (let col = 0; col < 10; col++) {
-      // Check if there's a card in this position (with offset for red)
-      const position = round.board?.[rowOffset + row]?.[col];
-      const card = position?.card;
-      const display = card ? `${printCard(card)}  ` : `${dimText}[ ]${resetText} `;
-      rowStr += display.padEnd(4);
-    }
-    console.log(rowStr);
-  }
-}
-
-function printGameState(gameState: BaseGameState) {
-  const width = 100;
-  const separator = '='.repeat(width);
-  const dimText = '\x1b[2m'; // Dim ANSI code
-  const resetText = '\x1b[0m'; // Reset ANSI code
-  const redBg = '\x1b[41m';    // Red background
-  const blackBg = '\x1b[40m';  // Black background
-  const whiteBg = '\x1b[47m';  // White background for stake row
-  const brightText = '\x1b[1m'; // Bright text
-
-  console.clear(); // Clear the terminal for a cleaner display
-  console.log('\n' + separator);
-  console.log(`${brightText}COZEN GAME STATE${resetText}`.padStart(width/2 + 8).padEnd(width));
-  console.log(separator);
-
-  // Safety check if round is defined
-  if (!gameState.round) {
-    console.log("No active round to display");
-    return;
-  }
-
-  const round = gameState.round;
-
-  // Print scores and status
-  console.log(`\n${brightText}SCORES:${resetText}`);
-  const blackScore = round.blackPlayer.victory_points || 0;
-  const redScore = round.redPlayer.victory_points || 0;
-  console.log(`Black: ${blackScore}   Red: ${redScore}`);
-
-  // Print active player indicator
-  const activePlayerColor = round.activePlayer.color === Color.Red ?
-    `${redBg}\x1b[37m RED ${resetText}` :
-    `${blackBg}\x1b[37m BLACK ${resetText}`;
-  console.log(`\n${brightText}ACTIVE PLAYER: ${resetText}${activePlayerColor}`);
-
-  // Print black player's information
-  printPlayerInfo(
-    round.blackPlayer, 
-    round.activePlayer.color === Color.Black, 
-    gameState.decks?.[Color.Black]?.length || 0,
-    resetText
-  );
-
-  // Print board
-  console.log('\nBOARD:');
-
-  // Column headers
-  let colHeaderRow = '       ';
-  for (let col = 0; col < 10; col++) {
-    colHeaderRow += col.toString().padEnd(4);
-  }
-  console.log(colHeaderRow);
-
-  // Column markers
-  let colMarkerRow = '      ';
-  for (let col = 0; col < 10; col++) {
-    colMarkerRow += ' ↓  ';
-  }
-  console.log(colMarkerRow);
-
-  // Black's play area (top)
-  printPlayArea(round, Color.Black, dimText, resetText);
-
-  // Stakes row (middle)
-  let stakeRow = `${whiteBg}\x1b[30mS${resetText}:    `;
-  for (let col = 0; col < 10; col++) {
-    // Check for staked card in this column
-    const stakeCard = round.columns?.[col]?.stakedCard;
-    const display = stakeCard ? `${printCard(stakeCard)}  ` : `${dimText}[ ]${resetText} `;
-    stakeRow += display.padEnd(4);
-  }
-  console.log(stakeRow);
-
-  // Red's play area (bottom)
-  printPlayArea(round, Color.Red, dimText, resetText);
-
-  // Print red player's information
-  printPlayerInfo(
-    round.redPlayer, 
-    round.activePlayer.color === Color.Red, 
-    gameState.decks?.[Color.Red]?.length || 0,
-    resetText
-  );
-
-  // Print help information at the bottom
-  console.log('\nCOMMANDS:');
-  console.log('  stake <card_number> <column>     e.g. "stake 5 3"');
-  console.log('  play <card_number>,... <column>  e.g. "play 7,8 0"');
-  console.log('  help                             Show this help text');
-  console.log('  quit                             Exit the game');
-
-  console.log(separator);
-}
 
 // Function to get available AI move
 function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> {
@@ -469,7 +311,7 @@ async function gameLoop() {
 
             // Small pause before showing the updated state
             setTimeout(() => {
-              printGameState(updatedState);
+              printGameState(updatedState, true); // true = show commands
 
               // Check for game end
               if (updatedState.status === 'complete') {
@@ -521,6 +363,7 @@ async function gameLoop() {
           return;
         } else if (input === 'hand') {
           if (gameState.round) {
+            // printCard is already imported at the top
             console.log('Your hand:',
               gameState.round.activePlayer.hand.map(c =>
                 `${printCard(c, false)} (${c.number})`
@@ -532,7 +375,7 @@ async function gameLoop() {
           promptMove();
           return;
         } else if (input === 'board') {
-          printGameState(gameState);
+          printGameState(gameState, true); // true = show commands
           promptMove();
           return;
         }
@@ -599,7 +442,7 @@ async function gameLoop() {
           // Validate move
           if (move && isValidMove(move)) {
             const updatedState = GameService.makeMove(gameState, move) as BaseGameState;
-            printGameState(updatedState);
+            printGameState(updatedState, true); // true = show commands
 
             // Check for game end
             if (updatedState.status === 'complete') {

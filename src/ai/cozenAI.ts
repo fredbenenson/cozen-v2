@@ -194,7 +194,7 @@ export class CozenAI {
 
     // Select a move based on difficulty
     let moveIndex = 0;
-    
+
     // For NIGHTMARE difficulty, always pick the best move (index 0)
     if (this.difficulty === DIFFICULTY_VALUES[AIDifficulty.NIGHTMARE]) {
       moveIndex = 0;
@@ -204,7 +204,7 @@ export class CozenAI {
       const maxMoveIndex = Math.min(Math.floor(moves.length / 2), 5); // Only consider top half of moves, max 5
       moveIndex = Math.min(rpois(adjustedDifficulty), maxMoveIndex);
     }
-    
+
     const chosenMove = moves[moveIndex];
 
     if (this.debugEnabled) {
@@ -265,7 +265,7 @@ export class CozenAI {
             (round.victory_point_scores?.red || 0)
           : (round.victory_point_scores?.red || 0) -
             (round.victory_point_scores?.black || 0);
-      
+
       return vpDiff;
     }
 
@@ -302,12 +302,12 @@ export class CozenAI {
           // For initial moves where the minimax value is 0, use the calculated move score
           // This preserves the evaluation heuristics when the VP difference is 0
           let finalScore = child.score;
-          
+
           if (finalScore === 0) {
             // Use the original score that was calculated by generateMoves
             finalScore = move.score || 0;
           }
-          
+
           this.moveScores.push({ ...move, score: finalScore });
         }
 
@@ -409,10 +409,10 @@ export class CozenAI {
         }
 
         // Filter for valid stake columns only
-        const validStakeColumns = availableColumns.filter(column => 
+        const validStakeColumns = availableColumns.filter(column =>
           StakeService.isValidStakeColumn(column, round.activePlayer, round as unknown as Round)
         );
-        
+
         // Add a move for each valid stake column
         validStakeColumns.forEach(column => {
           // Adjust value based on column position
@@ -463,19 +463,19 @@ export class CozenAI {
           }
 
           // For stake moves, we need to set a meaningful score since CardEvaluation gives 0 for single cards
-          
+
           // 1. Add base value from card number (higher cards are better to stake)
           let baseValue = cardNumber >= 11 ? cardNumber : cardNumber * 0.5;
-          
+
           // 2. Add significant bonus for face cards (J, Q, K, A)
           const cardValueBonus = cardNumber >= 11 ? (cardNumber - 10) * 1.0 : 0;
-          
+
           // 3. Add bonus for potential pairs (already calculated in move.strength)
           const pairBonus = (move.strength || 0) * 2; // Amplify the importance of potential pairs
-          
+
           // 4. Add position value (column preference)
           const positionBonus = (move.value || 0);
-          
+
           // Final score combines all factors
           move.score = baseValue + cardValueBonus + pairBonus + positionBonus;
         }
@@ -632,7 +632,7 @@ export class CozenAI {
     try {
       const result = CardEvaluation.evaluateHand(hand, stake);
       if (this.debugEnabled) {
-        console.log("CardEvaluation result:", result);
+        // console.log("CardEvaluation result:", result);
       }
       return { value: result.strength || 0 };
     } catch (error) {
