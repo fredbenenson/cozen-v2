@@ -252,7 +252,7 @@ export class CozenAI {
             (round.victory_point_scores?.red || 0)
           : (round.victory_point_scores?.red || 0) -
             (round.victory_point_scores?.black || 0);
-
+      
       return vpDiff;
     }
 
@@ -286,7 +286,16 @@ export class CozenAI {
               `Analyzing moves: ${((index / moves.length) * 100).toFixed(0)}%\r`,
             );
           }
-          this.moveScores.push({ ...move, score: child.score });
+          // For initial moves where the minimax value is 0, use the calculated move score
+          // This preserves the evaluation heuristics when the VP difference is 0
+          let finalScore = child.score;
+          
+          if (finalScore === 0) {
+            // Use the original score that was calculated by generateMoves
+            finalScore = move.score || 0;
+          }
+          
+          this.moveScores.push({ ...move, score: finalScore });
         }
 
         // Alpha-beta pruning
@@ -435,9 +444,22 @@ export class CozenAI {
             cardNumber = (cardId as any).number || 0;
           }
 
-          // Evaluate staking this card
-          const hValue = this.evaluateHand([cardNumber], -1).value;
-          move.score = hValue + (move.strength || 0) + (move.value || 0);
+          // For stake moves, we need to set a meaningful score since CardEvaluation gives 0 for single cards
+          
+          // 1. Add base value from card number (higher cards are better to stake)
+          let baseValue = cardNumber >= 11 ? cardNumber : cardNumber * 0.5;
+          
+          // 2. Add significant bonus for face cards (J, Q, K, A)
+          const cardValueBonus = cardNumber >= 11 ? (cardNumber - 10) * 1.0 : 0;
+          
+          // 3. Add bonus for potential pairs (already calculated in move.strength)
+          const pairBonus = (move.strength || 0) * 2; // Amplify the importance of potential pairs
+          
+          // 4. Add position value (column preference)
+          const positionBonus = (move.value || 0);
+          
+          // Final score combines all factors
+          move.score = baseValue + cardValueBonus + pairBonus + positionBonus;
         }
         // For play moves
         else {
@@ -579,7 +601,7 @@ export class CozenAI {
 
   /**
    * Evaluate the strength of a hand
-   * Simple implementation that calls either the original evaluator or the new one
+   * Uses CardEvaluation service
    */
   private evaluateHand(hand: number[], stake: number): { value: number } {
     // Try to use the existing evaluator if available
@@ -588,7 +610,7 @@ export class CozenAI {
       return { value: result.strength || 0 };
     }
 
-    // Fallback to imported evaluator if available
+    // Use CardEvaluation service
     try {
       const CardEvaluation = require("../services/cardEvaluation").CardEvaluation;
       if (CardEvaluation && typeof CardEvaluation.evaluateHand === 'function') {
@@ -602,80 +624,13 @@ export class CozenAI {
       if (this.debugEnabled) {
         console.log("Error using CardEvaluation:", error);
       }
-      // Continue to fallback implementation
     }
 
-    // Basic implementation if no evaluator is available
-    // This is a simplified version with just pairs and straights
-    let value = 0;
-
-    // Include stake in calculations if it's a valid card
-    let handWithStake = [...hand];
-    if (stake !== -1 && stake > 0) {
-      handWithStake.push(stake);
-    }
-
-    // Count pairs (worth 3 points each)
-    const counts = _.countBy(handWithStake);
-    for (const number in counts) {
-      if (counts[number] >= 2) {
-        value += 3;
-        if (this.debugEnabled) {
-          console.log(`Found pair of ${number}s: +3 points`);
-        }
-      }
-    }
-
-    // Check for straights (worth 1 point per card)
-    const sortedHand = [...handWithStake].sort((a, b) => a - b);
-    let longestRun = 1;
-    let currentRun = 1;
-
-    for (let i = 1; i < sortedHand.length; i++) {
-      if (sortedHand[i] === sortedHand[i - 1] + 1) {
-        currentRun++;
-        longestRun = Math.max(longestRun, currentRun);
-      } else if (sortedHand[i] !== sortedHand[i - 1]) {
-        currentRun = 1;
-      }
-    }
-
-    if (longestRun >= 2) {
-      value += longestRun;
-      if (this.debugEnabled) {
-        console.log(`Found straight of length ${longestRun}: +${longestRun} points`);
-      }
-    }
-
-    // For stakes, add a small bonus for potential future plays
-    if (stake === -1 && this.player.hand) {
-      // This is a stake move, check if we're setting up for a future pair
-      const stakeCard = hand[0]; // Assuming first card in hand array is the one being staked
-
-      // Look through the player's hand for potential matches
-      const cardsInHand = this.player.hand.map((c: any) => c.number);
-      if (cardsInHand.includes(stakeCard)) {
-        // We have a match in hand for a future pair
-        value += 1; // Small bonus for setting up future pair
-        if (this.debugEnabled) {
-          console.log(`Staking ${stakeCard} with match in hand: +1 point bonus`);
-        }
-      }
-
-      // If staking a high card, that's also valuable
-      if (stakeCard >= 11) {
-        value += (stakeCard - 10) * 0.2; // Small bonus based on card value
-        if (this.debugEnabled) {
-          console.log(`Staking high card ${stakeCard}: +${(stakeCard - 10) * 0.2} bonus`);
-        }
-      }
-    }
-
+    // If we get here, we couldn't evaluate the hand
     if (this.debugEnabled) {
-      console.log(`Total hand value: ${value}`);
+      console.log("Failed to evaluate hand, returning 0");
     }
-
-    return { value };
+    return { value: 0 };
   }
 }
 
