@@ -43,8 +43,13 @@ async function main(): Promise<void> {
     // Create a sample game state for visualization
     const { game, aiPlayer } = createSampleGameState();
 
-    // Print the game state using the full visualization
+    // Print the game state with an explanation
     console.log('\nSample game state for visualization:');
+    console.log('\nThis visualization shows the AI (Black) considering its possible moves.');
+    console.log('- It\'s currently BLACK\'s turn to play.');
+    console.log('- Black is the maximizing player (looking for highest scores).');
+    console.log('- Red is the minimizing player (looking for lowest scores).');
+    console.log('- The tree shows what Black is "thinking" about possible moves and responses.\n');
 
     // Extract player information to improve visualization
     const blackPlayer = aiPlayer || game.blackPlayer;
@@ -118,7 +123,7 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
   // Create a sample game state with two players and a round
   const redPlayer: Player = {
     id: 'player-red',
-    name: 'Human Player',
+    name: 'Human Player (Red)',
     color: Color.Red,
     hand: [
       { id: 'red_10', color: Color.Red, number: 10, victoryPoints: 10, played: false, suit: 'hearts' as any },
@@ -138,19 +143,19 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
 
   const blackPlayer: Player = {
     id: 'player-black',
-    name: 'AI Player',
+    name: 'AI Player (Black)',
     color: Color.Black,
     hand: [
       { id: 'black_8', color: Color.Black, number: 8, victoryPoints: 8, played: false, suit: 'spades' as any },
       { id: 'black_3', color: Color.Black, number: 3, victoryPoints: 3, played: false, suit: 'spades' as any },
-      { id: 'red_9', color: Color.Red, number: 9, victoryPoints: 9, played: false, suit: 'hearts' as any },
-      { id: 'red_11', color: Color.Red, number: 11, victoryPoints: 11, played: false, suit: 'hearts' as any },
+      { id: 'black_9', color: Color.Black, number: 9, victoryPoints: 9, played: false, suit: 'spades' as any },
+      { id: 'black_11', color: Color.Black, number: 11, victoryPoints: 11, played: false, suit: 'spades' as any },
     ],
     jail: [],
     cards: [],
     victory_points: 0,
     // Black player should stake on columns 0-4
-    availableStakes: [0, 1, 3, 4],
+    availableStakes: [0, 1, 3],
     stake_offset: 0,
     drawUp: () => {},
     reset: () => {}

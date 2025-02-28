@@ -149,10 +149,12 @@ export class CozenAI {
     // Start the minimax search from the current game state
     this.minimax(aiRound, 0, true, -Infinity, Infinity);
 
-    // Sort moves by score (descending) and then by card count (ascending)
+    // Sort moves by card count (ascending) and then by score (descending)
+    // This ordering ensures score takes priority while breaking ties with card count
     let moves = _.chain(this.moveScores)
-      .sortBy((m) => m.cards.length)
-      .sortBy((m) => (m.score || 0) * -1)
+      .sortBy((m) => (m.score || 0) * -1)  // Sort by score descending (highest first)
+      .sortBy((m) => m.cards.length)  // Then sort by card length (shorter first)
+      .sortBy((m) => (m.score || 0) * -1)  // Re-sort by score to ensure it takes priority
       .value();
 
     // Filter out moves that split pairs
@@ -505,10 +507,11 @@ export class CozenAI {
       }
     });
 
-    // Sort moves: first by score (descending), then by card count (ascending for efficiency)
+    // Sort moves: prioritizing score (descending) over card count (ascending for efficiency)
     return _.chain(allMoves)
-      .sortBy((m) => m.cards.length)
-      .sortBy((m) => -(m.score || 0))
+      .sortBy((m) => -(m.score || 0))  // Sort by score descending
+      .sortBy((m) => m.cards.length)   // Then sort by card length
+      .sortBy((m) => -(m.score || 0))  // Re-sort by score to ensure it takes priority
       .value();
   }
 
