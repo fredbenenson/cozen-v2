@@ -250,6 +250,10 @@ export class GameService {
    */
   public static drawUp(player: Player): void {
     const maxHandSize = 5;
+    
+    // Don't draw if we're in a round's last_play state
+    // This would come from the round's state, but we don't have direct
+    // access to it here. We'll add a check in the handleStakeMove method.
 
     // Only draw if hand is not full
     if (player.hand.length < maxHandSize) {

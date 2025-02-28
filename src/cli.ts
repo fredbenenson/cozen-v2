@@ -35,19 +35,7 @@ async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, d
   const player1 = createTestPlayer(useAI && aiColor === Color.Red ? 'AI' : 'player1', Color.Red);
   const player2 = createTestPlayer(useAI && aiColor === Color.Black ? 'AI' : 'player2', Color.Black);
 
-  // Create proper decks for each player using DeckService
-  const redDeck = DeckService.createDeck(Color.Red);
-  const blackDeck = DeckService.createDeck(Color.Black);
-
-  // Shuffle the decks
-  const shuffledRedDeck = DeckService.shuffleDeck(redDeck);
-  const shuffledBlackDeck = DeckService.shuffleDeck(blackDeck);
-
-  // Deal initial hands
-  player1.hand = shuffledRedDeck.slice(0, 5);
-  player2.hand = shuffledBlackDeck.slice(0, 5);
-
-  // Initialize game
+  // Initialize game - this will create and shuffle decks for each player
   const gameState = GameService.initializeGame(player1, player2) as BaseGameState;
 
   // Safety check if round is defined
@@ -55,14 +43,10 @@ async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, d
     throw new Error("Game round failed to initialize");
   }
 
-  // Make sure the round's active/inactive players have hands
-  gameState.round.activePlayer.hand = player1.hand;
-  gameState.round.inactivePlayer.hand = player2.hand;
-
-  // Add remaining decks to game state
+  // Add decks reference to game state for easier access in CLI
   gameState.decks = {
-    [Color.Red]: shuffledRedDeck.slice(5),
-    [Color.Black]: shuffledBlackDeck.slice(5)
+    [Color.Red]: gameState.round.redPlayer.cards || [],
+    [Color.Black]: gameState.round.blackPlayer.cards || []
   };
 
   // Set up AI if requested

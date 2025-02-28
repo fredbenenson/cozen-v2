@@ -10,6 +10,7 @@ import { Player } from "../types/player";
 import { Round } from "../types/round";
 import { Color } from "../types/game";
 import { CardEvaluation } from "../services/cardEvaluation";
+import { StakeService } from "../services/stakeService";
 import {
   rpois,
   deduplicateHands,
@@ -191,8 +192,19 @@ export class CozenAI {
       return this.createEmptyResult();
     }
 
-    // Select a move based on difficulty (using Poisson distribution)
-    const moveIndex = Math.min(rpois(adjustedDifficulty), moves.length - 1);
+    // Select a move based on difficulty
+    let moveIndex = 0;
+    
+    // For NIGHTMARE difficulty, always pick the best move (index 0)
+    if (this.difficulty === DIFFICULTY_VALUES[AIDifficulty.NIGHTMARE]) {
+      moveIndex = 0;
+    } else {
+      // For other difficulties, use Poisson distribution with better weighting toward good moves
+      // Also limit the randomness more to avoid making clearly bad moves
+      const maxMoveIndex = Math.min(Math.floor(moves.length / 2), 5); // Only consider top half of moves, max 5
+      moveIndex = Math.min(rpois(adjustedDifficulty), maxMoveIndex);
+    }
+    
     const chosenMove = moves[moveIndex];
 
     if (this.debugEnabled) {
@@ -396,8 +408,13 @@ export class CozenAI {
           stakeValue += 2; // Bonus for having a potential pair
         }
 
-        // Add a move for each available column
-        availableColumns.forEach(column => {
+        // Filter for valid stake columns only
+        const validStakeColumns = availableColumns.filter(column => 
+          StakeService.isValidStakeColumn(column, round.activePlayer, round as unknown as Round)
+        );
+        
+        // Add a move for each valid stake column
+        validStakeColumns.forEach(column => {
           // Adjust value based on column position
           let columnValue = stakeValue;
 

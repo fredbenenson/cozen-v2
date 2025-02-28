@@ -1,4 +1,3 @@
-// src/services/ai/aiService.ts
 import { CozenAI, AIDifficulty } from '../../ai/cozenAI';
 import { GameState, Move, BaseGameState } from '../../types/game';
 import { Player } from '../../types/player';
@@ -9,7 +8,7 @@ export class AIService {
    */
   public static calculateMove(
     gameState: BaseGameState,
-    difficulty: AIDifficulty = AIDifficulty.MEDIUM,
+    difficulty: AIDifficulty = AIDifficulty.NIGHTMARE,
     searchDepth: number = 4
   ): Move | null {
     if (!gameState.round || gameState.status !== 'in_progress') {

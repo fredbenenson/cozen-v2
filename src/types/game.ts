@@ -20,6 +20,7 @@ export interface Card {
   number: number;
   victoryPoints: number;
   played: boolean;
+  owner?: any; // Reference to the owner of the card (for stakes)
 }
 
 export interface Player {

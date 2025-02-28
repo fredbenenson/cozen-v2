@@ -2,6 +2,7 @@ import { Player } from '../../types/player';
 import { Round, Position, Move, RoundState, Column } from '../../types/round';
 import { Card, Color, Suit } from '../../types/game';
 import { CardEvaluation } from '../cardEvaluation';
+import { StakeService } from '../stakeService';
 import _ from 'lodash';
 
 export class RoundService {
@@ -21,11 +22,12 @@ export class RoundService {
     previousStakes?: { red: Card[]; black: Card[] }
   ): Round {
     // Create a new round with basic properties
+    // Use temporary default active players; we'll update after stakes are placed
     const round: Round = {
       redPlayer,
       blackPlayer,
-      activePlayer: activePlayer || redPlayer,
-      inactivePlayer: inactivePlayer || blackPlayer,
+      activePlayer: activePlayer || redPlayer,  // Temporary default
+      inactivePlayer: inactivePlayer || blackPlayer, // Temporary default
       firstRound,
       board: this.createBoard(),
       columns: [],
@@ -40,10 +42,6 @@ export class RoundService {
     this.setupPositions(round);
     this.extractColumns(round);
 
-    // For tests, we typically don't want to process stakes - we let the tests set them up
-    // In real gameplay, we'd process stakes as part of initialization
-    // But for now, we'll leave this commented as the tests don't expect initial stakes setup
-    /*
     // Setup stakes based on whether we're using previous stakes or creating new ones
     if (previousStakes) {
       round.firstStakes = previousStakes;
@@ -51,11 +49,19 @@ export class RoundService {
     } else if (firstRound) {
       this.setupStakes(round);
     }
-    */
 
-    // If this is the first round, determine starting player based on stakes
-    if (firstRound && !activePlayer && !inactivePlayer) {
+    // Always determine starting player based on stakes
+    // For the first round or when activePlayer isn't specified
+    if (!activePlayer || !inactivePlayer) {
       this.setActivePlayer(round);
+    }
+    
+    // Ensure active player is properly set
+    if (!round.activePlayer) {
+      // Fallback if setActivePlayer didn't work: default to Red
+      console.warn("Active player not set properly, defaulting to Red");
+      round.activePlayer = round.redPlayer;
+      round.inactivePlayer = round.blackPlayer;
     }
 
     return round;
@@ -114,38 +120,8 @@ export class RoundService {
     this.getFirstStakesAndDrawUp(round, 'red');
     this.getFirstStakesAndDrawUp(round, 'black');
 
-    // Handle case where initial stakes are equal
-    while (round.firstStakes.red.length > 0 &&
-           round.firstStakes.black.length > 0 &&
-           round.firstStakes.red[round.firstStakes.red.length - 1].number ===
-           round.firstStakes.black[round.firstStakes.black.length - 1].number &&
-           round.firstRound) {
-
-      if (round.firstStakes.red.length < 2) {
-        // Add another stake from each player
-        if (round.redPlayer.hand.length > 0) {
-          round.firstStakes.red.push(round.redPlayer.hand.shift() as Card);
-          round.redPlayer.drawUp();
-        }
-
-        if (round.blackPlayer.hand.length > 0) {
-          round.firstStakes.black.push(round.blackPlayer.hand.shift() as Card);
-          round.blackPlayer.drawUp();
-        }
-      } else {
-        // Reset and try again if we already have 2+ stakes
-        round.firstStakes.red = [];
-        round.firstStakes.black = [];
-
-        // Reset player hands/decks with shuffling
-        round.redPlayer.reset({ newDeck: false, shuffled: true });
-        round.blackPlayer.reset({ newDeck: false, shuffled: true });
-
-        // Get new stakes
-        this.getFirstStakesAndDrawUp(round, 'red');
-        this.getFirstStakesAndDrawUp(round, 'black');
-      }
-    }
+    // According to rules, each player should only have ONE stake card at the start
+    // We'll simplify and avoid multiple stakes or tie handling for now
 
     // Process the first stakes onto the board
     this.processFirstStakes(round);
@@ -153,19 +129,21 @@ export class RoundService {
 
   /**
    * Get first stakes and draw up for a player
+   * According to rules: "Each round of Cozen starts with both players shuffling their decks,
+   * flipping a single card off the top and placing it face up in the Stakes row, and then drawing a hand of 5 cards."
    */
   private static getFirstStakesAndDrawUp(round: Round, playerColor: 'red' | 'black'): void {
     const player = playerColor === 'red' ? round.redPlayer : round.blackPlayer;
 
-    if (player.hand.length > 0) {
-      // Take the first card from hand
-      const firstCard = player.hand.shift() as Card;
+    if (player.cards.length > 0) {
+      // Take the first card from the deck (not hand)
+      const firstCard = player.cards.shift() as Card;
 
       // Add it to first stakes
       round.firstStakes[playerColor].push(firstCard);
 
-      // Draw a new card
-      player.drawUp();
+      // No need to draw up here as player should already have 5 cards
+      // And we're taking the stake directly from the deck
     }
   }
 
@@ -173,15 +151,51 @@ export class RoundService {
    * Process first stakes onto the board
    */
   private static processFirstStakes(round: Round): void {
-    // Stake red player's cards
-    round.firstStakes.red.forEach(card => {
-      this.stakeCard(round.redPlayer, card, round);
-    });
+    // For first stakes, place stakes starting from the center of the board
+    // Black stakes should start at column 4 (farthest right for Black)
+    // Red stakes should start at column 5 (farthest left for Red)
 
-    // Stake black player's cards
-    round.firstStakes.black.forEach(card => {
-      this.stakeCard(round.blackPlayer, card, round);
-    });
+    // Process red stake (first card only)
+    if (round.firstStakes.red.length > 0) {
+      const redCard = round.firstStakes.red[0];
+      
+      // Always place first red stake in column 5 (center-left)
+      const redColumn = 5;
+      
+      // Set owner of the stake card for clearer identification
+      redCard.owner = round.redPlayer;
+      
+      // Remove this column from available stakes
+      const redIndex = round.redPlayer.availableStakes.indexOf(redColumn);
+      if (redIndex !== -1) {
+        round.redPlayer.availableStakes.splice(redIndex, 1);
+      }
+      
+      // Place the stake card
+      round.board[this.MAX_CARDS_PER_HAND][redColumn].card = redCard;
+      round.columns[redColumn].stakedCard = redCard;
+    }
+
+    // Process black stake (first card only)
+    if (round.firstStakes.black.length > 0) {
+      const blackCard = round.firstStakes.black[0];
+      
+      // Always place first black stake in column 4 (center-right)
+      const blackColumn = 4;
+      
+      // Set owner of the stake card for clearer identification
+      blackCard.owner = round.blackPlayer;
+      
+      // Remove this column from available stakes
+      const blackIndex = round.blackPlayer.availableStakes.indexOf(blackColumn);
+      if (blackIndex !== -1) {
+        round.blackPlayer.availableStakes.splice(blackIndex, 1);
+      }
+      
+      // Place the stake card
+      round.board[this.MAX_CARDS_PER_HAND][blackColumn].card = blackCard;
+      round.columns[blackColumn].stakedCard = blackCard;
+    }
   }
 
   /**
@@ -239,8 +253,11 @@ export class RoundService {
         this.stakeCard(round.activePlayer, card, round);
       }
 
-      // Draw a new card
-      round.activePlayer.drawUp();
+      // Only draw a new card if not in last_play state
+      // This ensures the round ends after all initial cards are played
+      if (round.state !== 'last_play') {
+        round.activePlayer.drawUp();
+      }
     }
   }
 
@@ -275,17 +292,39 @@ export class RoundService {
   }
 
   /**
+   * Get the next valid stake column for a player
+   * Stakes must spread outward from center (columns 4-5)
+   * Uses the StakeService to determine valid columns
+   */
+  private static getNextValidStakeColumn(player: Player, round: Round): number | undefined {
+    return StakeService.getNextValidStakeColumn(player, round);
+  }
+
+  /**
    * Stake a card in the stakes row
    */
   private static stakeCard(player: Player, card: Card, round: Round): void {
-    // Get the next available stake position for this player
-    if (!player.availableStakes || player.availableStakes.length === 0) {
-      console.warn('No available stakes for player', player.name);
+    // Find the next valid stake column based on current game state
+    const stakeColumn = this.getNextValidStakeColumn(player, round);
+    
+    if (stakeColumn === undefined) {
+      console.warn('No valid stake columns available for player', player.name);
       return;
     }
-
-    const stakeColumn = player.availableStakes.shift();
-    if (stakeColumn === undefined) return;
+    
+    // Make sure the column is in the player's available stakes
+    if (!player.availableStakes.includes(stakeColumn)) {
+      console.warn(`Column ${stakeColumn} is not available for staking by ${player.name}`);
+      return;
+    }
+    
+    console.log(`${player.color} player is staking in column ${stakeColumn}`);
+    
+    // Remove this column from player's available stakes
+    const stakeIndex = player.availableStakes.indexOf(stakeColumn);
+    if (stakeIndex !== -1) {
+      player.availableStakes.splice(stakeIndex, 1);
+    }
 
     // Place card in the stakes row at the correct column
     round.board[this.MAX_CARDS_PER_HAND][stakeColumn].card = card;
@@ -298,11 +337,20 @@ export class RoundService {
    * Stake a card in a specific column (for tests)
    */
   private static stakeCardAtColumn(player: Player, card: Card, round: Round, column: number): void {
+    // Validate that the column is valid for staking
+    if (!StakeService.isValidStakeColumn(column, player, round)) {
+      console.warn(`Column ${column} is not valid for staking by ${player.name}. Valid columns are: ${StakeService.getValidStakeColumns(player, round)}`);
+      return;
+    }
+
     // Place card in the stakes row at the specified column
     round.board[this.MAX_CARDS_PER_HAND][column].card = card;
 
     // Update the column's stakedCard for easier access
     round.columns[column].stakedCard = card;
+    
+    // Set the owner for easier identification
+    card.owner = player;
 
     // For test consistency: also update player's availableStakes
     // Find the index of the column in availableStakes
@@ -344,12 +392,14 @@ export class RoundService {
     // IMPORTANT: Order matters here - check inactive player first
 
     // Enter last_play if inactive player has no cards
-    if (round.inactivePlayer.hand.length === 0 && round.state !== 'complete') {
+    if (round.inactivePlayer.hand.length === 0 && round.state !== 'complete' && round.state !== 'last_play') {
+      console.log("Player has emptied their hand - entering last_play state");
       round.state = 'last_play';
     }
 
     // Round is complete if active player has no cards in hand and we're in last_play
     if (round.activePlayer.hand.length === 0 && round.state === 'last_play') {
+      console.log("Last player has played their final card - ending round");
       this.endRound(round);
     }
   }
@@ -540,31 +590,35 @@ export class RoundService {
    * Determine the active player based on stakes for first round
    */
   private static setActivePlayer(round: Round): void {
-    if (!round.firstStakes.red.length || !round.firstStakes.black.length) return;
-
-    // Find the player with the highest stake card
-    let index = 0;
-    let setActive = false;
-
-    while (!setActive && index < Math.min(round.firstStakes.red.length, round.firstStakes.black.length)) {
-      const redStake = round.firstStakes.red[index];
-      const blackStake = round.firstStakes.black[index];
-
-      if (redStake.number > blackStake.number) {
-        // Red goes first
+    // The rules say:
+    // "At this point, whoever is closest to the box the cards came in hands it to
+    // the other player. That player recieving the box goes first. On subsequent
+    // hands, continue passing the box in this way to alternate starting play."
+    
+    // This means:
+    // 1. For the first round, we need to arbitrarily decide who goes first (the one furthest from the box)
+    // 2. For subsequent rounds, we alternate who goes first
+    
+    // For the first round in a new game:
+    if (round.firstRound) {
+      // For simplicity, let's make Black go first in the first round
+      // This is arbitrary, just like "whoever is closest to the box"
+      console.log("First round - Black goes first (starting player)");
+      round.activePlayer = round.blackPlayer;
+      round.inactivePlayer = round.redPlayer;
+    } else {
+      // For subsequent rounds, we should have been given activePlayer and inactivePlayer
+      // If not (which shouldn't happen), we'll default to alternating from Red
+      if (!round.activePlayer || !round.inactivePlayer) {
+        console.warn("Active player not properly set for non-first round, defaulting to Red");
         round.activePlayer = round.redPlayer;
         round.inactivePlayer = round.blackPlayer;
-        setActive = true;
-      } else if (blackStake.number > redStake.number) {
-        // Black goes first
-        round.activePlayer = round.blackPlayer;
-        round.inactivePlayer = round.redPlayer;
-        setActive = true;
-      } else {
-        // Tie, move to next stake
-        index++;
       }
     }
+    
+    // Note: After this round, in GameService.setupNextRound(), the active player
+    // will be switched to the other player for the next round, implementing
+    // the "continue passing the box in this way to alternate starting play" rule
   }
 
   /**
