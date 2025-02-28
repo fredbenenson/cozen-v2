@@ -1,3 +1,28 @@
+/**
+ * CardEvaluation Service
+ * 
+ * This service is the canonical implementation for card hand evaluation
+ * and comparison logic in the Cozen game. It provides detailed hand strength
+ * evaluation, including:
+ * 
+ * - Pairs detection
+ * - Run detection
+ * - Stake card inclusion logic
+ * - High card comparisons for tie-breaking
+ * - Debug capabilities
+ * 
+ * NOTE: The CozenEvaluation class is deprecated and acts as a wrapper around this class.
+ * All new code should use this CardEvaluation class directly.
+ * 
+ * Migration from CozenEvaluation to CardEvaluation:
+ * - Use CardEvaluation.evaluateHand() instead of CozenEvaluation.evaluateHand()
+ * - Use CardEvaluation.getWinningHand() instead of CozenEvaluation.getWinningHand()
+ * - Update result property access: 
+ *   - result.strength (instead of result.value)
+ *   - result.highCards (instead of result.highCardList)
+ *   - result.jailCards (instead of result.jailHand)
+ */
+
 export interface HandEvaluation {
   strength: number;
   highCards: number[];

@@ -9,6 +9,7 @@ import {
 import { Player } from "../types/player";
 import { Round } from "../types/round";
 import { Color } from "../types/game";
+import { CardEvaluation } from "../services/cardEvaluation";
 import {
   rpois,
   deduplicateHands,
@@ -610,16 +611,13 @@ export class CozenAI {
       return { value: result.strength || 0 };
     }
 
-    // Use CardEvaluation service
+    // Use the imported CardEvaluation service directly
     try {
-      const CardEvaluation = require("../services/cardEvaluation").CardEvaluation;
-      if (CardEvaluation && typeof CardEvaluation.evaluateHand === 'function') {
-        const result = CardEvaluation.evaluateHand(hand, stake);
-        if (this.debugEnabled) {
-          console.log("CardEvaluation result:", result);
-        }
-        return { value: result.strength || 0 };
+      const result = CardEvaluation.evaluateHand(hand, stake);
+      if (this.debugEnabled) {
+        console.log("CardEvaluation result:", result);
       }
+      return { value: result.strength || 0 };
     } catch (error) {
       if (this.debugEnabled) {
         console.log("Error using CardEvaluation:", error);
