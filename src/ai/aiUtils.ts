@@ -2,22 +2,27 @@ import { Card, Color, Suit } from '../types/game';
 import { Player } from '../types/player';
 import { Round, Column } from '../types/round';
 import { AIMove, AIDifficulty, DIFFICULTY_VALUES } from './aiTypes';
+import { StakeService } from '../services/stakeService';
 
 /**
  * Generates all possible stake moves for a player
+ * Uses StakeService to determine valid stake columns
  */
 export function generateStakeMoves(round: Round, player: Player): AIMove[] {
-  // If no available stake positions, return empty array
-  if (player.availableStakes.length === 0) {
+  // Get valid stake columns from StakeService
+  const validStakeColumns = StakeService.getValidStakeColumns(player, round);
+  
+  // If no valid stake positions, return empty array
+  if (validStakeColumns.length === 0) {
     return [];
   }
 
   const moves: AIMove[] = [];
   const validCards = player.hand.filter(card => card.color === player.color);
 
-  // Generate a stake move for each card in hand and each available stake position
+  // Generate a stake move for each card in hand and each valid stake column
   for (const card of validCards) {
-    for (const column of player.availableStakes) {
+    for (const column of validStakeColumns) {
       moves.push({
         cards: [card.id],
         column,
@@ -96,23 +101,94 @@ function countOpponentCardsInColumn(column: Column, player: Player): number {
 }
 
 /**
- * Generates all valid card combinations (power set without the empty set)
+ * Generates all valid card combinations (singles, pairs, and runs)
  */
 export function generateCardCombinations(cards: Card[]): Card[][] {
   const result: Card[][] = [];
   
-  // Generate power set using binary counting
-  const n = cards.length;
-  // Skip the empty set (i=0)
-  for (let i = 1; i < Math.pow(2, n); i++) {
-    const combination: Card[] = [];
-    for (let j = 0; j < n; j++) {
-      // If jth bit is set, include the card
-      if ((i & (1 << j)) !== 0) {
-        combination.push(cards[j]);
+  // Step 1: Generate singles (individual cards)
+  for (const card of cards) {
+    result.push([card]);
+  }
+  
+  // Step 2: Generate pairs
+  // Group cards by number to find pairs
+  const numberGroups = new Map<number, Card[]>();
+  for (const card of cards) {
+    if (!numberGroups.has(card.number)) {
+      numberGroups.set(card.number, []);
+    }
+    numberGroups.get(card.number)!.push(card);
+  }
+  
+  // Add pairs to the result
+  for (const [_, sameNumberCards] of numberGroups.entries()) {
+    if (sameNumberCards.length >= 2) {
+      // Generate all possible pairs from cards of the same number
+      for (let i = 0; i < sameNumberCards.length - 1; i++) {
+        for (let j = i + 1; j < sameNumberCards.length; j++) {
+          result.push([sameNumberCards[i], sameNumberCards[j]]);
+        }
+      }
+      
+      // If more than 2 cards of the same number, also include triples
+      if (sameNumberCards.length >= 3) {
+        for (let i = 0; i < sameNumberCards.length - 2; i++) {
+          for (let j = i + 1; j < sameNumberCards.length - 1; j++) {
+            for (let k = j + 1; k < sameNumberCards.length; k++) {
+              result.push([sameNumberCards[i], sameNumberCards[j], sameNumberCards[k]]);
+            }
+          }
+        }
+      }
+      
+      // If 4 cards of the same number, also include quadruples
+      if (sameNumberCards.length >= 4) {
+        result.push([...sameNumberCards.slice(0, 4)]);
       }
     }
-    result.push(combination);
+  }
+  
+  // Step 3: Generate runs (straights)
+  // Sort cards by number for run detection
+  const sortedCards = [...cards].sort((a, b) => a.number - b.number);
+  
+  // Find potential runs of consecutive numbers
+  for (let startIdx = 0; startIdx < sortedCards.length - 1; startIdx++) {
+    // Try to build a run starting from this card
+    const run = [sortedCards[startIdx]];
+    let currentNumber = sortedCards[startIdx].number;
+    
+    for (let nextIdx = startIdx + 1; nextIdx < sortedCards.length; nextIdx++) {
+      // Skip duplicate numbers - we only want consecutive ascending values
+      if (sortedCards[nextIdx].number === currentNumber) {
+        continue;
+      }
+      
+      // If the next card is exactly one number higher, add it to the run
+      if (sortedCards[nextIdx].number === currentNumber + 1) {
+        run.push(sortedCards[nextIdx]);
+        currentNumber = sortedCards[nextIdx].number;
+      } else {
+        // Not consecutive, break out
+        break;
+      }
+    }
+    
+    // Only add runs of at least 2 cards
+    if (run.length >= 2) {
+      result.push(run);
+      
+      // Also add all valid sub-runs of length >= 2
+      for (let i = 0; i < run.length - 1; i++) {
+        for (let j = i + 2; j <= run.length; j++) {
+          // Avoid duplicates (e.g., don't add the full run again)
+          if (j - i !== run.length) {
+            result.push(run.slice(i, j));
+          }
+        }
+      }
+    }
   }
   
   return result;

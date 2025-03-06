@@ -211,10 +211,10 @@ export class MinimaxVisualizer {
               // Update with the final score
               node.score = finalScores[i].score || 0;
               
-              // Mark this so we know it's a final score
+              // Mark this with a more prominent final score
               node.label = `Black (AI/Max) ${node.isStake ? 'Stake' : 'Play'}\\nColumn: ${node.column}\\nCards: ${
                 node.cards.length > 30 ? node.cards.substring(0, 27) + '...' : node.cards
-              }\\nFinal Score: ${node.score.toFixed(1)}`;
+              }\\nFinal Score: ${node.score.toFixed(1)}\\nMinimax Value: ${node.score.toFixed(1)}`;
             }
           }
         } else {
@@ -226,13 +226,12 @@ export class MinimaxVisualizer {
             for (const node of childNodes) {
               // For children, record the minimax result (but don't change existing scores)
               node.minimaxResult = result;
-              // Add evaluation info to the label
-              if (!node.label) {
-                const playerTurn = node.maximizing ? 'Black (AI/Max)' : 'Red (Human/Min)';
-                node.label = `${playerTurn} ${node.isStake ? 'Stake' : 'Play'}\\nColumn: ${node.column}\\nCards: ${
-                  node.cards.length > 30 ? node.cards.substring(0, 27) + '...' : node.cards
-                }\\nEval: ${node.score.toFixed(1)}\\nMinimax: ${result.toFixed(1)}`;
-              }
+              // Add evaluation info to the label - always include minimax score
+              const playerTurn = node.maximizing ? 'Black (AI/Max)' : 'Red (Human/Min)';
+              node.label = `${playerTurn} ${node.isStake ? 'Stake' : 'Play'}\\nColumn: ${node.column}\\nCards: ${
+                node.cards.length > 30 ? node.cards.substring(0, 27) + '...' : node.cards
+              }\\nEval: ${node.score.toFixed(1)}\\nMinimax: ${result.toFixed(1)}`;
+            
             }
           }
         }
@@ -426,21 +425,23 @@ Thicker borders show stronger moves for that player.`
             color = 'gold';
           }
           
-          // Use a different style for promising moves based on the player's perspective
+          // Use a different style for promising moves based on the minimax score
           // For Black/Max: positive scores are good (thick green border)
           // For Red/Min: negative scores are good (thick red border) from Black's perspective
           let nodeStyle = '';
+          const scoreToUse = node.minimaxResult !== undefined ? node.minimaxResult : node.score;
+          
           if (node.maximizing) { // Black/AI/Max nodes
-            nodeStyle = node.score > 0 
+            nodeStyle = scoreToUse > 0 
               ? `, penwidth=2.5, color="darkgreen"` 
-              : node.score < 0 
+              : scoreToUse < 0 
                 ? `, penwidth=1, color="red"` 
                 : ``;
           } else { // Red/Human/Min nodes
             // For minimizing player, a negative score (from AI perspective) is good
-            nodeStyle = node.score < 0 
+            nodeStyle = scoreToUse < 0 
               ? `, penwidth=2.5, color="darkred"` 
-              : node.score > 0 
+              : scoreToUse > 0 
                 ? `, penwidth=1, color="green"` 
                 : ``;
           }
@@ -449,18 +450,20 @@ Thicker borders show stronger moves for that player.`
           addedNodes.add(node.target);
         }
         
-        // Add edge with appropriate styling based on player perspective
+        // Add edge with appropriate styling based on minimax scores
         let edgeStyle = '';
+        const scoreToUse = node.minimaxResult !== undefined ? node.minimaxResult : node.score;
+        
         if (node.maximizing) { // Edges to Black/AI/Max nodes
-          edgeStyle = node.score > 0 
+          edgeStyle = scoreToUse > 0 
             ? ", color=\"darkgreen\", penwidth=2" 
-            : node.score < 0 
+            : scoreToUse < 0 
               ? ", color=\"darkred\", penwidth=1" 
               : "";
         } else { // Edges to Red/Human/Min nodes
-          edgeStyle = node.score < 0 
+          edgeStyle = scoreToUse < 0 
             ? ", color=\"darkred\", penwidth=2" 
-            : node.score > 0 
+            : scoreToUse > 0 
               ? ", color=\"darkgreen\", penwidth=1" 
               : "";
         }

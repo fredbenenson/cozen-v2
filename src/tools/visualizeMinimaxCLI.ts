@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import _ from 'lodash';
 import { printGameState } from '../utils/gameVisualizer';
+import { StakeService } from '../services/stakeService';
 
 // A simple CLI tool to generate a minimax tree visualization
 
@@ -147,14 +148,26 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
       { id: 'red_5', color: Color.Red, number: 5, victoryPoints: 5, played: false, suit: 'hearts' as any },
       { id: 'red_9', color: Color.Red, number: 9, victoryPoints: 9, played: false, suit: 'hearts' as any },
       { id: 'red_11', color: Color.Red, number: 11, victoryPoints: 11, played: false, suit: 'hearts' as any },
+      { id: 'red_10c', color: Color.Red, number: 10, victoryPoints: 10, played: false, suit: 'diamonds' as any },
     ],
     jail: [],
-    cards: [],
+    // Add some cards to the deck
+    cards: [
+      { id: 'red_6', color: Color.Red, number: 6, victoryPoints: 6, played: false, suit: 'hearts' as any },
+      { id: 'red_7', color: Color.Red, number: 7, victoryPoints: 7, played: false, suit: 'hearts' as any },
+      { id: 'red_8', color: Color.Red, number: 8, victoryPoints: 8, played: false, suit: 'diamonds' as any },
+    ],
     victory_points: 0,
     // Red player should stake on columns 5-9 (5 is already used, so 6, 7, 8, 9 remain)
     availableStakes: [6, 7, 8, 9],
     stake_offset: 1,
-    drawUp: () => {},
+    drawUp: function() {
+      // Draw cards until hand has 5 cards
+      while (this.hand.length < 5 && this.cards.length > 0) {
+        const card = this.cards.shift();
+        if (card) this.hand.push(card);
+      }
+    },
     reset: () => {}
   };
 
@@ -167,14 +180,26 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
       { id: 'black_3', color: Color.Black, number: 3, victoryPoints: 3, played: false, suit: 'spades' as any },
       { id: 'black_7', color: Color.Black, number: 7, victoryPoints: 7, played: false, suit: 'spades' as any },
       { id: 'black_12', color: Color.Black, number: 12, victoryPoints: 12, played: false, suit: 'spades' as any },
+      { id: 'black_4', color: Color.Black, number: 4, victoryPoints: 4, played: false, suit: 'clubs' as any },
     ],
     jail: [],
-    cards: [],
+    // Add some cards to the deck
+    cards: [
+      { id: 'black_9', color: Color.Black, number: 9, victoryPoints: 9, played: false, suit: 'spades' as any },
+      { id: 'black_10', color: Color.Black, number: 10, victoryPoints: 10, played: false, suit: 'spades' as any },
+      { id: 'black_5', color: Color.Black, number: 5, victoryPoints: 5, played: false, suit: 'clubs' as any },
+    ],
     victory_points: 0,
     // Black player should stake on columns 0-4 (4 is already used, so 3, 2, 1, 0 remain)
     availableStakes: [3, 2, 1, 0],
     stake_offset: -1,
-    drawUp: () => {},
+    drawUp: function() {
+      // Draw cards until hand has 5 cards
+      while (this.hand.length < 5 && this.cards.length > 0) {
+        const card = this.cards.shift();
+        if (card) this.hand.push(card);
+      }
+    },
     reset: () => {}
   };
 
@@ -301,6 +326,10 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
 
         // Remove column from available stakes
         player.availableStakes = player.availableStakes.filter((c: number) => c !== move.column);
+        
+        // Draw up to 5 cards - IMPORTANT: This is the fix for issue #1
+        player.drawUp();
+        console.log(`${player.color} drew up to ${player.hand.length} cards after staking`);
       }
     } else {
       // Apply a wager move
@@ -393,8 +422,8 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
 }
 
 /**
- * Generate a simple DOT file for the minimax tree visualization
- * This creates a simple representation of possible moves
+ * Generate a comprehensive DOT file for the minimax tree visualization
+ * This creates a representation of all possible moves
  */
 function generateSimpleDotFile(game: any, aiPlayer: any): string {
   let dotContent = 'digraph MinimaxTree {\n';
@@ -402,46 +431,432 @@ function generateSimpleDotFile(game: any, aiPlayer: any): string {
   dotContent += '  node [shape=box, style=filled, fontname="Arial"];\n';
   dotContent += '  edge [fontname="Arial"];\n\n';
   
-  // Add root node
-  dotContent += '  "root" [label="Current Game State\\nBlack to Move", fillcolor="lightgreen"];\n\n';
+  // Root node will be added at the end with staking info
   
-  // Get available stake moves for Black
-  const blackStakeMoves = aiPlayer.availableStakes || [3, 2, 1, 0];
+  // Get properly validated stake moves using StakeService
+  const blackValidStakes = StakeService.getValidStakeColumns(aiPlayer, game.round);
+  console.log('Valid stake columns for Black:', blackValidStakes);
+  
+  const redValidStakes = StakeService.getValidStakeColumns(game.redPlayer, game.round);
+  console.log('Valid stake columns for Red:', redValidStakes);
+  
+  // Use the valid stake columns from StakeService
+  const blackStakeMoves = blackValidStakes;
   const blackCards = aiPlayer.hand || [];
+  const redStakeMoves = redValidStakes; 
+  const redCards = game.redPlayer.hand || [];
   
-  // Create first level nodes (Black's moves)
-  for (let i = 0; i < Math.min(blackCards.length, 4); i++) {
-    const card = blackCards[i];
-    const nodeId = `black_move_${i}`;
+  // Generate ALL possible stake moves for Black (one card per available column)
+  let moveCounter = 0;
+  
+  // ---- BLACK STAKE MOVES ----
+  // For each card in Black's hand...
+  for (let cardIndex = 0; cardIndex < blackCards.length; cardIndex++) {
+    const card = blackCards[cardIndex];
     const cardLabel = `${card.number}${card.suit === 'hearts' ? '♥' : '♠'}`;
     
-    // For each card, show staking in a different column
-    const column = blackStakeMoves[i % blackStakeMoves.length];
-    dotContent += `  "${nodeId}" [label="Black Stakes\\nCard: ${cardLabel}\\nColumn: ${column}", fillcolor="lightskyblue"];\n`;
-    dotContent += `  "root" -> "${nodeId}" [label="${i+1}"];\n`;
-    
-    // For each Black move, add some possible Red responses
-    const redMoves = game.redPlayer.availableStakes || [5, 6, 7, 8, 9];
-    const redCards = game.redPlayer.hand || [];
-    
-    for (let j = 0; j < Math.min(redCards.length, 2); j++) {
-      const redCard = redCards[j];
-      const redNodeId = `${nodeId}_red_${j}`;
-      const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+    // For each available stake column...
+    for (let columnIndex = 0; columnIndex < blackStakeMoves.length; columnIndex++) {
+      moveCounter++;
+      const column = blackStakeMoves[columnIndex];
       
-      // Create Red's response
-      const redColumn = redMoves[j % redMoves.length];
-      dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}", fillcolor="lightcoral"];\n`;
-      dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${j+1}"];\n`;
+      // Calculate a score for this move (card value is a good heuristic)
+      const moveScore = card.victoryPoints || card.number;
+      
+      // Create stake move node with score
+      const nodeId = `black_stake_${cardIndex}_col${column}`;
+      dotContent += `  "${nodeId}" [label="Black Stakes\\nCard: ${cardLabel}\\nColumn: ${column}\\nScore: ${moveScore}", fillcolor="lightskyblue", penwidth="${moveScore > 8 ? 2.5 : 1}", color="${moveScore > 8 ? 'darkgreen' : 'black'}"];\n`;
+      dotContent += `  "root" -> "${nodeId}" [label="${moveCounter}", color="${moveScore > 8 ? 'darkgreen' : 'gray'}", penwidth="${moveScore > 8 ? 2 : 1}"];\n`;
+      
+      // ---- RED RESPONSES TO BLACK STAKES ----
+      let redCounter = 0;
+      
+      // Add RED STAKE responses
+      for (let redCardIndex = 0; redCardIndex < redCards.length; redCardIndex++) {
+        const redCard = redCards[redCardIndex];
+        const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+        
+        for (let redColumnIndex = 0; redColumnIndex < redStakeMoves.length; redColumnIndex++) {
+          redCounter++;
+          const redColumn = redStakeMoves[redColumnIndex];
+          
+          // Calculate a score (negative from Black's perspective)
+          const redMoveScore = -(redCard.victoryPoints || redCard.number);
+          
+          const redNodeId = `${nodeId}_red_stake_${redCardIndex}_col${redColumn}`;
+          dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}\\nScore: ${redMoveScore}", fillcolor="lightcoral", penwidth="${Math.abs(redMoveScore) > 8 ? 2.5 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+          dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+          
+          // Stop after a certain number to avoid overwhelming the visualization
+          if (redCounter >= 8) break;
+        }
+        if (redCounter >= 8) break;
+      }
+      
+      // Add RED PLAY (wager) responses
+      // For each staked column that Black has a card in, Red can wager cards
+      const stakedColumns = getStakedColumns(game);
+      
+      for (let stakedIndex = 0; stakedIndex < stakedColumns.length; stakedIndex++) {
+        const stakedColumn = stakedColumns[stakedIndex];
+        
+        // Try different combinations of cards to play (1-3 cards)
+        // For simplicity, we'll show a variety of play types
+        
+        // SINGLE CARD PLAYS
+        const singleCardPlays = redCards.slice(0, Math.min(redCards.length, 2));
+        for (let redCardIndex = 0; redCardIndex < singleCardPlays.length; redCardIndex++) {
+          redCounter++;
+          const redCard = singleCardPlays[redCardIndex];
+          const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+          
+          // Calculate a score (negative from Black's perspective)
+          const redMoveScore = -(redCard.victoryPoints || redCard.number);
+          
+          const redNodeId = `${nodeId}_red_play_single_${redCardIndex}_col${stakedColumn}`;
+          dotContent += `  "${redNodeId}" [label="Red Plays Single\\nCard: ${redCardLabel}\\nColumn: ${stakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+          dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+        }
+        
+        // PAIR PLAYS - Look for cards with same number
+        const numberGroups = new Map<number, any[]>();
+        for (const card of redCards) {
+          if (!numberGroups.has(card.number)) {
+            numberGroups.set(card.number, []);
+          }
+          numberGroups.get(card.number)!.push(card);
+        }
+        
+        // Add pair plays to the visualization
+        for (const [cardNumber, cards] of numberGroups.entries()) {
+          if (cards.length >= 2) {
+            redCounter++;
+            const card1 = cards[0];
+            const card2 = cards[1];
+            const pairLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}`;
+            
+            // Calculate a score (negative from Black's perspective)
+            // Pairs are worth more (card value *2 + 3 for the pair bonus)
+            const redMoveScore = -((card1.victoryPoints || card1.number) + (card2.victoryPoints || card2.number) + 3);
+            
+            const redNodeId = `${nodeId}_red_play_pair_${cardNumber}_col${stakedColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Plays Pair\\nCards: ${pairLabel}\\nColumn: ${stakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 15 ? 2.5 : 1}", color="${redMoveScore < -15 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -15 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 15 ? 2 : 1}"];\n`;
+          }
+        }
+        
+        // RUN PLAYS - Look for consecutive numbers
+        // Sort cards by number first
+        const sortedCards = [...redCards].sort((a, b) => a.number - b.number);
+        
+        // Find possible runs
+        for (let i = 0; i < sortedCards.length - 1; i++) {
+          if (i < sortedCards.length - 1 && sortedCards[i+1].number === sortedCards[i].number + 1) {
+            redCounter++;
+            const card1 = sortedCards[i];
+            const card2 = sortedCards[i+1];
+            const runLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}`;
+            
+            // Calculate a score (negative from Black's perspective)
+            // Runs score is sum of cards + length of run
+            const redMoveScore = -((card1.victoryPoints || card1.number) + (card2.victoryPoints || card2.number) + 2);
+            
+            const redNodeId = `${nodeId}_red_play_run_${i}_col${stakedColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Plays Run\\nCards: ${runLabel}\\nColumn: ${stakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 15 ? 2.5 : 1}", color="${redMoveScore < -15 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -15 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 15 ? 2 : 1}"];\n`;
+          }
+          
+          // For 3-card runs
+          if (i < sortedCards.length - 2 && sortedCards[i+1].number === sortedCards[i].number + 1 && 
+              sortedCards[i+2].number === sortedCards[i+1].number + 1) {
+            redCounter++;
+            const card1 = sortedCards[i];
+            const card2 = sortedCards[i+1];
+            const card3 = sortedCards[i+2];
+            const runLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}, ${card3.number}${card3.suit === 'hearts' ? '♥' : '♠'}`;
+            
+            // Calculate a score (negative from Black's perspective)
+            // 3-card Runs score even higher
+            const redMoveScore = -((card1.victoryPoints || card1.number) + 
+                                 (card2.victoryPoints || card2.number) + 
+                                 (card3.victoryPoints || card3.number) + 3);
+            
+            const redNodeId = `${nodeId}_red_play_run3_${i}_col${stakedColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Plays 3-Card Run\\nCards: ${runLabel}\\nColumn: ${stakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 20 ? 3 : 1}", color="${redMoveScore < -20 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -20 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 20 ? 2.5 : 1}"];\n`;
+          }
+        }
+        
+        // Stop after a certain number to avoid overwhelming the visualization
+        if (redCounter >= 16) break;
+      }
     }
   }
   
-  // Add legend node
-  dotContent += `  "legend" [label="Minimax Tree Visualization\\n\\nBlue: Black's Moves\\nRed: Red's Moves", fillcolor="azure", shape="note"];\n`;
-  dotContent += `  "root" -> "legend" [style="dashed", color="gray"];\n`;
+  // ---- BLACK PLAY MOVES ----
+  // For each staked column, Black can wager cards
+  const stakedColumns = getStakedColumns(game);
+  
+  for (let stakedIndex = 0; stakedIndex < stakedColumns.length; stakedIndex++) {
+    const stakedColumn = stakedColumns[stakedIndex];
+    
+    // Try different combinations of cards to play
+    // For clarity, we'll include singles, pairs, and runs
+    
+    // SINGLE CARD PLAYS
+    const singleCardPlays = blackCards.slice(0, Math.min(blackCards.length, 2));
+    for (let cardIndex = 0; cardIndex < singleCardPlays.length; cardIndex++) {
+      moveCounter++;
+      const card = singleCardPlays[cardIndex];
+      const cardLabel = `${card.number}${card.suit === 'hearts' ? '♥' : '♠'}`;
+      
+      // Calculate a score based on card value
+      const moveScore = card.victoryPoints || card.number;
+      
+      const nodeId = `black_play_single_${cardIndex}_col${stakedColumn}`;
+      dotContent += `  "${nodeId}" [label="Black Plays Single\\nCard: ${cardLabel}\\nColumn: ${stakedColumn}\\nScore: ${moveScore}", fillcolor="deepskyblue", penwidth="${moveScore > 8 ? 2.5 : 1}", color="${moveScore > 8 ? 'darkgreen' : 'black'}"];\n`;
+      dotContent += `  "root" -> "${nodeId}" [label="${moveCounter}", color="${moveScore > 8 ? 'darkgreen' : 'gray'}", penwidth="${moveScore > 8 ? 2 : 1}"];\n`;
+      
+      // ---- RED RESPONSES TO BLACK PLAYS ----
+      let redCounter = 0;
+      
+      // Add RED STAKE responses (only a few for this Black play)
+      for (let redCardIndex = 0; redCardIndex < 1; redCardIndex++) {
+        if (redCardIndex >= redCards.length) break;
+        
+        const redCard = redCards[redCardIndex];
+        const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+        
+        for (let redColumnIndex = 0; redColumnIndex < 2; redColumnIndex++) {
+          if (redColumnIndex >= redStakeMoves.length) break;
+          
+          redCounter++;
+          const redColumn = redStakeMoves[redColumnIndex];
+          
+          // Calculate a score (negative from Black's perspective)
+          const redMoveScore = -(redCard.victoryPoints || redCard.number);
+          
+          const redNodeId = `${nodeId}_red_stake_${redCardIndex}_col${redColumn}`;
+          dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}\\nScore: ${redMoveScore}", fillcolor="lightcoral", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+          dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+        }
+      }
+      
+      // Add RED PLAY responses (only to existing staked columns)
+      for (let redStakedIndex = 0; redStakedIndex < Math.min(stakedColumns.length, 2); redStakedIndex++) {
+        const redStakedColumn = stakedColumns[redStakedIndex];
+        
+        // Keep it simple with just single card plays
+        for (let redCardIndex = 0; redCardIndex < Math.min(redCards.length, 2); redCardIndex++) {
+          redCounter++;
+          const redCard = redCards[redCardIndex];
+          const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+          
+          // Calculate a score (negative from Black's perspective)
+          const redMoveScore = -(redCard.victoryPoints || redCard.number);
+          
+          const redNodeId = `${nodeId}_red_play_${redCardIndex}_col${redStakedColumn}`;
+          dotContent += `  "${redNodeId}" [label="Red Plays\\nCard: ${redCardLabel}\\nColumn: ${redStakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+          dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+          
+          if (redCounter >= 6) break;
+        }
+        if (redCounter >= 6) break;
+      }
+    }
+    
+    // PAIR PLAYS - Look for cards with same number
+    const numberGroups = new Map<number, any[]>();
+    for (const card of blackCards) {
+      if (!numberGroups.has(card.number)) {
+        numberGroups.set(card.number, []);
+      }
+      numberGroups.get(card.number)!.push(card);
+    }
+    
+    // Add pair plays to the visualization
+    for (const [cardNumber, cards] of numberGroups.entries()) {
+      if (cards.length >= 2) {
+        moveCounter++;
+        const card1 = cards[0];
+        const card2 = cards[1];
+        const pairLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}`;
+        
+        // Pairs are worth more (card value *2 + 3 for the pair bonus)
+        const pairScore = (card1.victoryPoints || card1.number) + (card2.victoryPoints || card2.number) + 3;
+        
+        const nodeId = `black_play_pair_${cardNumber}_col${stakedColumn}`;
+        dotContent += `  "${nodeId}" [label="Black Plays Pair\\nCards: ${pairLabel}\\nColumn: ${stakedColumn}\\nScore: ${pairScore}", fillcolor="deepskyblue", penwidth="${pairScore > 15 ? 2.5 : 1}", color="${pairScore > 15 ? 'darkgreen' : 'black'}"];\n`;
+        dotContent += `  "root" -> "${nodeId}" [label="${moveCounter}", color="${pairScore > 15 ? 'darkgreen' : 'gray'}", penwidth="${pairScore > 15 ? 2 : 1}"];\n`;
+        
+        // ---- RED RESPONSES TO BLACK PAIR ----
+        let redCounter = 0;
+        
+        // Add RED STAKE responses (only a few for this Black play)
+        for (let redCardIndex = 0; redCardIndex < 1; redCardIndex++) {
+          if (redCardIndex >= redCards.length) break;
+          
+          const redCard = redCards[redCardIndex];
+          const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+          
+          for (let redColumnIndex = 0; redColumnIndex < 2; redColumnIndex++) {
+            if (redColumnIndex >= redStakeMoves.length) break;
+            
+            redCounter++;
+            const redColumn = redStakeMoves[redColumnIndex];
+            
+            // Calculate a score (negative from Black's perspective)
+            const redMoveScore = -(redCard.victoryPoints || redCard.number);
+            
+            const redNodeId = `${nodeId}_red_stake_${redCardIndex}_col${redColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}\\nScore: ${redMoveScore}", fillcolor="lightcoral", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+          }
+        }
+      }
+    }
+    
+    // RUN PLAYS - Look for consecutive numbers
+    // Sort cards by number first
+    const sortedCards = [...blackCards].sort((a, b) => a.number - b.number);
+    
+    // Find possible runs
+    for (let i = 0; i < sortedCards.length - 1; i++) {
+      if (i < sortedCards.length - 1 && sortedCards[i+1].number === sortedCards[i].number + 1) {
+        moveCounter++;
+        const card1 = sortedCards[i];
+        const card2 = sortedCards[i+1];
+        const runLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}`;
+        
+        // Runs score is sum of cards + length of run
+        const runScore = (card1.victoryPoints || card1.number) + (card2.victoryPoints || card2.number) + 2;
+        
+        const nodeId = `black_play_run_${i}_col${stakedColumn}`;
+        dotContent += `  "${nodeId}" [label="Black Plays Run\\nCards: ${runLabel}\\nColumn: ${stakedColumn}\\nScore: ${runScore}", fillcolor="deepskyblue", penwidth="${runScore > 15 ? 2.5 : 1}", color="${runScore > 15 ? 'darkgreen' : 'black'}"];\n`;
+        dotContent += `  "root" -> "${nodeId}" [label="${moveCounter}", color="${runScore > 15 ? 'darkgreen' : 'gray'}", penwidth="${runScore > 15 ? 2 : 1}"];\n`;
+        
+        // ---- RED RESPONSES TO THIS BLACK RUN ----
+        let redCounter = 0;
+        
+        // Add RED STAKE responses (only a few for this Black play)
+        for (let redCardIndex = 0; redCardIndex < 1; redCardIndex++) {
+          if (redCardIndex >= redCards.length) break;
+          
+          const redCard = redCards[redCardIndex];
+          const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+          
+          for (let redColumnIndex = 0; redColumnIndex < 2; redColumnIndex++) {
+            if (redColumnIndex >= redStakeMoves.length) break;
+            
+            redCounter++;
+            const redColumn = redStakeMoves[redColumnIndex];
+            
+            // Calculate a score (negative from Black's perspective)
+            const redMoveScore = -(redCard.victoryPoints || redCard.number);
+            
+            const redNodeId = `${nodeId}_red_stake_${redCardIndex}_col${redColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}\\nScore: ${redMoveScore}", fillcolor="lightcoral", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+          }
+        }
+      }
+      
+      // For 3-card runs
+      if (i < sortedCards.length - 2 && sortedCards[i+1].number === sortedCards[i].number + 1 && 
+          sortedCards[i+2].number === sortedCards[i+1].number + 1) {
+        moveCounter++;
+        const card1 = sortedCards[i];
+        const card2 = sortedCards[i+1];
+        const card3 = sortedCards[i+2];
+        const runLabel = `${card1.number}${card1.suit === 'hearts' ? '♥' : '♠'}, ${card2.number}${card2.suit === 'hearts' ? '♥' : '♠'}, ${card3.number}${card3.suit === 'hearts' ? '♥' : '♠'}`;
+        
+        // 3-card Runs score even higher (sum of cards + length of run)
+        const runScore = (card1.victoryPoints || card1.number) + 
+                        (card2.victoryPoints || card2.number) + 
+                        (card3.victoryPoints || card3.number) + 3;
+        
+        const nodeId = `black_play_run3_${i}_col${stakedColumn}`;
+        dotContent += `  "${nodeId}" [label="Black Plays 3-Card Run\\nCards: ${runLabel}\\nColumn: ${stakedColumn}\\nScore: ${runScore}", fillcolor="deepskyblue", penwidth="${runScore > 20 ? 3 : 1}", color="${runScore > 20 ? 'darkgreen' : 'black'}"];\n`;
+        dotContent += `  "root" -> "${nodeId}" [label="${moveCounter}", color="${runScore > 20 ? 'darkgreen' : 'gray'}", penwidth="${runScore > 20 ? 2.5 : 1}"];\n`;
+        
+        // ---- RED RESPONSES TO THIS BLACK 3-CARD RUN ----
+        let redCounter = 0;
+        
+        // Add RED STAKE responses (only a few for this Black play)
+        for (let redCardIndex = 0; redCardIndex < 1; redCardIndex++) {
+          if (redCardIndex >= redCards.length) break;
+          
+          const redCard = redCards[redCardIndex];
+          const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+          
+          for (let redColumnIndex = 0; redColumnIndex < 2; redColumnIndex++) {
+            if (redColumnIndex >= redStakeMoves.length) break;
+            
+            redCounter++;
+            const redColumn = redStakeMoves[redColumnIndex];
+            
+            // Calculate a score (negative from Black's perspective)
+            const redMoveScore = -(redCard.victoryPoints || redCard.number);
+            
+            const redNodeId = `${nodeId}_red_stake_${redCardIndex}_col${redColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}\\nScore: ${redMoveScore}", fillcolor="lightcoral", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+          }
+        }
+        
+        // Add RED PLAY responses (only to existing staked columns)
+        for (let redStakedIndex = 0; redStakedIndex < Math.min(stakedColumns.length, 2); redStakedIndex++) {
+          const redStakedColumn = stakedColumns[redStakedIndex];
+          
+          // Keep it simple with just single card plays
+          for (let redCardIndex = 0; redCardIndex < Math.min(redCards.length, 2); redCardIndex++) {
+            redCounter++;
+            const redCard = redCards[redCardIndex];
+            const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+            
+            // Calculate a score (negative from Black's perspective)
+            const redMoveScore = -(redCard.victoryPoints || redCard.number);
+            
+            const redNodeId = `${nodeId}_red_play_${redCardIndex}_col${redStakedColumn}`;
+            dotContent += `  "${redNodeId}" [label="Red Plays\\nCard: ${redCardLabel}\\nColumn: ${redStakedColumn}\\nScore: ${redMoveScore}", fillcolor="salmon", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}", color="${redMoveScore < -8 ? 'darkred' : 'black'}"];\n`;
+            dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${redCounter}", color="${redMoveScore < -8 ? 'darkred' : 'gray'}", penwidth="${Math.abs(redMoveScore) > 8 ? 2 : 1}"];\n`;
+            
+            if (redCounter >= 6) break;
+          }
+          if (redCounter >= 6) break;
+        }
+      }
+    }
+  }
+  
+  // Add the staking rules info directly to the root node instead of separate nodes
+  dotContent += `  "root" [label="Current Game State\\nBlack to Move\\n\\nValid Stake Columns:\\nBlack: ${blackValidStakes.join(', ')}\\nRed: ${redValidStakes.join(', ')}", fillcolor="lightgreen"];\n`;
   
   dotContent += '}\n';
   return dotContent;
+}
+
+/**
+ * Helper function to get staked columns from the game state
+ */
+function getStakedColumns(game: any): number[] {
+  const stakedColumns: number[] = [];
+  
+  // If the game has a round with columns, find all columns with a staked card
+  if (game && game.round && game.round.columns) {
+    game.round.columns.forEach((column: any, index: number) => {
+      if (column && column.stakedCard) {
+        stakedColumns.push(index);
+      }
+    });
+  }
+  
+  // Default to columns 4 and 5 if no staked columns found
+  if (stakedColumns.length === 0) {
+    stakedColumns.push(4, 5);
+  }
+  
+  return stakedColumns;
 }
 
 // Run the CLI

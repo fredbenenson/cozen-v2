@@ -102,7 +102,7 @@ const mockRound = (redPlayer: Player, blackPlayer: Player): Round => {
 
 describe('AI Utility Functions', () => {
   describe('generateStakeMoves', () => {
-    it('should generate stake moves for each available column and valid card', () => {
+    it('should generate stake moves for valid stake columns only', () => {
       // Create test cards
       const cards = [
         mockCard('r_5_h', 5, Color.Red),
@@ -115,12 +115,15 @@ describe('AI Utility Functions', () => {
 
       // Create a round
       const round = mockRound(player, mockPlayer(Color.Black, []));
+      
+      // Mock StakeService to return only specific valid columns
+      jest.spyOn(StakeService, 'getValidStakeColumns').mockImplementation(() => [5]);
 
       // Generate stake moves
       const moves = generateStakeMoves(round, player);
 
-      // Expect moves for each red card (2) * available stake columns
-      expect(moves.length).toBe(2 * player.availableStakes.length);
+      // Expect moves for each red card (2) * valid stake columns (1)
+      expect(moves.length).toBe(2 * 1); // 2 cards, 1 valid column
 
       // Verify moves include only red cards
       moves.forEach(move => {
@@ -131,12 +134,15 @@ describe('AI Utility Functions', () => {
         // Card ID should be one of the red cards
         expect(['r_5_h', 'r_10_h']).toContain(move.cards[0]);
 
-        // Column should be one of the available stakes for red
-        expect(player.availableStakes).toContain(move.column);
+        // Column should be a valid stake column (only 5 in this case)
+        expect(move.column).toBe(5);
 
         // Score should be set
         expect(typeof move.score).toBe('number');
       });
+      
+      // Restore the original implementation
+      jest.restoreAllMocks();
     });
 
     it('should return an empty array if no available stakes', () => {
@@ -207,7 +213,7 @@ describe('AI Utility Functions', () => {
   });
 
   describe('generateCardCombinations', () => {
-    it('should generate all non-empty combinations of cards', () => {
+    it('should generate singles, pairs and runs', () => {
       const cards = [
         mockCard('r_5_h', 5, Color.Red),
         mockCard('r_6_h', 6, Color.Red),
@@ -216,21 +222,94 @@ describe('AI Utility Functions', () => {
 
       const combinations = generateCardCombinations(cards);
 
-      // For 3 cards, we expect 7 combinations (2^n - 1)
-      expect(combinations.length).toBe(7);
+      // Should include all individual cards (singles)
+      expect(combinations).toContainEqual([cards[0]]);
+      expect(combinations).toContainEqual([cards[1]]);
+      expect(combinations).toContainEqual([cards[2]]);
+
+      // Should include valid runs (sequential cards)
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        combo.includes(cards[0]) && 
+        combo.includes(cards[1])
+      )).toBe(true);
+
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        combo.includes(cards[1]) && 
+        combo.includes(cards[2])
+      )).toBe(true);
+
+      // Should include 3-card run
+      expect(combinations.some(combo => 
+        combo.length === 3 && 
+        combo.includes(cards[0]) && 
+        combo.includes(cards[1]) && 
+        combo.includes(cards[2])
+      )).toBe(true);
+    });
+
+    it('should correctly generate pairs of same-numbered cards', () => {
+      const cards = [
+        mockCard('r_5_h', 5, Color.Red),
+        mockCard('r_5_d', 5, Color.Red), // Same number, different suit
+        mockCard('r_7_h', 7, Color.Red),
+      ];
+
+      const combinations = generateCardCombinations(cards);
 
       // Should include all individual cards
       expect(combinations).toContainEqual([cards[0]]);
       expect(combinations).toContainEqual([cards[1]]);
       expect(combinations).toContainEqual([cards[2]]);
 
-      // Should include all pairs
-      expect(combinations).toContainEqual([cards[0], cards[1]]);
-      expect(combinations).toContainEqual([cards[0], cards[2]]);
-      expect(combinations).toContainEqual([cards[1], cards[2]]);
+      // Should include the pair of 5s
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        combo.includes(cards[0]) && 
+        combo.includes(cards[1])
+      )).toBe(true);
+    });
 
-      // Should include the full set
-      expect(combinations).toContainEqual([cards[0], cards[1], cards[2]]);
+    it('should handle mixed pairs and runs correctly', () => {
+      const cards = [
+        mockCard('r_3_h', 3, Color.Red),
+        mockCard('r_4_h', 4, Color.Red),
+        mockCard('r_4_d', 4, Color.Red), // Pair with previous card
+        mockCard('r_5_h', 5, Color.Red),
+      ];
+
+      const combinations = generateCardCombinations(cards);
+
+      // Should include pair of 4s
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        combo.includes(cards[1]) && 
+        combo.includes(cards[2])
+      )).toBe(true);
+
+      // Should include runs (3-4-5)
+      expect(combinations.some(combo => 
+        combo.length === 3 && 
+        combo.includes(cards[0]) && 
+        (combo.includes(cards[1]) || combo.includes(cards[2])) && 
+        combo.includes(cards[3])
+      )).toBe(true);
+
+      // Check for 2-card runs
+      // Should find 3-4 run
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        combo.includes(cards[0]) && 
+        (combo.includes(cards[1]) || combo.includes(cards[2]))
+      )).toBe(true);
+      
+      // Should find 4-5 run
+      expect(combinations.some(combo => 
+        combo.length === 2 && 
+        (combo.includes(cards[1]) || combo.includes(cards[2])) &&
+        combo.includes(cards[3])
+      )).toBe(true);
     });
 
     it('should return an empty array for empty input', () => {

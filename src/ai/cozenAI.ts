@@ -321,7 +321,7 @@ export class CozenAI {
       // Update available stakes (correctly by removing the specific column)
       currentPlayer.availableStakes = currentPlayer.availableStakes.filter(col => col !== move.column);
       
-      // Draw a new card if available (simplified)
+      // Draw a new card if available - ALWAYS draw up to maintain 5 cards in hand
       if (currentPlayer.cards.length > 0) {
         const newCard = currentPlayer.cards.shift();
         if (newCard) {
