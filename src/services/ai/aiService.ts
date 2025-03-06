@@ -1,5 +1,5 @@
-import { CozenAI, AIDifficulty } from '../../ai/cozenAI';
-import { GameState, Move, BaseGameState } from '../../types/game';
+import { CozenAI, AIDifficulty, AIMove } from '../../ai/cozenAI';
+import { Round } from '../../types/round';
 import { Player } from '../../types/player';
 
 export class AIService {
@@ -7,12 +7,16 @@ export class AIService {
    * Calculate an AI move for a game
    */
   public static calculateMove(
-    gameState: BaseGameState,
-    difficulty: AIDifficulty = AIDifficulty.NIGHTMARE,
+    round: Round,
+    player: Player,
+    difficulty: AIDifficulty = AIDifficulty.MEDIUM,
     searchDepth: number = 4
-  ): Move | null {
-
-    return move;
+  ): AIMove | null {
+    // Create a new AI instance
+    const ai = new CozenAI(player, difficulty, searchDepth);
+    
+    // Calculate and return the move
+    return ai.calculateMove(round);
   }
 
   /**
@@ -32,13 +36,23 @@ export class AIService {
           return res.status(404).json({ error: 'Game not found' });
         }
 
+        // Get the current round
+        const round = game.getCurrentRound();
+        
+        // Get the AI player (active player)
+        const aiPlayer = round.activePlayer;
+
         // Calculate AI move
         const difficultyLevel = difficulty ? AIDifficulty[difficulty.toUpperCase() as keyof typeof AIDifficulty] : AIDifficulty.MEDIUM;
-        const move = AIService.calculateMove(game, difficultyLevel, searchDepth || 4);
+        const move = AIService.calculateMove(round, aiPlayer, difficultyLevel, searchDepth || 4);
 
         if (!move) {
           return res.status(400).json({ error: 'Could not calculate AI move' });
         }
+
+        // Set player name and game ID for the move
+        move.playerName = aiPlayer.name;
+        move.gameId = gameId;
 
         // Apply the move
         const gameService = require('../gameService').GameService;

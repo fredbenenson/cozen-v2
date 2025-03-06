@@ -8,10 +8,10 @@ export enum AIDifficulty {
   NIGHTMARE = 'nightmare'
 }
 
-// The difficulty scaling factor (matches original implementation)
+// The difficulty scaling factor
 export const DIFFICULTY_SCALAR = 0.75;
 
-// Base difficulty values - matches the original implementation exactly
+// Base difficulty values
 export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
   [AIDifficulty.NOVICE]: 1 / (DIFFICULTY_SCALAR ** 4),
   [AIDifficulty.EASY]: 0.7 / (DIFFICULTY_SCALAR ** 4),
@@ -24,14 +24,25 @@ export const DIFFICULTY_VALUES: Record<AIDifficulty, number> = {
  * Represents a move with additional metadata for AI evaluation
  */
 export interface AIMove {
-  cards: string[];  // Should always be string[] for consistency
-  column: number;
-  didStake: boolean;
-  isStake: boolean; // Make this required to avoid undefined issues
+  cards: string[];     // Card IDs
+  column: number;      // Target column
+  didStake: boolean;   // Legacy compatibility
+  isStake: boolean;    // Whether this is a stake move
   playerName?: string;
   gameId?: string;
-  strength?: number;
-  value?: number;
-  score?: number;
-  splitPair?: boolean;
+  strength?: number;   // Hand strength
+  value?: number;      // Point value
+  score?: number;      // Computed score for minimax
+  splitPair?: boolean; // Whether this move splits a pair
+}
+
+/**
+ * Result of AI decision-making process
+ */
+export interface AIDecisionResult {
+  move: AIMove | null;
+  searchDepth: number;
+  nodesExplored: number;
+  timeElapsed: number;
+  candidateMoves: number;
 }
