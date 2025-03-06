@@ -11,34 +11,6 @@ export class AIService {
     difficulty: AIDifficulty = AIDifficulty.NIGHTMARE,
     searchDepth: number = 4
   ): Move | null {
-    if (!gameState.round || gameState.status !== 'in_progress') {
-      return null;
-    }
-
-    // Get the current active player
-    const activePlayer = gameState.round.activePlayer;
-
-    // Initialize the AI with the active player
-    const ai = new CozenAI(gameState, activePlayer, difficulty, searchDepth);
-
-    // Calculate AI move
-    const result = ai.calculateMoveWithStats();
-
-    if (!result.move) {
-      return null;
-    }
-
-    // Convert from AIMove to game Move
-    const move: Move = {
-      playerId: activePlayer.id || '',
-      cards: result.move.cards.map((cardId: string) => {
-        // Find the card in the player's hand
-        const card = activePlayer.hand.find((c: any) => c.id === cardId);
-        return card!;
-      }).filter((card: any) => card !== undefined),
-      column: result.move.column,
-      isStake: !!result.move.isStake
-    };
 
     return move;
   }
