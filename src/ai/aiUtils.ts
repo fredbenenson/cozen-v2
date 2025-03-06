@@ -84,6 +84,11 @@ export function generateWagerMoves(round: Round, player: Player): AIMove[] {
  * Count how many cards a player has in a column
  */
 function countPlayerCardsInColumn(column: Column, player: Player): number {
+  // Add null check to prevent TypeError
+  if (!column || !column.positions) {
+    return 0;
+  }
+  
   // Count cards in positions owned by the player
   return column.positions
     .filter(pos => pos.owner.color === player.color && pos.card !== undefined)
@@ -94,6 +99,11 @@ function countPlayerCardsInColumn(column: Column, player: Player): number {
  * Count opponent cards in a column
  */
 function countOpponentCardsInColumn(column: Column, player: Player): number {
+  // Add null check to prevent TypeError
+  if (!column || !column.positions) {
+    return 0;
+  }
+  
   // Count cards in positions owned by the opponent
   return column.positions
     .filter(pos => pos.owner.color !== player.color && pos.card !== undefined)
@@ -213,6 +223,9 @@ function evaluateStakeMove(card: Card, column: number, round: Round): number {
  * Evaluates a wager move's preliminary score using card evaluation rules
  */
 function evaluateWagerMove(cards: Card[], column: number, round: Round, player: Player): number {
+  // Check if column exists
+  if (!round.columns[column]) return 0;
+  
   const stake = round.columns[column].stakedCard;
   if (!stake) return 0;
   
@@ -288,6 +301,11 @@ function evaluateWagerMove(cards: Card[], column: number, round: Round, player: 
  * Get a player's cards in a column
  */
 function getPlayerCardsInColumn(column: Column, player: Player): Card[] {
+  // Add null check to prevent TypeError
+  if (!column || !column.positions) {
+    return [];
+  }
+  
   return column.positions
     .filter(pos => pos.owner.color === player.color && pos.card !== undefined)
     .map(pos => pos.card!)

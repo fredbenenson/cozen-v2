@@ -12,132 +12,143 @@ import { StakeService } from '../services/stakeService';
 // A simple CLI tool to generate a minimax tree visualization
 
 async function main(): Promise<void> {
-  console.log('Minimax Tree Visualizer');
-  console.log('----------------------');
+  // Only show CLI output when running directly, not when imported as a module
+  const isRunningDirectly = require.main === module;
+  
+  if (isRunningDirectly) {
+    console.log('Minimax Tree Visualizer');
+    console.log('----------------------');
+  }
 
   // Get command line arguments or use defaults
   const args = process.argv.slice(2);
   const outputPath = args[0] || './tmp/minimax-tree.dot';
   const maxMoves = parseInt(args[1] || '8', 10);
   const maxDepth = parseInt(args[2] || '1', 10);
+  
+  // Define this at outer scope so it's available to all code blocks
+  const pdfOutputPath = isRunningDirectly ? 
+    path.join(process.cwd(), 'visualizations', 'minimax-tree.pdf') : '';
 
-  // Create output directories if they don't exist
-  const dotDir = path.dirname(outputPath);
-  if (!fs.existsSync(dotDir)) {
-    fs.mkdirSync(dotDir, { recursive: true });
+  // Skip file generation when imported
+  if (isRunningDirectly) {
+    // Create output directories if they don't exist
+    const dotDir = path.dirname(outputPath);
+    if (!fs.existsSync(dotDir)) {
+      fs.mkdirSync(dotDir, { recursive: true });
+    }
+
+    // Create visualizations directory if it doesn't exist
+    const visualizationsDir = path.join(process.cwd(), 'visualizations');
+    if (!fs.existsSync(visualizationsDir)) {
+      fs.mkdirSync(visualizationsDir, { recursive: true });
+    }
+
+    console.log(`DOT file path: ${outputPath}`);
+    console.log(`PDF output path: ${pdfOutputPath}`);
+    console.log(`Max moves per node: ${maxMoves}`);
+    console.log(`Max depth to show: ${maxDepth}`);
   }
-
-  // Create visualizations directory if it doesn't exist
-  const visualizationsDir = path.join(process.cwd(), 'visualizations');
-  if (!fs.existsSync(visualizationsDir)) {
-    fs.mkdirSync(visualizationsDir, { recursive: true });
-  }
-
-  // Define PDF output path
-  const pdfOutputPath = path.join(visualizationsDir, 'minimax-tree.pdf');
-
-  console.log(`DOT file path: ${outputPath}`);
-  console.log(`PDF output path: ${pdfOutputPath}`);
-  console.log(`Max moves per node: ${maxMoves}`);
-  console.log(`Max depth to show: ${maxDepth}`);
 
   try {
     // Create a sample game state for visualization
     const { game, aiPlayer } = createSampleGameState();
 
-    // Print the game state using the full visualization
-    console.log('\nSample game state for visualization:');
+    // Skip visualization steps when imported
+    if (isRunningDirectly) {
+      // Print the game state using the full visualization
+      console.log('\nSample game state for visualization:');
 
-    // Extract player information to improve visualization
-    const blackPlayer = aiPlayer || game.blackPlayer;
-    const redPlayer = game.redPlayer;
+      // Extract player information to improve visualization
+      const blackPlayer = aiPlayer || game.blackPlayer;
+      const redPlayer = game.redPlayer;
 
-    if (blackPlayer && redPlayer) {
-      // Add player names to help visualization
-      if (!blackPlayer.name) blackPlayer.name = "AI Player";
-      if (!redPlayer.name) redPlayer.name = "Human Player";
+      if (blackPlayer && redPlayer) {
+        // Add player names to help visualization
+        if (!blackPlayer.name) blackPlayer.name = "AI Player";
+        if (!redPlayer.name) redPlayer.name = "Human Player";
 
-      // Use unified game state visualization
-      // clearScreen=false to avoid disrupting the terminal
-      printGameState(game, false, false);
-    } else {
-      console.log("[Game state cannot be visualized - missing player information]");
-    }
-
-    // Enable debugging for better diagnostics
-    const debug = true;
-    
-    // Increase depth to show alternating player moves
-    const visualizationDepth = 2; // Show two levels: AI's moves and Human's responses
-    
-    // Generate the DOT file
-    console.log('Generating minimax tree visualization...');
-    console.log('Debug mode:', debug ? 'enabled' : 'disabled');
-    console.log('Visualization depth:', visualizationDepth);
-    
-    // Create a manual visualization with some example moves
-    const fs = require('fs');
-    const dotContent = generateSimpleDotFile(game, aiPlayer);
-    
-    // Create directory if it doesn't exist
-    const dir = path.dirname(outputPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    
-    // Write the DOT file
-    fs.writeFileSync(outputPath, dotContent);
-    console.log(`Manual DOT visualization created at: ${outputPath}`);
-
-    // Generate PDF from DOT file
-    console.log('Converting DOT file to PDF...');
-
-    try {
-      // Check if Graphviz is installed
-      execSync('dot -V', { stdio: 'ignore' });
-
-      // Generate PDF
-      execSync(`dot -Tpdf "${outputPath}" -o "${pdfOutputPath}"`, {
-        stdio: 'inherit',
-        maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large trees
-      });
-
-      console.log(`\nVisualization complete! PDF saved to: ${pdfOutputPath}`);
-
-      // Open the PDF
-      try {
-        switch (process.platform) {
-          case 'darwin': // macOS
-            execSync(`open "${pdfOutputPath}"`);
-            break;
-          case 'win32': // Windows
-            execSync(`start "" "${pdfOutputPath}"`);
-            break;
-          case 'linux': // Linux
-            execSync(`xdg-open "${pdfOutputPath}"`);
-            break;
-          default:
-            console.log(`Please open the file manually: ${pdfOutputPath}`);
-        }
-
-        console.log('Visualization opened in default PDF viewer.');
-      } catch (openError) {
-        console.log(`Unable to automatically open the file. Please open it manually: ${pdfOutputPath}`);
+        // Use unified game state visualization
+        // clearScreen=false to avoid disrupting the terminal
+        printGameState(game, false, false);
+      } else {
+        console.log("[Game state cannot be visualized - missing player information]");
       }
-    } catch (graphvizError) {
-      console.error('Error: Graphviz not found or error generating PDF.');
-      console.error('Please install Graphviz (https://graphviz.org/download/) and run:');
-      console.error(`dot -Tpdf "${outputPath}" -o "${pdfOutputPath}"`);
+
+      // Enable debugging for better diagnostics
+      const debug = true;
+      
+      // Increase depth to show alternating player moves
+      const visualizationDepth = 2; // Show two levels: AI's moves and Human's responses
+      
+      // Generate the DOT file
+      console.log('Generating minimax tree visualization...');
+      console.log('Debug mode:', debug ? 'enabled' : 'disabled');
+      console.log('Visualization depth:', visualizationDepth);
+      
+      // Create a manual visualization with some example moves
+      const dotContent = generateSimpleDotFile(game, aiPlayer);
+      
+      // Write the DOT file
+      fs.writeFileSync(outputPath, dotContent);
+      console.log(`Manual DOT visualization created at: ${outputPath}`);
+
+      // Generate PDF from DOT file
+      console.log('Converting DOT file to PDF...');
+
+      try {
+        // Check if Graphviz is installed
+        execSync('dot -V', { stdio: 'ignore' });
+
+        // Generate PDF
+        execSync(`dot -Tpdf "${outputPath}" -o "${pdfOutputPath}"`, {
+          stdio: 'inherit',
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large trees
+        });
+
+        console.log(`\nVisualization complete! PDF saved to: ${pdfOutputPath}`);
+
+        // Open the PDF
+        try {
+          switch (process.platform) {
+            case 'darwin': // macOS
+              execSync(`open "${pdfOutputPath}"`);
+              break;
+            case 'win32': // Windows
+              execSync(`start "" "${pdfOutputPath}"`);
+              break;
+            case 'linux': // Linux
+              execSync(`xdg-open "${pdfOutputPath}"`);
+              break;
+            default:
+              console.log(`Please open the file manually: ${pdfOutputPath}`);
+          }
+
+          console.log('Visualization opened in default PDF viewer.');
+        } catch (openError) {
+          console.log(`Unable to automatically open the file. Please open it manually: ${pdfOutputPath}`);
+        }
+      } catch (graphvizError) {
+        console.error('Error: Graphviz not found or error generating PDF.');
+        console.error('Please install Graphviz (https://graphviz.org/download/) and run:');
+        console.error(`dot -Tpdf "${outputPath}" -o "${pdfOutputPath}"`);
+      }
     }
+    
+    // Always return the game state for use by importers
+    return game;
   } catch (error) {
-    console.error('Error generating visualization:', error);
+    if (isRunningDirectly) {
+      console.error('Error generating visualization:', error);
+    }
+    throw error;
   }
 }
 
 /**
  * Create a sample game state for visualization
  */
-function createSampleGameState(): { game: any, aiPlayer: any } {
+export function createSampleGameState(): { game: any, aiPlayer: any } {
   // Create a sample game state with two players and a round
   const redPlayer: Player = {
     id: 'player-red',
@@ -859,5 +870,7 @@ function getStakedColumns(game: any): number[] {
   return stakedColumns;
 }
 
-// Run the CLI
-main().catch(console.error);
+// Run the CLI only when executed directly
+if (require.main === module) {
+  main().catch(console.error);
+}
