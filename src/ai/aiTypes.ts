@@ -46,3 +46,24 @@ export interface AIDecisionResult {
   timeElapsed: number;
   candidateMoves: number;
 }
+
+/**
+ * Represents a node in the minimax visualization tree
+ */
+export interface GameNode {
+  source: string;         // ID of the source node
+  target: string;         // ID of the target node
+  n: number;              // Move number
+  depth: number;          // Depth in the tree
+  score: number;          // Current evaluation score
+  minimaxResult?: number; // Minimax result after traversal
+  childState: string;     // Identifier for the state after this move
+  alphaBeta: string;      // Alpha-beta bounds for this node
+  beatAlphaBeta: boolean; // Whether this move beat the alpha-beta bounds
+  maximizing: boolean;    // Whether this node is a maximizing node
+  cards: string;          // Cards played in this move
+  column: number;         // Column targeted in this move
+  isStake: boolean;       // Whether this is a stake move
+  label?: string;         // Custom label for the node
+  cardColor?: string;     // Card color for debugging
+}

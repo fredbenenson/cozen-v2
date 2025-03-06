@@ -112,7 +112,7 @@ describe('AI Utility Functions', () => {
 
       // Create a player with those cards
       const player = mockPlayer(Color.Red, cards);
-      
+
       // Create a round
       const round = mockRound(player, mockPlayer(Color.Black, []));
 
@@ -204,45 +204,6 @@ describe('AI Utility Functions', () => {
       const moves = generateWagerMoves(round, player);
       expect(moves).toEqual([]);
     });
-
-    // it('should limit combinations by available positions', () => {
-    //   // Create test cards for hand
-    //   const redCards = [
-    //     mockCard('r_1_h', 1, Color.Red),
-    //     mockCard('r_2_h', 2, Color.Red),
-    //   ];
-
-    //   // Create players
-    //   const redPlayer = mockPlayer(Color.Red, redCards);
-    //   const blackPlayer = mockPlayer(Color.Black, []);
-
-    //   // Create a round with a staked column
-    //   const round = mockRound(redPlayer, blackPlayer);
-    //   round.columns[5].stakedCard = mockCard('r_7_h', 7, Color.Red);
-
-    //   // Add cards to the column's positions
-    //   const redPositionsInColumn = round.columns[5].positions.filter(
-    //     pos => pos.owner.color === Color.Red
-    //   );
-
-    //   // Add cards to most of the positions
-    //   for (let i = 0; i < redPositionsInColumn.length - 1; i++) {
-    //     redPositionsInColumn[i].card = mockCard(`r_${8+i}_h`, 8+i, Color.Red);
-    //   }
-
-    //   // Generate wager moves - only one position left, so all moves should be single cards
-    //   const moves = generateWagerMoves(round, redPlayer);
-
-    //   // Check if there are any moves for column 2
-    //   const movesForColumn2 = moves.filter(move => move.column === 5);
-
-    //   // If we have moves for column 2, they should have just 1 card
-    //   if (movesForColumn2.length > 0) {
-    //     movesForColumn2.forEach(move => {
-    //       expect(move.cards.length).toBeLessThanOrEqual(1);
-    //     });
-    //   }
-    // });
   });
 
   describe('generateCardCombinations', () => {

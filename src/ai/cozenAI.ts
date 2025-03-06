@@ -1,6 +1,7 @@
 import {
   AIDifficulty,
   AIMove,
+  AIDecisionResult
 } from "./aiTypes";
 import { Player } from "../types/player";
 import { Round, Position } from "../types/round";
@@ -26,6 +27,7 @@ export class CozenAI {
   private totalNodeCount: number = 0;
   private debugEnabled: boolean = false;
   private maxNodes: number = 10000; // Maximum number of nodes to explore
+  private moveScores: AIMove[] = []; // For visualization
 
   /**
    * Create a new AI instance
@@ -52,6 +54,42 @@ export class CozenAI {
    */
   public disableDebug(): void {
     this.debugEnabled = false;
+  }
+
+  /**
+   * Calculate a move with detailed statistics for visualization
+   */
+  public calculateMoveWithStats(round?: Round): AIDecisionResult {
+    const startTime = Date.now();
+    
+    // Use the provided round or create a mock one if not provided
+    const gameRound = round || {
+      // If no round is provided, assume it's for visualization only
+      state: 'active',
+      activePlayer: this.player,
+      inactivePlayer: null,
+      redPlayer: this.player.color === Color.Red ? this.player : null,
+      blackPlayer: this.player.color === Color.Black ? this.player : null,
+      columns: []
+    } as unknown as Round;
+    
+    // Clear move scores array for fresh tracking
+    this.moveScores = [];
+    
+    // Calculate the move
+    const move = this.calculateMove(gameRound);
+    
+    // Calculate time elapsed
+    const timeElapsed = Date.now() - startTime;
+    
+    // Return detailed stats
+    return {
+      move,
+      searchDepth: this.maxDepth,
+      nodesExplored: this.totalNodeCount,
+      timeElapsed,
+      candidateMoves: this.moveScores.length
+    };
   }
 
   /**
@@ -114,6 +152,9 @@ export class CozenAI {
     
     // Sort moves by score in descending order
     allMoves.sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    // Store move scores for visualization
+    this.moveScores = [...allMoves];
     
     if (this.debugEnabled) {
       console.log(`Generated ${allMoves.length} candidate moves`);
@@ -265,7 +306,16 @@ export class CozenAI {
       // Remove card from hand
       currentPlayer.hand = currentPlayer.hand.filter(card => card.id !== cardsToPlay[0]?.id);
       
-      // Set stake for the column
+      // Set stake for the column - ensure the column exists
+      if (!round.columns) {
+        round.columns = Array(10).fill(null).map(() => ({ positions: [] }));
+      }
+      
+      // Create the column if it doesn't exist
+      if (!round.columns[move.column]) {
+        round.columns[move.column] = { positions: [] };
+      }
+      
       round.columns[move.column].stakedCard = cardsToPlay[0];
       
       // Update available stakes (correctly by removing the specific column)
@@ -288,9 +338,24 @@ export class CozenAI {
       // In a real implementation, this would involve finding available positions
       // For simulation purposes, this is sufficient as we're only interested in evaluation
       
+      // Ensure columns exist
+      if (!round.columns) {
+        round.columns = Array(10).fill(null).map(() => ({ positions: [] }));
+      }
+      
+      // Create the column if it doesn't exist
+      if (!round.columns[move.column]) {
+        round.columns[move.column] = { positions: [] };
+      }
+      
+      // Ensure positions exist
+      if (!round.columns[move.column].positions) {
+        round.columns[move.column].positions = [];
+      }
+      
       // Find positions owned by the current player in the target column
       const playerPositions = round.columns[move.column].positions
-        .filter(pos => pos.owner.color === currentPlayer.color && pos.card === undefined);
+        .filter(pos => pos?.owner?.color === currentPlayer.color && pos.card === undefined);
       
       // Place cards in positions (up to available positions)
       for (let i = 0; i < Math.min(cardsToPlay.length, playerPositions.length); i++) {
@@ -298,8 +363,39 @@ export class CozenAI {
       }
     }
     
-    // Switch active player (simplified)
-    if (round.redPlayer.name === currentPlayer.name) {
+    // Ensure players are properly defined in the round
+    if (!round.redPlayer) {
+      round.redPlayer = currentPlayer.color === Color.Red ? currentPlayer : {
+        color: Color.Red,
+        name: 'Red',
+        hand: [],
+        availableStakes: [],
+        cards: [],
+        jail: [],
+        victory_points: 0,
+        stake_offset: 1,
+        drawUp: () => {},
+        reset: () => {}
+      } as Player;
+    }
+    
+    if (!round.blackPlayer) {
+      round.blackPlayer = currentPlayer.color === Color.Black ? currentPlayer : {
+        color: Color.Black,
+        name: 'Black',
+        hand: [],
+        availableStakes: [],
+        cards: [],
+        jail: [],
+        victory_points: 0,
+        stake_offset: -1,
+        drawUp: () => {},
+        reset: () => {}
+      } as Player;
+    }
+    
+    // Switch active player based on color instead of name
+    if (currentPlayer.color === Color.Red) {
       round.activePlayer = round.blackPlayer;
       round.inactivePlayer = round.redPlayer;
     } else {

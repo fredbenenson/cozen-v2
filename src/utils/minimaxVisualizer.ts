@@ -41,11 +41,14 @@ export class MinimaxVisualizer {
     this.debugEnabled = debug;
 
     // Create an AI instance with debug enabled
-    this.ai = new CozenAI(game, player, AIDifficulty.HARD, 3);
+    this.ai = new CozenAI(player, AIDifficulty.HARD, 3);
     this.ai.enableDebug();
 
     // Set up node tracking
     this.nodes = [];
+    
+    // Hook into the minimax function to track nodes
+    this.interceptMinimaxFunction();
   }
 
   /**
@@ -57,11 +60,12 @@ export class MinimaxVisualizer {
     this.gameState = _.cloneDeep(this.gameState);
     const currentRound = this.gameState.round;
 
-    // Hook into the minimax function to track nodes
-    this.interceptMinimaxFunction();
-
+    // Clear the nodes array to start fresh
+    this.nodes = [];
+    
     // Run the AI to calculate its move (this will populate our nodes)
     console.log("Starting AI calculation to generate minimax tree...");
+    
     const result = this.ai.calculateMoveWithStats();
     console.log(`AI calculation complete. Result:`, result ? `Found move for column ${result.move?.column}` : 'No move found');
 
@@ -84,7 +88,7 @@ export class MinimaxVisualizer {
         cards: '',
         column: -1,
         isStake: false,
-        label: `No moves were generated.\nMoves: ${result?.candidateMoves?.length || 0}`
+        label: `No moves were generated.\nMoves: ${result && result.candidateMoves ? result.candidateMoves : 0}`
       });
     }
 
@@ -119,38 +123,8 @@ export class MinimaxVisualizer {
       // Get the current state identifier
       const sourceId = round.name || 'root';
 
-      // Generate moves for the active player
-      const playerColor = round.activePlayer ? round.activePlayer.color : null;
-      
-      if (!playerColor && self.debugEnabled) {
-        console.log(`WARNING: No active player color found in round at depth ${depth}!`);
-      }
-      
-      // CRITICAL FIX: Ensure we're using the correct player color based on maximizing flag
-      // This is essential for proper player alternation in the minimax tree
-      let movesForColor;
-      
-      if (maximizing) {
-        // When maximizing, always use Black (AI) player's color
-        movesForColor = Color.Black;
-        
-        // Verify active player matches expected
-        if (playerColor !== Color.Black) {
-          if (self.debugEnabled) {
-            console.log(`WARNING: Expected Black for maximizing but got ${playerColor}`);
-          }
-        }
-      } else {
-        // When minimizing, always use Red (Human) player's color
-        movesForColor = Color.Red;
-        
-        // Verify active player matches expected
-        if (playerColor !== Color.Red) {
-          if (self.debugEnabled) {
-            console.log(`WARNING: Expected Red for minimizing but got ${playerColor}`);
-          }
-        }
-      }
+      // We need to explicitly use the player's color to generate moves instead of relying on active player
+      const movesForColor = maximizing ? Color.Black : Color.Red;
       
       if (self.debugEnabled) {
         console.log(`Using color ${movesForColor} for ${maximizing ? 'maximizing' : 'minimizing'} at depth ${depth}`);

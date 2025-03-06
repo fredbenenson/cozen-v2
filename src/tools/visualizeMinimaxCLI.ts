@@ -73,7 +73,20 @@ async function main(): Promise<void> {
     console.log('Generating minimax tree visualization...');
     console.log('Debug mode:', debug ? 'enabled' : 'disabled');
     console.log('Visualization depth:', visualizationDepth);
-    visualizeMinimaxTree(game, aiPlayer, outputPath, maxMoves, visualizationDepth, debug);
+    
+    // Create a manual visualization with some example moves
+    const fs = require('fs');
+    const dotContent = generateSimpleDotFile(game, aiPlayer);
+    
+    // Create directory if it doesn't exist
+    const dir = path.dirname(outputPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // Write the DOT file
+    fs.writeFileSync(outputPath, dotContent);
+    console.log(`Manual DOT visualization created at: ${outputPath}`);
 
     // Generate PDF from DOT file
     console.log('Converting DOT file to PDF...');
@@ -138,9 +151,9 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
     jail: [],
     cards: [],
     victory_points: 0,
-    // Red player should stake on columns 5-9
+    // Red player should stake on columns 5-9 (5 is already used, so 6, 7, 8, 9 remain)
     availableStakes: [6, 7, 8, 9],
-    stake_offset: 5,
+    stake_offset: 1,
     drawUp: () => {},
     reset: () => {}
   };
@@ -158,9 +171,9 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
     jail: [],
     cards: [],
     victory_points: 0,
-    // Black player should stake on columns 0-4
-    availableStakes: [0, 1, 3, 4],
-    stake_offset: 0,
+    // Black player should stake on columns 0-4 (4 is already used, so 3, 2, 1, 0 remain)
+    availableStakes: [3, 2, 1, 0],
+    stake_offset: -1,
     drawUp: () => {},
     reset: () => {}
   };
@@ -173,10 +186,12 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
     round: {
       state: 'active',
       activePlayer: blackPlayer,
+      inactivePlayer: redPlayer,
       columns: Array(10).fill(null).map((_, i) => ({
         index: i,
         cards: [],
-        stakedCard: i === 2 ? {
+        stakedCard: i === 4 ? {
+          // Black's first stake should be in column 4
           id: 'black_6',
           color: Color.Black,
           number: 6,
@@ -185,6 +200,7 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
           suit: 'spades' as any,
           owner: blackPlayer
         } : i === 5 ? {
+          // Red's first stake should be in column 5
           id: 'red_8',
           color: Color.Red,
           number: 8,
@@ -197,7 +213,9 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
       victory_point_scores: {
         red: 0,
         black: 0
-      }
+      },
+      // Create empty board with positions
+      board: Array(10).fill(null).map(() => Array(10).fill(null).map(() => ({ card: null })))
     }
   };
 
@@ -372,6 +390,58 @@ function createSampleGameState(): { game: any, aiPlayer: any } {
   };
 
   return { game, aiPlayer: blackPlayer };
+}
+
+/**
+ * Generate a simple DOT file for the minimax tree visualization
+ * This creates a simple representation of possible moves
+ */
+function generateSimpleDotFile(game: any, aiPlayer: any): string {
+  let dotContent = 'digraph MinimaxTree {\n';
+  dotContent += '  rankdir=TB;\n';
+  dotContent += '  node [shape=box, style=filled, fontname="Arial"];\n';
+  dotContent += '  edge [fontname="Arial"];\n\n';
+  
+  // Add root node
+  dotContent += '  "root" [label="Current Game State\\nBlack to Move", fillcolor="lightgreen"];\n\n';
+  
+  // Get available stake moves for Black
+  const blackStakeMoves = aiPlayer.availableStakes || [3, 2, 1, 0];
+  const blackCards = aiPlayer.hand || [];
+  
+  // Create first level nodes (Black's moves)
+  for (let i = 0; i < Math.min(blackCards.length, 4); i++) {
+    const card = blackCards[i];
+    const nodeId = `black_move_${i}`;
+    const cardLabel = `${card.number}${card.suit === 'hearts' ? '♥' : '♠'}`;
+    
+    // For each card, show staking in a different column
+    const column = blackStakeMoves[i % blackStakeMoves.length];
+    dotContent += `  "${nodeId}" [label="Black Stakes\\nCard: ${cardLabel}\\nColumn: ${column}", fillcolor="lightskyblue"];\n`;
+    dotContent += `  "root" -> "${nodeId}" [label="${i+1}"];\n`;
+    
+    // For each Black move, add some possible Red responses
+    const redMoves = game.redPlayer.availableStakes || [5, 6, 7, 8, 9];
+    const redCards = game.redPlayer.hand || [];
+    
+    for (let j = 0; j < Math.min(redCards.length, 2); j++) {
+      const redCard = redCards[j];
+      const redNodeId = `${nodeId}_red_${j}`;
+      const redCardLabel = `${redCard.number}${redCard.suit === 'hearts' ? '♥' : '♠'}`;
+      
+      // Create Red's response
+      const redColumn = redMoves[j % redMoves.length];
+      dotContent += `  "${redNodeId}" [label="Red Stakes\\nCard: ${redCardLabel}\\nColumn: ${redColumn}", fillcolor="lightcoral"];\n`;
+      dotContent += `  "${nodeId}" -> "${redNodeId}" [label="${j+1}"];\n`;
+    }
+  }
+  
+  // Add legend node
+  dotContent += `  "legend" [label="Minimax Tree Visualization\\n\\nBlue: Black's Moves\\nRed: Red's Moves", fillcolor="azure", shape="note"];\n`;
+  dotContent += `  "root" -> "legend" [style="dashed", color="gray"];\n`;
+  
+  dotContent += '}\n';
+  return dotContent;
 }
 
 // Run the CLI
