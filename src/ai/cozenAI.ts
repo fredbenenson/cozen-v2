@@ -268,7 +268,7 @@ export class CozenAI {
       // Set stake for the column
       round.columns[move.column].stakedCard = cardsToPlay[0];
       
-      // Update available stakes (simplified)
+      // Update available stakes (correctly by removing the specific column)
       currentPlayer.availableStakes = currentPlayer.availableStakes.filter(col => col !== move.column);
       
       // Draw a new card if available (simplified)

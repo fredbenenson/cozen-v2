@@ -3,6 +3,7 @@ import { Round, Column, Position } from '../../types/round';
 import { Player } from '../../types/player';
 import { Card, Color, Suit } from '../../types/game';
 import { AIMove } from '../../ai/aiTypes';
+import { StakeService } from '../../services/stakeService';
 
 // Helper to create a mock card
 const mockCard = (id: string, number: number, color: string, victoryPoints: number = number): Card => ({
@@ -22,8 +23,8 @@ const mockPlayer = (color: string, cards: Card[]): Player => ({
   jail: [],
   cards: [], // deck
   victory_points: 0,
-  availableStakes: [0, 1, 2],
-  stake_offset: 0,
+  availableStakes: color === Color.Red ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4],
+  stake_offset: color === Color.Red ? 1 : -1,
   drawUp: jest.fn(),
   reset: jest.fn()
 });
@@ -109,7 +110,7 @@ describe('CozenAI', () => {
       // Create round
       const round = mockRound(redPlayer, blackPlayer);
       
-      // Add a stake to column 4
+      // Add a stake to column 4 for black player
       round.columns[4].stakedCard = mockCard('b_9_s', 9, Color.Black);
       
       // Create AI instance
@@ -126,7 +127,10 @@ describe('CozenAI', () => {
         // If it's a stake move
         if (move.isStake) {
           expect(move.cards.length).toBe(1);
+          
+          // For red player, the move.column should be one of [5, 6, 7, 8, 9]
           expect(redPlayer.availableStakes).toContain(move.column);
+          expect([5, 6, 7, 8, 9]).toContain(move.column);
         } 
         // If it's a wager move
         else {

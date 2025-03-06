@@ -13,6 +13,7 @@ import { Round, Column, Position } from '../../types/round';
 import { Player } from '../../types/player';
 import { Card, Color, Suit } from '../../types/game';
 import { AIMove } from '../../ai/aiTypes';
+import { StakeService } from '../../services/stakeService';
 
 // Helper to create a mock card
 const mockCard = (id: string, number: number, color: string, victoryPoints: number = number): Card => ({
@@ -32,8 +33,8 @@ const mockPlayer = (color: string, cards: Card[]): Player => ({
   jail: [],
   cards: [], // deck
   victory_points: 0,
-  availableStakes: [0, 1, 2],
-  stake_offset: 0,
+  availableStakes: color === Color.Red ? [5, 6, 7, 8, 9] : [0, 1, 2, 3, 4],
+  stake_offset: color === Color.Red ? 1 : -1,
   drawUp: jest.fn(),
   reset: jest.fn()
 });
@@ -111,16 +112,15 @@ describe('AI Utility Functions', () => {
 
       // Create a player with those cards
       const player = mockPlayer(Color.Red, cards);
-      player.availableStakes = [0, 3, 5];
-
+      
       // Create a round
       const round = mockRound(player, mockPlayer(Color.Black, []));
 
       // Generate stake moves
       const moves = generateStakeMoves(round, player);
 
-      // Expect 6 moves (2 valid cards * 3 available columns)
-      expect(moves.length).toBe(6);
+      // Expect moves for each red card (2) * available stake columns
+      expect(moves.length).toBe(2 * player.availableStakes.length);
 
       // Verify moves include only red cards
       moves.forEach(move => {
@@ -131,8 +131,8 @@ describe('AI Utility Functions', () => {
         // Card ID should be one of the red cards
         expect(['r_5_h', 'r_10_h']).toContain(move.cards[0]);
 
-        // Column should be one of the available stakes
-        expect([0, 3, 5]).toContain(move.column);
+        // Column should be one of the available stakes for red
+        expect(player.availableStakes).toContain(move.column);
 
         // Score should be set
         expect(typeof move.score).toBe('number');
