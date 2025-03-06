@@ -8,7 +8,7 @@ import {
 } from "./aiTypes";
 import { Player } from "../types/player";
 import { Round } from "../types/round";
-import { Color } from "../types/game";
+import { Card, Color } from "../types/game";
 import { CardEvaluation } from "../services/cardEvaluation";
 import { StakeService } from "../services/stakeService";
 import {
@@ -25,6 +25,8 @@ import {
 interface AIRound {
   state: string;
   activePlayer: Player;
+  redPlayer?: Player;    // Add redPlayer reference
+  blackPlayer?: Player;  // Add blackPlayer reference
   name?: string;
   score?: number;
   move?: (move: AIMove) => void;
@@ -143,19 +145,35 @@ export class CozenAI {
     const aiRound: AIRound = {
       ...currentRound as any,
       name: "",
-      columns: currentRound.columns || []
+      columns: currentRound.columns || [],
+      redPlayer: currentRound.redPlayer,
+      blackPlayer: currentRound.blackPlayer
     };
 
-    // Start the minimax search from the current game state
+    // Start the minimax search from the current game state with the AI player's color
     this.minimax(aiRound, 0, true, -Infinity, Infinity);
 
-    // Sort moves by card count (ascending) and then by score (descending)
-    // This ordering ensures score takes priority while breaking ties with card count
-    let moves = _.chain(this.moveScores)
-      .sortBy((m) => (m.score || 0) * -1)  // Sort by score descending (highest first)
-      .sortBy((m) => m.cards.length)  // Then sort by card length (shorter first)
-      .sortBy((m) => (m.score || 0) * -1)  // Re-sort by score to ensure it takes priority
-      .value();
+    // IMPORTANT: Lodash's _.sortBy creates new sorted arrays and OVERWRITES previous sorts.
+    // Instead of chaining that overwrites, we need to sort by multiple criteria at once.
+
+    // Debug the scores before sorting
+    if (this.debugEnabled) {
+      console.log("Move scores before sorting:");
+      this.moveScores.forEach((move, idx) => {
+        console.log(`  Move ${idx}: ${move.cards.join(',')} at column ${move.column}, score=${move.score}`);
+      });
+    }
+
+    let moves = _.orderBy(
+      this.moveScores,
+      [
+        // Primary sort: score (descending)
+        (m) => m.score === Infinity ? Infinity : (m.score === -Infinity ? -Infinity : (m.score || 0)),
+        // Secondary sort: card length (ascending)
+        (m) => m.cards.length
+      ],
+      ['desc', 'asc'] // Sort directions
+    );
 
     // Filter out moves that split pairs
     filterStakedPairs(moves, this.player.hand);
@@ -251,8 +269,14 @@ export class CozenAI {
     alpha: number,
     beta: number,
   ): number {
+    if (this.debugEnabled) {
+      console.log(`AI minimax called: depth=${depth}, maximizing=${maximizing}, maxDepth=${this.maxDepth}`);
+    }
     // Terminal condition or max depth reached
     if (round.state === "complete" || depth <= this.maxDepth) {
+      if (this.debugEnabled) {
+        console.log(`AI minimax reached terminal condition: round state=${round.state}, depth=${depth}, maxDepth=${this.maxDepth}`);
+      }
       // Cast to any to avoid type errors with hidePoison function
       hidePoison(round as any, this.player.color);
 
@@ -268,11 +292,66 @@ export class CozenAI {
           : (round.victory_point_scores?.red || 0) -
             (round.victory_point_scores?.black || 0);
 
+      if (this.debugEnabled) {
+        console.log(`Terminal node at depth ${depth}: VP diff = ${vpDiff} (${maximizing ? 'max' : 'min'} node)`);
+      }
       return vpDiff;
     }
 
-    // Generate all possible moves
-    const moves = this.generateMoves(round);
+    // CRITICAL FIX: Determine the player based on maximizing, not the round's activePlayer
+    // This ensures we're considering the correct player for each turn in minimax alternation
+    let currentPlayer: Player;
+    let currentPlayerColor: Color;
+    
+    // For maximizing (AI's turn), use this.player
+    // For minimizing (opponent's turn), use the opponent
+    if (maximizing) {
+      currentPlayer = this.player;
+      currentPlayerColor = this.player.color;
+    } else {
+      // Find the opponent based on color
+      if (this.player.color === Color.Black) {
+        currentPlayer = round.redPlayer || { color: Color.Red } as Player;
+        currentPlayerColor = Color.Red;
+      } else {
+        currentPlayer = round.blackPlayer || { color: Color.Black } as Player;
+        currentPlayerColor = Color.Black;
+      }
+    }
+
+    if (this.debugEnabled) {
+      console.log(`Using active player ${currentPlayerColor} at depth ${depth} (${maximizing ? 'maximizing' : 'minimizing'})`);
+      // Verify maximizing flag correctly corresponds to AI player's turn
+      const isAITurn = currentPlayer.color === this.player.color;
+      if (maximizing !== isAITurn) {
+        console.log(`  - WARNING: Player/maximizing mismatch! maximizing=${maximizing}, but AI player=${this.player.color}, active=${currentPlayerColor}`);
+      }
+    }
+
+    // Generate all possible moves for the current player with explicit color
+    const moves = this.generateMoves(round, currentPlayerColor);
+
+    // If there are no valid moves, evaluate the state as is instead of returning -Infinity/-Infinity
+    if (moves.length === 0) {
+      if (this.debugEnabled) {
+        console.log(`No valid moves for ${currentPlayerColor} at depth=${depth}, evaluating state as is`);
+      }
+
+      // Score the board as is - don't propagate -Infinity
+      if (typeof round.score_board === "function") {
+        round.score_board();
+      }
+
+      // Calculate VP difference
+      const vpDiff =
+        this.player.color === Color.Black
+          ? (round.victory_point_scores?.black || 0) -
+            (round.victory_point_scores?.red || 0)
+          : (round.victory_point_scores?.red || 0) -
+            (round.victory_point_scores?.black || 0);
+
+      return vpDiff;
+    }
 
     if (maximizing) {
       // AI is maximizing (its turn)
@@ -288,11 +367,20 @@ export class CozenAI {
         // Apply move to the child state
         if (typeof child.move === "function") {
           child.move(move);
+          
+          // Verify the active player was switched correctly
+          if (this.debugEnabled && child.activePlayer.color === currentPlayerColor) {
+            console.log(`WARNING: Player not switched after move! Still ${child.activePlayer.color}`);
+          }
         }
 
         // Recursive minimax call
         child.score = this.minimax(child, depth - 1, !maximizing, alpha, beta);
         best = Math.max(best, child.score);
+
+        if (this.debugEnabled) {
+          console.log(`Maximizing node depth=${depth}: child score=${child.score}, current best=${best}`);
+        }
 
         // Store moves at the root level
         if (depth === 0) {
@@ -308,6 +396,10 @@ export class CozenAI {
           if (finalScore === 0) {
             // Use the original score that was calculated by generateMoves
             finalScore = move.score || 0;
+          }
+
+          if (this.debugEnabled) {
+            console.log(`Root move ${index}: minimax score=${child.score}, original move score=${move.score}, final score=${finalScore}`);
           }
 
           this.moveScores.push({ ...move, score: finalScore });
@@ -336,11 +428,20 @@ export class CozenAI {
         // Apply move to the child state
         if (typeof child.move === "function") {
           child.move(move);
+          
+          // Verify the active player was switched correctly
+          if (this.debugEnabled && child.activePlayer.color === currentPlayerColor) {
+            console.log(`WARNING: Player not switched after move! Still ${child.activePlayer.color}`);
+          }
         }
 
         // Recursive minimax call
         child.score = this.minimax(child, depth - 1, !maximizing, alpha, beta);
         best = Math.min(best, child.score);
+
+        if (this.debugEnabled) {
+          console.log(`Minimizing node depth=${depth}: child score=${child.score}, current best=${best}`);
+        }
 
         // Alpha-beta pruning
         if (best <= alpha) {
@@ -356,10 +457,60 @@ export class CozenAI {
 
   /**
    * Generate all possible moves for the current state
+   * @param round The current game round
+   * @param playerColor The color of the player to generate moves for (required)
+   * @returns Array of possible moves
    */
-  private generateMoves(round: AIRound): AIMove[] {
-    // Generate wager moves
-    const wagers = this.generateWagerMoves(round).map((move) => ({
+  private generateMoves(round: AIRound, playerColor: Color): AIMove[] {
+    // Get the correct player based on color
+    let activePlayer: Player | undefined;
+
+    // Get the player based on the specified color
+    if (playerColor === Color.Black && round.blackPlayer) {
+      activePlayer = round.blackPlayer;
+    } else if (playerColor === Color.Red && round.redPlayer) {
+      activePlayer = round.redPlayer;
+    } else {
+      // Fallback to active player if specific player not found
+      activePlayer = round.activePlayer;
+
+      // If we're using the active player but its color doesn't match what we need,
+      // this indicates a problem in player switching
+      if (activePlayer && activePlayer.color !== playerColor) {
+        if (this.debugEnabled) {
+          console.log(`WARNING: Active player ${activePlayer.color} doesn't match requested color ${playerColor}!`);
+          console.log(`  - This indicates a problem with player switching in minimax`);
+        }
+
+        // Try to find the correct player
+        if (playerColor === Color.Black && activePlayer.color !== Color.Black) {
+          // We need black but have red, look for any black player
+          if (round.blackPlayer) {
+            if (this.debugEnabled) console.log(`  - Found blackPlayer, using it instead`);
+            activePlayer = round.blackPlayer;
+          }
+        } else if (playerColor === Color.Red && activePlayer.color !== Color.Red) {
+          // We need red but have black, look for any red player
+          if (round.redPlayer) {
+            if (this.debugEnabled) console.log(`  - Found redPlayer, using it instead`);
+            activePlayer = round.redPlayer;
+          }
+        }
+      }
+    }
+
+    if (this.debugEnabled) {
+      console.log(`Generating moves for ${playerColor} player:`,
+        activePlayer ? `Found player with ${activePlayer.hand?.length || 0} cards` : 'No player found');
+    }
+
+    if (!activePlayer) {
+      console.error('No active player found for move generation');
+      return [];
+    }
+
+    // Generate wager moves using the selected player and color
+    const wagers = this.generateWagerMoves(round, activePlayer, playerColor).map((move) => ({
       ...move,
       didStake: false,
       isStake: false,
@@ -367,14 +518,12 @@ export class CozenAI {
 
     // Generate stake moves
     const stakes: AIMove[] = [];
-    if (
-      round.activePlayer.availableStakes &&
-      round.activePlayer.availableStakes.length > 0
-    ) {
+
+    // Use the selected player for stake moves
+    if (activePlayer && activePlayer.availableStakes && activePlayer.availableStakes.length > 0) {
       // Get all available stake columns and sort by preference
       // (player's side first, as they're more valuable)
-      const availableColumns = [...round.activePlayer.availableStakes].sort((a, b) => {
-        const playerColor = round.activePlayer.color;
+      const availableColumns = [...activePlayer.availableStakes].sort((a, b) => {
         const isPlayerSideA = (playerColor === Color.Red && a >= 5) || (playerColor === Color.Black && a < 5);
         const isPlayerSideB = (playerColor === Color.Red && b >= 5) || (playerColor === Color.Black && b < 5);
 
@@ -388,8 +537,14 @@ export class CozenAI {
         return distFromCenterA - distFromCenterB;
       });
 
+      // Filter cards to only those matching the player's color
+      const playerHand = activePlayer.hand.filter((card: any) => {
+        const cardColor = typeof card === 'object' ? card.color : null;
+        return cardColor === playerColor;
+      });
+
       // For each card, create a stake move for each available column
-      round.activePlayer.hand.forEach((card: any) => {
+      playerHand.forEach((card: any) => {
         // Get the card number for evaluation
         const cardNumber = typeof card === 'object' ? (card.number || 0) :
           (typeof card === 'string' && card.includes('_')) ?
@@ -399,7 +554,7 @@ export class CozenAI {
         let stakeValue = (card.victoryPoints || card.victory_points || 0) * 0.5;
 
         // Check if there's a matching card in hand to form a pair later
-        const cardNumbers = round.activePlayer.hand.map((c: any) =>
+        const cardNumbers = playerHand.map((c: any) =>
           typeof c === 'object' ? c.number :
           (typeof c === 'string' && c.includes('_')) ? parseInt(c.split('_')[1]) : 0
         );
@@ -412,7 +567,7 @@ export class CozenAI {
 
         // Filter for valid stake columns only
         const validStakeColumns = availableColumns.filter(column =>
-          StakeService.isValidStakeColumn(column, round.activePlayer, round as unknown as Round)
+          StakeService.isValidStakeColumn(column, activePlayer, round as unknown as Round)
         );
 
         // Add a move for each valid stake column
@@ -421,7 +576,6 @@ export class CozenAI {
           let columnValue = stakeValue;
 
           // Prefer player's side of the board
-          const playerColor = round.activePlayer.color;
           const isPlayerSide = (playerColor === Color.Red && column >= 5) ||
                               (playerColor === Color.Black && column < 5);
           if (isPlayerSide) {
@@ -437,7 +591,7 @@ export class CozenAI {
             strength: pairPotential > 1 ? 2 : 0, // Strength for having pair potential
             value: columnValue,
             score: columnValue, // Initial score estimate
-            playerName: round.activePlayer.name || "",
+            playerName: activePlayer.name || "",
             gameId: this.game?.key || "",
           });
         });
@@ -507,18 +661,27 @@ export class CozenAI {
       }
     });
 
-    // Sort moves: prioritizing score (descending) over card count (ascending for efficiency)
-    return _.chain(allMoves)
-      .sortBy((m) => -(m.score || 0))  // Sort by score descending
-      .sortBy((m) => m.cards.length)   // Then sort by card length
-      .sortBy((m) => -(m.score || 0))  // Re-sort by score to ensure it takes priority
-      .value();
+    // IMPORTANT: Use orderBy to sort by multiple criteria in a specific order,
+    // rather than chaining sortBy which overwrites previous sorts
+    return _.orderBy(
+      allMoves,
+      [
+        // Primary sort: score (descending)
+        (m) => m.score === Infinity ? Infinity : (m.score || 0),
+        // Secondary sort: card length (ascending)
+        (m) => m.cards.length
+      ],
+      ['desc', 'asc'] // Sort directions
+    );
   }
 
   /**
    * Generate all possible wager moves
+   * @param round The current game round
+   * @param player The player to generate moves for
+   * @param playerColor The color of the player (required to ensure proper card filtering)
    */
-   private generateWagerMoves(round: AIRound): AIMove[] {
+   private generateWagerMoves(round: AIRound, player: Player, playerColor: Color): AIMove[] {
      const allMoves: AIMove[] = [];
 
      // Get all staked columns
@@ -526,11 +689,53 @@ export class CozenAI {
 
      // Skip if no staked columns
      if (stakedColumns.length === 0) {
+       if (this.debugEnabled) {
+         console.log(`No staked columns found, can't generate wager moves`);
+       }
        return allMoves;
      }
 
-     // Generate all permutations of the hand
-     const permutations = generateHandPermutations(round.activePlayer.hand);
+     // IMPORTANT: Filter player's hand to only include cards of the player's color
+     // First, check if we're using the correct player
+     if (player.color !== playerColor) {
+       if (this.debugEnabled) {
+         console.log(`WARNING: Player ${player.color} doesn't match requested color ${playerColor}!`);
+         console.log(`  - This likely means we're using the wrong player object`);
+
+         // If we have player refs in the round, use them
+         if (playerColor === Color.Red && round.redPlayer) {
+           console.log(`  - Found redPlayer in round, switching to it`);
+           player = round.redPlayer;
+         } else if (playerColor === Color.Black && round.blackPlayer) {
+           console.log(`  - Found blackPlayer in round, switching to it`);
+           player = round.blackPlayer;
+         } else {
+           console.log(`  - No matching player found in round, filtering will likely fail`);
+         }
+       }
+     }
+
+     // Now filter the cards
+     const validHand = player.hand.filter((card: any) => {
+       const cardColor = typeof card === 'object' ? card.color : null;
+       const isValid = cardColor === playerColor;  // Match the exact color passed in
+
+       if (this.debugEnabled && !isValid) {
+         console.log(`Filtered out card ${card.id || card} because color ${cardColor} doesn't match ${playerColor}`);
+       }
+
+       return isValid;
+     });
+
+     if (this.debugEnabled) {
+       console.log(`Generating moves for player ${playerColor}:`);
+       console.log(`  - Original hand: ${player.hand.map((c: any) => c.id || c).join(', ')}`);
+       console.log(`  - Valid hand: ${validHand.map((c: any) => c.id || c).join(', ')}`);
+       console.log(`  - Staked columns: ${stakedColumns.join(', ')}`);
+     }
+
+     // Generate all permutations of the filtered hand
+     const permutations = generateHandPermutations(validHand);
 
      // For each staked column, evaluate all possible card combinations
      stakedColumns.forEach(column => {
@@ -547,11 +752,21 @@ export class CozenAI {
          // Get card numbers
          const cardNumbers = hand.map((c: any) => c.number);
 
+         // Check if stake card has an owner
+         if (this.debugEnabled) {
+           console.log(`Evaluating stake card at column ${column}:`,
+             stakeCard.owner ? `owned by player ${stakeCard.owner.color}` : 'no owner');
+         }
+
          // Evaluate hand strength
          const score = this.evaluateHand(
            cardNumbers,
-           stakeCard.owner === round.activePlayer ? stakeCard.number : -1
+           stakeCard.owner === player ? stakeCard.number : -1
          );
+
+         if (this.debugEnabled) {
+           console.log(`Hand evaluation for ${cardNumbers.join(',')} with stake ${stakeCard.number}: ${score.value}`);
+         }
 
          // Calculate total value of the hand
          const value = hand.reduce((sum: number, card: any) => {
@@ -564,7 +779,7 @@ export class CozenAI {
            column,
            strength: score.value,
            value,
-           playerName: round.activePlayer.name,
+           playerName: player.name,
            gameId: this.game?.key || "",
            didStake: false,
            isStake: false
@@ -582,18 +797,30 @@ export class CozenAI {
     // Look for columns with staked cards
     if (round.staked_columns && typeof round.staked_columns === "function") {
       // Original implementation method
-      return round.staked_columns();
+      const columns = round.staked_columns();
+      if (this.debugEnabled) {
+        console.log(`Found staked columns via function: ${columns.join(', ')}`);
+      }
+      return columns;
     } else if (round.columns && Array.isArray(round.columns)) {
       // New implementation format
-      return round.columns
+      const columns = round.columns
         .map((column: any, index: number) =>
           column.stakedCard || this.getStakeCardPosition(round, index)
             ? index
             : -1,
         )
         .filter((index: number) => index !== -1);
+
+      if (this.debugEnabled) {
+        console.log(`Found staked columns via filter: ${columns.join(', ')}`);
+      }
+      return columns;
     }
 
+    if (this.debugEnabled) {
+      console.log('No staked columns found!');
+    }
     return [];
   }
 
@@ -610,13 +837,23 @@ export class CozenAI {
     // Handle different possible structures
     if (round.columns[columnIndex] && round.columns[columnIndex].stakedCard) {
       // New structure with stakedCard property
+      if (this.debugEnabled) {
+        console.log(`Found stake card at column ${columnIndex}: ${round.columns[columnIndex].stakedCard?.id || 'unknown'}`);
+      }
       return { card: round.columns[columnIndex].stakedCard };
     } else if (round.columns[columnIndex]) {
       // Original implementation with positions array
       const maxCards = 5; // MAX_CARDS_PER_HAND constant
-      return round.columns[columnIndex][maxCards];
+      const result = round.columns[columnIndex][maxCards];
+      if (this.debugEnabled) {
+        console.log(`Checked original structure for column ${columnIndex}, found: ${result ? 'stake card' : 'no stake card'}`);
+      }
+      return result;
     }
 
+    if (this.debugEnabled) {
+      console.log(`No stake card found at column ${columnIndex}`);
+    }
     return null;
   }
 

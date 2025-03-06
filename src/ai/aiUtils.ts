@@ -118,8 +118,34 @@ export function filterStakedPairs(moves: AIMove[], hand: any[]): void {
  * @returns A deep copy of the round
  */
 export function copyRound(round: Round, index?: number): Round & { name?: string; score?: number } {
-  // Deep copy the round object
-  const copy = _.cloneDeep(round) as Round & { name?: string; score?: number };
+  // Check if round has a custom clone method (preferred approach)
+  let copy: Round & { name?: string; score?: number };
+  
+  if (typeof (round as any).clone === 'function') {
+    // Use the custom clone method if available
+    copy = (round as any).clone() as Round & { name?: string; score?: number };
+  } else {
+    // Fall back to deep copy
+    copy = _.cloneDeep(round) as Round & { name?: string; score?: number };
+  
+    // Ensure player references are properly set up
+    // This is critical for the minimax algorithm to alternate players correctly
+    if (copy.redPlayer && copy.blackPlayer) {
+      // Make sure we have player references and deep copies of hands
+      if (!copy.redPlayer.hand) copy.redPlayer.hand = [];
+      if (!copy.blackPlayer.hand) copy.blackPlayer.hand = [];
+      
+      // Preserve player references in case they were broken by cloneDeep
+      // This corrects potential issues with player references
+      if (copy.activePlayer) {
+        if (copy.activePlayer.color === Color.Red) {
+          copy.activePlayer = copy.redPlayer;
+        } else {
+          copy.activePlayer = copy.blackPlayer;
+        }
+      }
+    }
+  }
 
   // Set a name for the copy if an index is provided
   if (index !== undefined) {

@@ -76,4 +76,7 @@ export interface GameNode {
   cards: string;
   column: number;
   isStake: boolean;
+  label?: string;       // Optional custom label for the node
+  minimaxResult?: number; // The result from the minimax calculation for this node
+  cardColor?: string;   // The color of the cards used in this move - for debugging
 }
