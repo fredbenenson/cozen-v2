@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozen - Game Board</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .board {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+    }
+    .player-info {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .columns {
+      display: flex;
+      width: 100%;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    .column {
+      flex: 1;
+      max-width: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 0 5px;
+      min-height: 400px;
+      position: relative;
+      background-color: white;
+    }
+    .column-header {
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .stake-card {
+      width: 70px;
+      height: 100px;
+      border: 2px solid #333;
+      border-radius: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 24px;
+      margin-bottom: 15px;
+    }
+    .positions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      flex: 1;
+    }
+    .position {
+      width: 70px;
+      height: 50px;
+      margin: 5px 0;
+      border: 1px dashed #999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .card {
+      width: 70px;
+      height: 100px;
+      border: 2px solid #333;
+      border-radius: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 24px;
+      cursor: pointer;
+      margin: 0 5px;
+      background-color: white;
+    }
+    .position .card {
+      width: 60px;
+      height: 80px;
+      font-size: 20px;
+    }
+    .hand {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .hand .card {
+      margin: 5px;
+    }
+    .red-card {
+      background-color: #ffeeee;
+      color: #cc0000;
+      border-color: #cc0000;
+    }
+    .black-card {
+      background-color: #eeeeff;
+      color: #000099;
+      border-color: #000099;
+    }
+    .selected {
+      box-shadow: 0 0 10px 3px gold;
+    }
+    .column.selected {
+      border: 2px solid blue;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .button {
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    .button:hover {
+      background-color: #45a049;
+    }
+    .button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .game-info {
+      text-align: center;
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f5e9;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 30px;
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cozen - Game Board Preview</h1>
+
+    <div class="board">
+      <!-- Opponent info -->
+      <div class="player-info">
+        <h3>Opponent (2 VP)</h3>
+        <div>Cards in hand: 3</div>
+      </div>
+
+      <!-- Board columns -->
+      <div class="columns">
+        <!-- Column 0 -->
+        <div class="column">
+          <div class="column-header">Column 0</div>
+          <div class="stake-card red-card">7</div>
+          <div class="positions">
+            <div class="position">
+              <div class="card black-card">4</div>
+            </div>
+            <div class="position">
+              <div class="card red-card">2</div>
+            </div>
+            <div class="position">
+              <!-- Empty position -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 1 -->
+        <div class="column selected">
+          <div class="column-header">Column 1</div>
+          <div class="stake-card black-card">9</div>
+          <div class="positions">
+            <div class="position">
+              <div class="card red-card">5</div>
+            </div>
+            <div class="position">
+              <!-- Empty position -->
+            </div>
+            <div class="position">
+              <!-- Empty position -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="column">
+          <div class="column-header">Column 2</div>
+          <div class="stake-card red-card">8</div>
+          <div class="positions">
+            <div class="position">
+              <div class="card black-card">6</div>
+            </div>
+            <div class="position">
+              <div class="card black-card">3</div>
+            </div>
+            <div class="position">
+              <!-- Empty position -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player's hand -->
+      <div class="player-info">
+        <h3>Your Hand (1 VP)</h3>
+        <div class="hand">
+          <div class="card red-card selected">1</div>
+          <div class="card red-card">3</div>
+          <div class="card black-card">4</div>
+          <div class="card black-card">5</div>
+          <div class="card red-card">6</div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="actions">
+        <button class="button" disabled>Stake Card</button>
+        <button class="button">Wager Cards</button>
+      </div>
+
+      <!-- Game info -->
+      <div class="game-info">
+        <div>Round State: active</div>
+        <div>Active Player: You (red)</div>
+        <div>Turn: 3</div>
+      </div>
+    </div>
+
+    <a href="/" class="back-link">← Back to Home</a>
+  </div>
+
+  <script>
+    // Simple interactivity for demonstration
+    document.addEventListener('DOMContentLoaded', function() {
+      // Game state
+      const gameState = {
+        turnCount: 3,
+        activePlayer: 'red',
+        activePhase: 'wager', // 'stake' or 'wager'
+        redVP: 1,
+        blackVP: 2,
+        redStakesAvailable: 0,
+        blackStakesAvailable: 0,
+        message: ''
+      };
+
+      // Message display
+      const showMessage = (message, type = 'info') => {
+        gameState.message = message;
+        updateGameInfo();
+        setTimeout(() => {
+          gameState.message = '';
+          updateGameInfo();
+        }, 3000);
+      };
+
+      // Card selection
+      const cards = document.querySelectorAll('.hand .card');
+      cards.forEach(card => {
+        card.addEventListener('click', function() {
+          this.classList.toggle('selected');
+          updateButtons();
+        });
+      });
+
+      // Column selection
+      const columns = document.querySelectorAll('.column');
+      columns.forEach(column => {
+        column.addEventListener('click', function() {
+          // Only allow selecting columns with stake cards
+          if (column.querySelector('.stake-card')) {
+            columns.forEach(col => col.classList.remove('selected'));
+            this.classList.add('selected');
+            updateButtons();
+          }
+        });
+      });
+
+      // Update button states
+      function updateButtons() {
+        const selectedCards = document.querySelectorAll('.hand .card.selected');
+        const selectedColumn = document.querySelector('.column.selected');
+        
+        const stakeButton = document.querySelector('.button:nth-child(1)');
+        const wagerButton = document.querySelector('.button:nth-child(2)');
+        
+        // In stake phase, can only stake if there are available stakes
+        stakeButton.disabled = selectedCards.length !== 1 || gameState.redStakesAvailable === 0;
+        
+        // In wager phase, can wager if there's a column selected and cards selected
+        wagerButton.disabled = selectedCards.length === 0 || !selectedColumn;
+      }
+
+      // Update game info display
+      function updateGameInfo() {
+        const gameInfo = document.querySelector('.game-info');
+        gameInfo.innerHTML = `
+          <div>Round State: ${gameState.activePhase}</div>
+          <div>Active Player: You (${gameState.activePlayer})</div>
+          <div>Turn: ${gameState.turnCount}</div>
+          ${gameState.message ? `<div style="color: red; font-weight: bold; margin-top: 10px;">${gameState.message}</div>` : ''}
+        `;
+
+        // Update VP display
+        document.querySelector('.player-info:first-child h3').textContent = `Opponent (${gameState.blackVP} VP)`;
+        document.querySelector('.player-info:last-of-type h3').textContent = `Your Hand (${gameState.redVP} VP)`;
+      }
+
+      // Button actions
+      const stakeButton = document.querySelector('.button:nth-child(1)');
+      stakeButton.addEventListener('click', function() {
+        const selectedCard = document.querySelector('.hand .card.selected');
+        if (!selectedCard) {
+          showMessage('Please select a card to stake');
+          return;
+        }
+
+        // Find an empty column
+        let emptyColumn = null;
+        columns.forEach(column => {
+          if (!column.querySelector('.stake-card')) {
+            emptyColumn = column;
+          }
+        });
+
+        if (!emptyColumn) {
+          showMessage('No empty columns available for staking');
+          return;
+        }
+
+        // Create a stake card
+        const cardValue = selectedCard.textContent;
+        const isRed = selectedCard.classList.contains('red-card');
+        const newStakeCard = document.createElement('div');
+        newStakeCard.className = `stake-card ${isRed ? 'red-card' : 'black-card'}`;
+        newStakeCard.textContent = cardValue;
+        
+        // Find the header and add the stake card after it
+        const header = emptyColumn.querySelector('.column-header');
+        header.insertAdjacentElement('afterend', newStakeCard);
+
+        // Remove the card from hand
+        selectedCard.remove();
+
+        // Update game state
+        gameState.redStakesAvailable--;
+        gameState.turnCount++;
+        showMessage('Card staked successfully');
+        updateGameInfo();
+        updateButtons();
+      });
+
+      const wagerButton = document.querySelector('.button:nth-child(2)');
+      wagerButton.addEventListener('click', function() {
+        const selectedCards = document.querySelectorAll('.hand .card.selected');
+        const selectedColumn = document.querySelector('.column.selected');
+        
+        if (selectedCards.length === 0) {
+          showMessage('Please select cards to wager');
+          return;
+        }
+
+        if (!selectedColumn) {
+          showMessage('Please select a column to wager on');
+          return;
+        }
+
+        // Find an empty position
+        const positions = selectedColumn.querySelectorAll('.position');
+        let emptyPosition = null;
+        
+        for (const position of positions) {
+          if (!position.querySelector('.card')) {
+            emptyPosition = position;
+            break;
+          }
+        }
+
+        if (!emptyPosition) {
+          showMessage('No empty positions in this column');
+          return;
+        }
+
+        // Create a wager card (just use the first selected card for demo)
+        const selectedCard = selectedCards[0];
+        const cardValue = selectedCard.textContent;
+        const isRed = selectedCard.classList.contains('red-card');
+        const newWagerCard = document.createElement('div');
+        newWagerCard.className = `card ${isRed ? 'red-card' : 'black-card'}`;
+        newWagerCard.textContent = cardValue;
+        
+        // Add the card to the position
+        emptyPosition.appendChild(newWagerCard);
+
+        // Remove the cards from hand
+        selectedCards.forEach(card => card.remove());
+
+        // Update game state
+        gameState.turnCount++;
+        
+        // Randomly update VP to simulate scoring
+        if (Math.random() > 0.5) {
+          gameState.redVP++;
+          showMessage('You scored a victory point!');
+        }
+        
+        updateGameInfo();
+        updateButtons();
+        
+        // Deselect column
+        selectedColumn.classList.remove('selected');
+      });
+
+      // Add a reset button for demo purposes
+      const actionsDiv = document.querySelector('.actions');
+      const resetButton = document.createElement('button');
+      resetButton.className = 'button';
+      resetButton.style.backgroundColor = '#f44336';
+      resetButton.textContent = 'Reset Demo';
+      actionsDiv.appendChild(resetButton);
+      
+      resetButton.addEventListener('click', function() {
+        location.reload();
+      });
+
+      // Initial updates
+      updateButtons();
+      updateGameInfo();
+    });
+  </script>
+</body>
+</html>

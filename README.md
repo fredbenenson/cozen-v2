@@ -17,7 +17,7 @@ For a complete overview of game rules, please refer to the [RULES.md](RULES.md) 
 
 - Node.js (v20.0.0 or later)
 - npm (v10.0.0 or later)
-- MongoDB
+- MongoDB (for original implementation)
 
 ## Installation
 
@@ -32,54 +32,54 @@ cd cozen-v2
 npm install
 ```
 
-3. Create a `.env` file in the project root with the following variables:
+3. For the original implementation, create a `.env` file in the project root with:
 ```
 MONGODB_URI=mongodb://localhost:27017/cozen
 JWT_SECRET=your_jwt_secret_key
 PORT=3000
 ```
 
-## Configuration
-
-### Environment Variables
-
-- `MONGODB_URI`: Connection string for your MongoDB database
-- `JWT_SECRET`: Secret key for JWT token generation
-- `PORT`: Port number for the server (default: 3000)
-
 ## Running the Application
 
-### Development Mode
-```bash
-npm run dev
-```
+### Original Implementation
 
-### Production Build
 ```bash
-npm run build
 npm start
 ```
 
-## Testing
+### Boardgame.io Implementation (New!)
 
-### Run All Tests
+The project now includes a boardgame.io-based implementation that provides better state management and multiplayer capabilities.
+
+To run the boardgame.io server:
 ```bash
-npm test
+npm run start:boardgame
 ```
 
-### Watch Mode for Tests
+To test the implementation in console mode:
 ```bash
-npm run test:watch
+npm run test:boardgame
 ```
 
-### Test Coverage
+For development with auto-reload:
 ```bash
-npm run test:coverage
+npm run dev:boardgame
 ```
+
+## Boardgame.io Implementation
+
+The new boardgame.io implementation offers several advantages:
+
+- Improved state management with immutable updates
+- Built-in multiplayer server
+- AI support with Monte Carlo Tree Search
+- Better separation of game logic and UI
+
+See the [boardgame implementation README](src/boardgame/README.md) for more details.
 
 ## CLI Interface
 
-The application includes a CLI for testing and interacting with the game:
+The original implementation includes a CLI for testing and interacting with the game:
 
 ```bash
 npm run cli
@@ -96,7 +96,7 @@ The CLI provides an interactive game setup where you can:
 - `play <number>,<number> <column>`: Play multiple cards (e.g., `play 3,4 1`)
 - `quit`: Exit the game
 
-## API Endpoints
+## API Endpoints (Original Implementation)
 
 ### Authentication Routes
 - `POST /auth/register`: Register a new player
@@ -107,28 +107,10 @@ The CLI provides an interactive game setup where you can:
 - `POST /games/create`: Create a new game
 - `POST /games/:gameId/move`: Make a move in an existing game
 
-## WebSocket Events
-
-The application uses Socket.IO for real-time game interactions:
-- `joinGame`: Join a specific game room
-- `makeMove`: Make a move and broadcast to game participants
-- `moveUpdate`: Receive updates about game moves
-
-## Development
-
-### Linting
-```bash
-npm run lint
-```
-
-### Formatting
-```bash
-npm run format
-```
-
 ## Project Structure
 
 - `src/`
+  - `boardgame/`: Boardgame.io implementation (NEW!)
   - `config/`: Configuration files
   - `middleware/`: Express middleware
   - `models/`: Mongoose models
@@ -148,5 +130,5 @@ npm run format
 - MongoDB (Mongoose)
 - Socket.IO
 - Jest (Testing)
-- JWT (Authentication)
-- bcryptjs (Password Hashing)
+- boardgame.io (New implementation)
+- React (for boardgame.io UI)

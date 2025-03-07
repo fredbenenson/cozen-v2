@@ -133,3 +133,6 @@ tmp/
 
 # Repomix
 repomix-output.txt
+
+#Boardgame IO
+migration-plan/boardgame.io
