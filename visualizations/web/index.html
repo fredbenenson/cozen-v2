@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cozen Game AI Visualizer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Cozen Game AI Visualizer</h1>
+            <div id="controls">
+                <button id="reset-button">Reset Game</button>
+                <select id="depth-selector">
+                    <option value="1">Search Depth: 1</option>
+                    <option value="2" selected>Search Depth: 2</option>
+                    <option value="3">Search Depth: 3</option>
+                    <option value="4">Search Depth: 4</option>
+                </select>
+            </div>
+        </header>
+        
+        <main>
+            <div id="game-tree-container">
+                <div class="game-state" id="root-state">
+                    <h3>Current Game State</h3>
+                    <div class="score-info">Black: 0 | Red: 0</div>
+                    <div class="game-board">
+                        <!-- Game board will be rendered here -->
+                    </div>
+                    <div class="player-info">
+                        <div class="player black active">
+                            <h4>Black Player (AI)</h4>
+                            <div class="hand">
+                                <!-- Cards will be rendered here -->
+                            </div>
+                            <div class="stakes">Stakes: 3, 2, 1, 0</div>
+                        </div>
+                        <div class="player red">
+                            <h4>Red Player (Human)</h4>
+                            <div class="hand">
+                                <!-- Cards will be rendered here -->
+                            </div>
+                            <div class="stakes">Stakes: 6, 7, 8, 9</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="moves-container">
+                    <h3>Possible Moves (Sorted by Score)</h3>
+                    <div class="move-options">
+                        <!-- Move options will be dynamically generated -->
+                    </div>
+                </div>
+
+                <div id="child-states-container">
+                    <!-- Child game states will be dynamically generated -->
+                </div>
+            </div>
+
+            <div id="move-details-panel">
+                <h3>Move Details</h3>
+                <div id="move-score">Score: <span>0</span></div>
+                <div id="move-description">No move selected</div>
+                <div id="minimax-info">
+                    <h4>Minimax Evaluation</h4>
+                    <div id="minimax-value">Value: <span>0</span></div>
+                    <div id="nodes-explored">Nodes explored: <span>0</span></div>
+                    <div id="evaluation-time">Evaluation time: <span>0ms</span></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Cozen Game AI Visualizer - Using the actual game engine logic</p>
+        </footer>
+    </div>
+
+    <script src="boardRenderer.js"></script>
+    <script src="visualizer.js"></script>
+</body>
+</html>

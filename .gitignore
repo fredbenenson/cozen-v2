@@ -133,6 +133,3 @@ tmp/
 
 # Repomix
 repomix-output.txt
-
-# Viz specific for Minimax debugging
-visualizations/

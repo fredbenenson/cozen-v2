@@ -1,0 +1,449 @@
+:root {
+    --black-color: #2c3e50;
+    --red-color: #c0392b;
+    --light-bg: #f5f5f5;
+    --dark-bg: #333;
+    --grid-line: #777;
+    --highlight-good: #27ae60;
+    --highlight-bad: #e74c3c;
+    --card-bg: #fff;
+    --stake-bg: #ddd;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--dark-bg);
+    background: var(--light-bg);
+    padding: 20px;
+}
+
+#app {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+}
+
+#game-tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+
+.game-state {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.game-state.selected {
+    border: 2px solid #3498db;
+}
+
+.game-state.black-optimal {
+    border-left: 5px solid var(--highlight-good);
+}
+
+.game-state.red-optimal {
+    border-left: 5px solid var(--highlight-bad);
+}
+
+.game-state h3 {
+    margin-bottom: 10px;
+}
+
+.score-info {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-weight: bold;
+}
+
+.game-board {
+    display: grid;
+    grid-template-columns: 40px repeat(10, 1fr); /* First column for labels is fixed width */
+    grid-template-rows: 30px repeat(8, 1fr); /* First row for headers is fixed height */
+    border: 2px solid #555;
+    margin: 15px auto; /* Center the board */
+    background: #f0f0f0;
+    gap: 0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    max-width: 500px; /* Limit width to maintain card layout */
+}
+
+.board-cell {
+    height: 45px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    position: relative;
+    border: 1px solid #ccc;
+    overflow: visible; /* Allow cards to overflow cell boundaries */
+}
+
+.board-header {
+    background: #e0e0e0;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.board-header.corner {
+    background: #d0d0d0;
+}
+
+.board-header.column {
+    background: #d8d8d8;
+}
+
+.col-number-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.col-number {
+    font-size: 14px;
+}
+
+.row-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.row-label.black {
+    background: rgba(44, 62, 80, 0.2);
+    color: var(--black-color);
+}
+
+.row-label.red {
+    background: rgba(192, 57, 43, 0.2);
+    color: var(--red-color);
+}
+
+.row-label.stake {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+.player-indicator {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.stake-indicator {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.stake-row {
+    background: #e8e8e8;
+    border-top: 2px solid #666;
+    border-bottom: 2px solid #666;
+}
+
+.black-position {
+    background: rgba(44, 62, 80, 0.05);
+    border-top: none;
+    border-bottom: none;
+}
+
+.red-position {
+    background: rgba(192, 57, 43, 0.05);
+    border-top: none;
+    border-bottom: none;
+}
+
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.player {
+    flex: 1;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.player.black {
+    background: rgba(44, 62, 80, 0.1);
+    border-left: 3px solid var(--black-color);
+}
+
+.player.red {
+    background: rgba(192, 57, 43, 0.1);
+    border-left: 3px solid var(--red-color);
+}
+
+.player.active {
+    box-shadow: 0 0 0 2px #3498db;
+}
+
+.hand {
+    display: flex;
+    gap: 5px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.card {
+    width: 40px;
+    height: 60px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    font-weight: bold;
+}
+
+.card.black {
+    color: var(--black-color);
+    border: 1px solid var(--black-color);
+}
+
+.card.red {
+    color: var(--red-color);
+    border: 1px solid var(--red-color);
+}
+
+.card.selected, .board-card.selected {
+    box-shadow: 0 0 0 2px gold, 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.card-stack {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.board-card {
+    width: 30px;
+    height: 42px;
+    border-radius: 3px;
+    background: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    font-size: 10px;
+    font-weight: bold;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-value {
+    font-size: 8px;
+    line-height: 1;
+    text-align: center;
+    position: absolute;
+}
+
+.card-value.top-left {
+    top: 1px;
+    left: 1px;
+}
+
+.card-value.bottom-right {
+    bottom: 1px;
+    right: 1px;
+    transform: rotate(180deg);
+}
+
+.card-suit.central {
+    font-size: 14px;
+}
+
+.board-card.black {
+    color: var(--black-color);
+    border: 1px solid var(--black-color);
+}
+
+.board-card.red {
+    color: var(--red-color);
+    border: 1px solid var(--red-color);
+}
+
+.board-card.stake {
+    z-index: 2;
+    border-width: 2px;
+    border-style: double;
+    background-color: #f8f8f8;
+}
+
+#moves-container {
+    margin-top: 20px;
+}
+
+.move-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.move-button {
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+}
+
+.move-button:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.move-button.stake {
+    background: #e8f4f8;
+}
+
+.move-button.play {
+    background: #f0f7ed;
+}
+
+.move-button .score {
+    font-weight: bold;
+    color: var(--highlight-good);
+}
+
+.move-button .score.negative {
+    color: var(--highlight-bad);
+}
+
+.move-button.selected {
+    border: 2px solid #3498db;
+    background: #ebf5fb;
+}
+
+#child-states-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.child-state {
+    width: calc(33.333% - 14px);
+    min-width: 300px;
+}
+
+#move-details-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 20px;
+}
+
+#move-score {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+#move-description {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+#minimax-info {
+    margin-top: 10px;
+}
+
+#minimax-info h4 {
+    margin-bottom: 8px;
+}
+
+#controls {
+    display: flex;
+    gap: 10px;
+}
+
+#reset-button, #depth-selector {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+}
+
+#reset-button:hover {
+    background: #f0f0f0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    main {
+        grid-template-columns: 1fr;
+    }
+    
+    #move-details-panel {
+        position: static;
+        margin-top: 20px;
+    }
+    
+    .child-state {
+        width: calc(50% - 10px);
+    }
+}
+
+@media (max-width: 768px) {
+    .child-state {
+        width: 100%;
+    }
+}
