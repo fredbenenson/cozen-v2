@@ -3,7 +3,7 @@ The buffalo isn't as dangerous as everyone makes him out to be.
 Statistics prove that in the United States more Americans are killed in
 automobile accidents than are killed by buffalo.
 		-- Art Buchwald
-{13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ npm run cli            
+{13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ npm run cli
 npm error Missing script: "cli"
 npm error
 npm error Did you mean this?
@@ -12,7 +12,7 @@ npm error
 npm error To see a list of scripts, run:
 npm error   npm run
 npm error A complete log of this run can be found in: /Users/fredbenenson/.npm/_logs/2025-03-07T18_35_10_915Z-debug-0.log
-{13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ npm run cli              
+{13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ npm run cli
 {13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ git add .
 {13:35}[3.2.0]~/cozen/cozen-v2:boardgame-io ✗ ➭ git status
 On branch boardgame-io
@@ -83,34 +83,34 @@ Changes to be committed:
 error: pathspec 'master' did not match any file(s) known to git
 
 ====================================================================================================
-                                  COZEN GAME STATE                                          
+                                  COZEN GAME STATE
 ====================================================================================================
 
 SCORES:
 Black: 0   Red: 0
 
-ACTIVE PLAYER:  BLACK 
+ACTIVE PLAYER:  BLACK
 
- BLACK PLAYER 
+ BLACK PLAYER
 ➤ Hand: 7♣ (7) J♠ (11) 5♠ (5) 7♠ (7) 5♣ (5)
   Stakes available: 0, 1, 2, 3
   Jail: empty
   Deck remaining: 20
 
 BOARD:
-       0   1   2   3   4   5   6   7   8   9   
-       ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓  
- 1 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 2 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 3 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 4 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
-S:    [ ] [ ] [ ] [ ] 8♣  A♦  [ ] [ ] [ ] [ ] 
- 1 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 2 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 3 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
- 4 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] 
+       0   1   2   3   4   5   6   7   8   9
+       ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓
+ 1 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 2 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 3 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 4 B: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+S:    [ ] [ ] [ ] [ ] 8♣  A♦ [ ] [ ] [ ] [ ]
+ 1 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 2 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 3 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+ 4 R: [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
 
- RED PLAYER 
+ RED PLAYER
   Hand: 2♥ (2) 10♦ (10) 4♦ (4) 3♦ (3) 8♥ (8)
   Stakes available: 6, 7, 8, 9
   Jail: empty
@@ -138,12 +138,3 @@ AI is thinking...
 
 AI will play to column 4 with 4 cards
 Press Enter to continue...
- 
-
-
-
-
-
-
-
-

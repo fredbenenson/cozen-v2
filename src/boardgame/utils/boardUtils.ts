@@ -108,8 +108,21 @@ function isColumnContested(column: Column): boolean {
   const positions = column.positions;
   
   // Check if there are cards from both Red and Black
-  const hasRed = positions.some(pos => pos.card?.color === Color.Red);
-  const hasBlack = positions.some(pos => pos.card?.color === Color.Black);
+  const hasRed = positions.some(pos => {
+    if (!pos.card) return false;
+    if (Array.isArray(pos.card)) {
+      return pos.card.some(c => c.color === Color.Red);
+    }
+    return pos.card.color === Color.Red;
+  });
+  
+  const hasBlack = positions.some(pos => {
+    if (!pos.card) return false;
+    if (Array.isArray(pos.card)) {
+      return pos.card.some(c => c.color === Color.Black);
+    }
+    return pos.card.color === Color.Black;
+  });
   
   return hasRed && hasBlack;
 }
@@ -125,8 +138,17 @@ function returnUncontestedCards(G: CozenState, column: Column) {
   // Return all cards to their owners
   column.positions.forEach(pos => {
     if (pos.card) {
-      const owner = pos.card.color === Color.Red ? 'red' : 'black';
-      G.players[owner].cards.push(pos.card!);
+      if (Array.isArray(pos.card)) {
+        // Handle array of cards
+        pos.card.forEach(card => {
+          const owner = card.color === Color.Red ? 'red' : 'black';
+          G.players[owner].cards.push(card);
+        });
+      } else {
+        // Handle single card
+        const owner = pos.card.color === Color.Red ? 'red' : 'black';
+        G.players[owner].cards.push(pos.card);
+      }
       pos.card = undefined;
     }
   });
@@ -144,13 +166,31 @@ function resolveContestedColumn(G: CozenState, column: Column) {
   const stakeIsRed = stake.color === Color.Red;
   
   // Get red and black cards separately
-  const redCards = column.positions
-    .filter(pos => pos.card?.color === Color.Red)
-    .map(pos => pos.card!);
+  const redCards: Card[] = [];
+  column.positions.forEach(pos => {
+    if (!pos.card) return;
     
-  const blackCards = column.positions
-    .filter(pos => pos.card?.color === Color.Black)
-    .map(pos => pos.card!);
+    if (Array.isArray(pos.card)) {
+      // Add all red cards from the array
+      redCards.push(...pos.card.filter(card => card.color === Color.Red));
+    } else if (pos.card.color === Color.Red) {
+      // Add single red card
+      redCards.push(pos.card);
+    }
+  });
+    
+  const blackCards: Card[] = [];
+  column.positions.forEach(pos => {
+    if (!pos.card) return;
+    
+    if (Array.isArray(pos.card)) {
+      // Add all black cards from the array
+      blackCards.push(...pos.card.filter(card => card.color === Color.Black));
+    } else if (pos.card.color === Color.Black) {
+      // Add single black card
+      blackCards.push(pos.card);
+    }
+  });
   
   // Get card numbers for evaluation
   const redNumbers = redCards.map(card => card.number);
@@ -259,6 +299,7 @@ export function setupNextRound(G: CozenState) {
     
     // Draw new hand
     player.hand = player.cards.splice(0, 5);
+    console.log(`${playerID} new hand drawn: ${player.hand.map(c => c.number).join(',')} (${player.hand.length} cards in hand, ${player.cards.length} in deck)`);
   });
   
   // Set up new stakes if needed

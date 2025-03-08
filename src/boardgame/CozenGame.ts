@@ -8,7 +8,7 @@ import { enumerate } from './ai/enumerate';
 // Move implementations
 const moves = {
   // Stake a card in the stakes row
-  stakeCard: ({ G, ctx, playerID }: any, cardId: string) => {
+  stakeCard: ({ G, ctx }: any, cardId: string) => {
     const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
     const player = G.players[playerColor];
     
@@ -205,12 +205,12 @@ function placeWageredCards(
     }
   });
   
-  // Place cards in positions
-  for (let i = 0; i < Math.min(cards.length, availablePositions.length); i++) {
-    const posIndex = availablePositions[i].index;
+  // If we have available positions, place all cards in the first position
+  if (availablePositions.length > 0) {
+    const posIndex = availablePositions[0].index;
     G.board[columnIndex].positions[posIndex] = {
       ...G.board[columnIndex].positions[posIndex],
-      card: cards[i]
+      card: cards // Store all cards in the position
     };
   }
 }

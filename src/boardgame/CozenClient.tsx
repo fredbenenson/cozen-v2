@@ -5,12 +5,13 @@ import { SocketIO } from 'boardgame.io/multiplayer';
 import { MCTSBot } from 'boardgame.io/ai';
 import { CozenGame } from './CozenGame';
 import { CozenBoard } from './components/Board';
+import { EnhancedBoard } from './components/EnhancedBoard';
 import { enumerate } from './ai/enumerate';
 
 // Create a client with local multiplayer (for testing)
 export const CozenLocalClient = Client({
   game: CozenGame,
-  board: CozenBoard,
+  board: EnhancedBoard, // Using our enhanced board
   debug: { impl: false },
   multiplayer: Local(),
 });
@@ -18,7 +19,7 @@ export const CozenLocalClient = Client({
 // Create a client with AI opponent
 export const CozenAIClient = Client({
   game: CozenGame,
-  board: CozenBoard,
+  board: EnhancedBoard, // Using our enhanced board
   debug: { impl: false },
   multiplayer: Local({
     bots: {
@@ -30,7 +31,7 @@ export const CozenAIClient = Client({
 // Create a client with online multiplayer
 export const CozenOnlineClient = (serverURI: string) => Client({
   game: CozenGame,
-  board: CozenBoard,
+  board: EnhancedBoard, // Using our enhanced board
   debug: false,
   multiplayer: SocketIO({ server: serverURI }),
 });

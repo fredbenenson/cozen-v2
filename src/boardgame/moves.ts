@@ -33,7 +33,13 @@ export const moves = {
     
     // Draw a new card if not in last_play state
     if (G.roundState !== 'last_play' && player.cards.length > 0) {
-      player.hand.push(player.cards.shift()!);
+      const drawnCard = player.cards.shift()!;
+      player.hand.push(drawnCard);
+      console.log(`${playerID} drew card: ${drawnCard.number} (${player.hand.length} cards in hand, ${player.cards.length} in deck)`);
+    } else if (G.roundState === 'last_play') {
+      console.log(`${playerID} in last_play state, not drawing cards`);
+    } else if (player.cards.length === 0) {
+      console.log(`${playerID} has no cards left in deck to draw`);
     }
     
     // Check if this affects game state
@@ -87,6 +93,8 @@ export const moves = {
     const temp = G.activePlayer;
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = temp;
+    
+    // No card drawing after wagering, which matches the original implementation
     
     return G;
   },

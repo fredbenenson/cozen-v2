@@ -15,7 +15,7 @@ export interface Card {
 
 // Position on the board
 export interface Position {
-  card?: Card;
+  card?: Card | Card[]; // Can now hold either a single card or an array of cards
   owner: PlayerID;
   n: number;
   coord: [number, number];

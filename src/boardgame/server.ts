@@ -25,6 +25,10 @@ app.get('/boardgame/ai', (req, res) => {
   res.sendFile(path.resolve(__dirname, './ai.html'));
 });
 
+app.get('/boardgame/board', (req, res) => {
+  res.sendFile(path.resolve(__dirname, './board.html'));
+});
+
 // Start the Express server
 app.listen(PORT, () => {
   console.log(`Frontend server running at http://localhost:${PORT}/`);

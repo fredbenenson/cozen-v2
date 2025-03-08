@@ -78,12 +78,13 @@
     }
     .position {
       width: 70px;
-      height: 35px;
+      height: 100px; /* Just tall enough for a card */
       margin: 2px 0;
       border: 1px dashed #999;
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: visible; /* Allow cards to overflow the position */
     }
     .black-pos {
       background-color: rgba(0, 0, 0, 0.05);
@@ -156,7 +157,8 @@
     /* Wager container styles */
     .wager-container {
       position: relative;
-      height: 80px;
+      height: 100px;
+      width: 100px;
       margin: 0 auto;
     }
     /* Hide center value for better appearance */
@@ -718,16 +720,13 @@
         const wagerContainer = document.createElement('div');
         wagerContainer.className = 'wager-container';
         wagerContainer.style.position = 'relative';
-        wagerContainer.style.width = '80px';
-        wagerContainer.style.height = '80px';
         
         // Add all selected cards to the wager container in a stacked fashion
         const selectedCardsArray = Array.from(selectedCards);
         const totalCards = selectedCardsArray.length;
         
-        // Calculate offsets based on the number of cards
-        const horOffset = 16 / totalCards; // Smaller offset for more cards
-        const vertOffset = 12 / totalCards;
+        // Only use vertical offset - no horizontal offset
+        const vertOffset = 25; // Vertical offset between cards
         
         // Reverse the array to have the last card on top
         selectedCardsArray.reverse().forEach((card, index) => {
@@ -738,11 +737,11 @@
           wagerCard.className = `card ${isRed ? 'red-card' : 'black-card'}`;
           wagerCard.setAttribute('data-value', cardValue);
           
-          // Position cards in a stacked, slightly offset manner
+          // Position cards in a vertically stacked manner (no horizontal offset)
           wagerCard.style.position = 'absolute';
-          wagerCard.style.width = '60px';
-          wagerCard.style.height = '80px';
-          wagerCard.style.left = `${index * horOffset}px`;
+          wagerCard.style.width = '70px'; // Same as stake cards
+          wagerCard.style.height = '100px'; // Same as stake cards
+          wagerCard.style.left = '0px'; // No horizontal offset
           wagerCard.style.top = `${index * vertOffset}px`;
           wagerCard.style.zIndex = index;
           
@@ -921,8 +920,6 @@
         const wagerContainer = document.createElement('div');
         wagerContainer.className = 'wager-container';
         wagerContainer.style.position = 'relative';
-        wagerContainer.style.width = '80px';
-        wagerContainer.style.height = '80px';
         
         // Randomly decide how many cards to wager (1-3)
         const numCards = Math.floor(Math.random() * 3) + 1;
@@ -935,9 +932,8 @@
           selectedCards.push(blackCards[randomIndex]);
         }
         
-        // Calculate offsets based on the number of cards
-        const horOffset = 16 / numCards; // Smaller offset for more cards
-        const vertOffset = 12 / numCards;
+        // Only use vertical offset - no horizontal offset
+        const vertOffset = 25; // Vertical offset between cards
         
         // Add cards to the wager container in a stacked fashion (in reverse to have last card on top)
         [...selectedCards].reverse().forEach((cardValue, index) => {
@@ -945,11 +941,11 @@
           wagerCard.className = 'card black-card';
           wagerCard.setAttribute('data-value', cardValue);
           
-          // Position cards in a stacked, slightly offset manner
+          // Position cards in a vertically stacked manner (no horizontal offset)
           wagerCard.style.position = 'absolute';
-          wagerCard.style.width = '60px';
-          wagerCard.style.height = '80px';
-          wagerCard.style.left = `${index * horOffset}px`;
+          wagerCard.style.width = '70px'; // Same as stake cards
+          wagerCard.style.height = '100px'; // Same as stake cards
+          wagerCard.style.left = '0px'; // No horizontal offset
           wagerCard.style.top = `${index * vertOffset}px`;
           wagerCard.style.zIndex = index;
           
