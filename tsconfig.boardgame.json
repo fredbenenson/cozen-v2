@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "lib": ["dom", "es2015", "es2016", "es2017"],
+    "jsx": "react",
+    "sourceMap": true,
+    "outDir": "./dist/boardgame",
+    "strict": false,
+    "noImplicitAny": false,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/boardgame/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}
