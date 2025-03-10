@@ -1,15 +1,25 @@
 // src/websocket/gameSocket.ts
 import { Server, Socket } from 'socket.io';
 import http from 'http';
-import { Move } from '../types/game';
+import { AIMove } from '../ai/aiTypes';
 import { GameModel } from '../models/Game';
 import { GameService } from '../services/gameService';
 import { AIService } from '../services/ai/aiService';
 import { AIDifficulty } from '../ai/cozenAI';
 
 // Extend the Move interface to include gameId
-interface GameMove extends Move {
+interface GameMove {
   gameId: string;
+  playerId: string;
+  cards: any[];
+  column?: number;
+  isStake: boolean;
+  // Additional fields that might be in AIMove
+  strength?: number;
+  value?: number;
+  score?: number;
+  splitPair?: boolean;
+  playerName?: string;
 }
 
 interface AIRequest {
@@ -73,12 +83,32 @@ export const initializeWebSocket = (server: http.Server) => {
         }
 
         // Calculate AI move
-        const difficultyLevel = request.difficulty
-          ? AIDifficulty[request.difficulty.toUpperCase() as keyof typeof AIDifficulty]
-          : AIDifficulty.MEDIUM;
+        // Parse difficulty string to enum value
+        let difficultyLevel = AIDifficulty.MEDIUM;
+        if (request.difficulty && Object.values(AIDifficulty).includes(request.difficulty as AIDifficulty)) {
+          difficultyLevel = request.difficulty as AIDifficulty;
+        }
 
+        // Use type assertion to handle Document conversion
+        const gameData = game.toObject();
+        // Need to find the active player for the AI to use
+        // In a real implementation, this would be properly extracted from the game state
+        const mockPlayer = {
+          color: game.currentPlayerIndex === 0 ? 'red' : 'black',
+          name: 'AI Player',
+          hand: [],
+          jail: [],
+          cards: [],
+          victory_points: 0,
+          availableStakes: [],
+          stake_offset: 0,
+          drawUp: () => {},
+          reset: () => {}
+        };
+        
         const move = AIService.calculateMove(
-          game,
+          gameData as any,
+          mockPlayer as any,
           difficultyLevel,
           request.searchDepth || 4
         );
@@ -90,7 +120,14 @@ export const initializeWebSocket = (server: http.Server) => {
 
         // Apply the move
         // We need to cast the move to GameMove to satisfy TypeScript
-        const moveWithGameId = { ...move, gameId: request.gameId } as GameMove;
+        // Ensure it has the required playerId field
+        // Create a proper GameMove from the AIMove
+        // Ensure all required fields are present
+        const moveWithGameId: GameMove = { 
+          ...move, 
+          gameId: request.gameId,
+          playerId: move.playerId || game.currentPlayerIndex.toString()
+        };
         const updatedGameState = GameService.makeMove(game, moveWithGameId);
 
         game.set(updatedGameState);

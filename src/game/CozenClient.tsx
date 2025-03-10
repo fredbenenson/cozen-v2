@@ -12,7 +12,7 @@ import { enumerate } from '../ai/enumerate';
 export const CozenLocalClient = Client({
   game: CozenGame,
   board: EnhancedBoard, // Using our enhanced board
-  debug: { impl: false },
+  debug: false,
   multiplayer: Local(),
 });
 
@@ -20,7 +20,7 @@ export const CozenLocalClient = Client({
 export const CozenAIClient = Client({
   game: CozenGame,
   board: EnhancedBoard, // Using our enhanced board
-  debug: { impl: false },
+  debug: false,
   multiplayer: Local({
     bots: {
       '1': MCTSBot,
@@ -43,11 +43,11 @@ export const LocalGameComponent = () => (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
       <div style={{ margin: '0 20px' }}>
         <h2>Red Player</h2>
-        <CozenLocalClient playerID="red" />
+        <CozenLocalClient playerID="0" />
       </div>
       <div style={{ margin: '0 20px' }}>
         <h2>Black Player</h2>
-        <CozenLocalClient playerID="black" />
+        <CozenLocalClient playerID="1" />
       </div>
     </div>
   </div>
@@ -57,7 +57,7 @@ export const LocalGameComponent = () => (
 export const AIGameComponent = () => (
   <div>
     <h1>Cozen - Play Against AI</h1>
-    <CozenAIClient playerID="red" />
+    <CozenAIClient playerID="0" />
   </div>
 );
 

@@ -1,5 +1,6 @@
 import { INVALID_MOVE } from 'boardgame.io/core';
-import { Game } from 'boardgame.io/core';
+// Import Game correctly based on boardgame.io v0.50.2
+import type { Game } from 'boardgame.io';
 import { CozenState, Card } from '../types/game';
 import { setupGame } from './setup';
 import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
@@ -9,6 +10,7 @@ import { enumerate } from '../ai/enumerate';
 const moves = {
   // Stake a card in the stakes row
   stakeCard: ({ G, ctx }: any, cardId: string) => {
+    // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
     const player = G.players[playerColor];
     
@@ -75,6 +77,7 @@ const moves = {
   
   // Wager cards in a column
   wagerCards: ({ G, ctx }: any, cardIds: string[], column: number) => {
+    // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
     
     // Check if it's this player's turn in our game state
@@ -233,13 +236,13 @@ export const CozenGame: any = {
       turn: {
         // Use our own turn order system in the game state
         order: {
-          // Start with current active player
+          // Start with current active player (0=red, 1=black)
           first: ({ G }) => {
             return G.activePlayer === 'red' ? 0 : 1;
           },
-          // Always alternate
-          next: ({ G }) => {
-            return G.activePlayer === 'red' ? 1 : 0;
+          // Always alternate between players
+          next: ({ ctx }) => {
+            return ctx.playOrderPos === 0 ? 1 : 0;
           }
         },
         // We're going to handle turn switching in our move functions
@@ -292,8 +295,9 @@ export const CozenGame: any = {
   
   // Define what parts of state are private to each player
   playerView: ({ G, playerID }) => {
-    // Hide opponent's hand
+    // Hide opponent's hand - only if playerID is provided
     if (playerID === '0' || playerID === '1') {
+      // Map numeric player IDs to colors
       const playerColor = playerID === '0' ? 'red' : 'black';
       const opponentColor = playerID === '0' ? 'black' : 'red';
       
@@ -303,6 +307,7 @@ export const CozenGame: any = {
           ...G.players,
           [opponentColor]: {
             ...G.players[opponentColor],
+            // Replace actual cards with hidden placeholders
             hand: G.players[opponentColor].hand.map((card: any) => ({ hidden: true })),
           }
         }

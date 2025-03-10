@@ -64,7 +64,7 @@ async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, d
       (gameState.round?.blackPlayer as Player);
 
     if (aiPlayer) {
-      ai = new CozenAI(gameState, aiPlayer, difficulty);
+      ai = new CozenAI(aiPlayer, difficulty);
       console.log(`\nGame initialized with AI (${aiColor}) at ${difficulty} difficulty!`);
     }
   } else {
@@ -111,7 +111,7 @@ function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> 
 
     // Display top 10 moves (or fewer if less available)
     console.log("\n=== AI's Top Moves ===");
-    const topMoves = aiMoves.slice(0, 10);
+    const topMoves = Array.isArray(aiMoves) ? aiMoves.slice(0, 10) : [];
     
     topMoves.forEach((moveOption, index) => {
       const isSelectedMove = moveOption === aiMove;

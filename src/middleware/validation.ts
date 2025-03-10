@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { body, validationResult } from 'express-validator';
+// Use require for express-validator since TypeScript is having issues with imports
+const { body, validationResult } = require('express-validator');
 
 export const gameCreateValidation = [
   body('player1Id').isMongoId().withMessage('Invalid player ID'),

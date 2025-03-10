@@ -30,6 +30,7 @@ export interface AIMove {
   isStake: boolean;    // Whether this is a stake move
   playerName?: string;
   gameId?: string;
+  playerId?: string;   // ID of the player making the move
   strength?: number;   // Hand strength
   value?: number;      // Point value
   score?: number;      // Computed score for minimax

@@ -1,6 +1,6 @@
 import { Player } from '../../types/player';
 import { Round, Position, Move, RoundState, Column } from '../../types/round';
-import { Card, Color, Suit } from '../../types/game';
+import { Card, Color, Suit, PlayerID } from '../../types/game';
 import { CardEvaluation } from '../cardEvaluation';
 import { StakeService } from '../stakeService';
 import _ from 'lodash';
@@ -163,7 +163,7 @@ export class RoundService {
       const redColumn = 5;
       
       // Set owner of the stake card for clearer identification
-      redCard.owner = round.redPlayer;
+      redCard.owner = round.redPlayer.color as PlayerID;
       
       // Remove this column from available stakes
       const redIndex = round.redPlayer.availableStakes.indexOf(redColumn);
@@ -184,7 +184,7 @@ export class RoundService {
       const blackColumn = 4;
       
       // Set owner of the stake card for clearer identification
-      blackCard.owner = round.blackPlayer;
+      blackCard.owner = round.blackPlayer.color as PlayerID;
       
       // Remove this column from available stakes
       const blackIndex = round.blackPlayer.availableStakes.indexOf(blackColumn);
@@ -350,7 +350,7 @@ export class RoundService {
     round.columns[column].stakedCard = card;
     
     // Set the owner for easier identification
-    card.owner = player;
+    card.owner = player.color as PlayerID;
 
     // For test consistency: also update player's availableStakes
     // Find the index of the column in availableStakes

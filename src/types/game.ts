@@ -99,6 +99,14 @@ export interface GameMove {
   isStake: boolean;
 }
 
+// Add Move type for backward compatibility with existing code
+export type Move = GameMove;
+
+// Add Player type alias that points to the Player interface in player.ts
+// This helps with backward compatibility
+import { Player as PlayerType } from './player';
+export type Player = PlayerType;
+
 // Base game state without Mongoose-specific fields
 export interface BaseGameState {
   players: Types.ObjectId[];

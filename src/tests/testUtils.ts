@@ -1,15 +1,21 @@
 // src/tests/testUtils.ts
 import { v4 as uuidv4 } from 'uuid';
 import { Types } from 'mongoose';
-import { Color, Suit, Player, Card } from '../types/game';
+import { Color, Suit, Card } from '../types/game';
+import { Player } from '../types/player';
 
 export const createMockPlayer = (overrides: Partial<Player> = {}): Player => ({
   id: new Types.ObjectId().toString(),
-  username: `testuser_${Math.random().toString(36).substring(7)}`,
+  name: `testuser_${Math.random().toString(36).substring(7)}`,
   color: Math.random() > 0.5 ? Color.Red : Color.Black,
   hand: [],
   jail: [],
-  elo: 1200,
+  cards: [],
+  victory_points: 0,
+  availableStakes: [],
+  stake_offset: 0,
+  drawUp: () => {},
+  reset: () => {},
   ...overrides
 });
 

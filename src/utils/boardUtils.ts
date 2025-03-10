@@ -1,6 +1,6 @@
 import { Card, Column, CozenState, PlayerID, Position } from '../types/game';
 import { Color } from '../types/game';
-import { evaluateHands } from './cardEvaluation';
+import { CardEvaluation } from '../services/cardEvaluation';
 import { shuffleDeck } from './deckUtils';
 
 // Create the initial board with positions
@@ -196,8 +196,8 @@ function resolveContestedColumn(G: CozenState, column: Column) {
   const redNumbers = redCards.map(card => card.number);
   const blackNumbers = blackCards.map(card => card.number);
   
-  // Evaluate hands
-  const result = evaluateHands(redNumbers, blackNumbers, stake.number, stakeIsRed);
+  // Evaluate hands using CardEvaluation service
+  const result = CardEvaluation.getWinningHand(redNumbers, blackNumbers, stake.number, stakeIsRed);
   
   if (result) {
     // Winner is determined
