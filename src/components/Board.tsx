@@ -68,8 +68,18 @@ export function Board({ G, ctx, moves }: any) {
   const currentColor = 'red';  // Human player is always red
   const opponentColor = 'black'; // AI/opponent is always black
 
+  // Add defensive checks for when G might be transitioning between rounds
+  if (!G || !G.players) {
+    return <div className="board">Loading game state...</div>;
+  }
+
   const player = G.players[currentColor];
   const opponent = G.players[opponentColor];
+  
+  // Another defensive check for player objects
+  if (!player || !opponent) {
+    return <div className="board">Initializing players...</div>;
+  }
 
   // Show message
   const showMessage = (msg: string) => {
@@ -79,7 +89,7 @@ export function Board({ G, ctx, moves }: any) {
 
   // Get next available stake column - player is always red
   const getNextStakeColumn = (): number | undefined => {
-    if (player.availableStakes.length === 0) return undefined;
+    if (!player?.availableStakes || player.availableStakes.length === 0) return undefined;
 
     // Always use the Red staking pattern since player is always Red
     // Red stakes columns from left to right (5, 6, 7, 8, 9)
@@ -460,10 +470,7 @@ export function Board({ G, ctx, moves }: any) {
           key={`stake-${col}`}
           className={`grid-cell stake-cell 
                       ${selectedColumn === col ? 'selected-cell' : ''} 
-                      ${isAvailableForStake ? 'available-stake' : ''}
-                      ${isNextStakeColumn ? 'next-stake' : ''}
-                      ${showWagerHighlight ? 'wager-highlight' : ''}
-                      ${showStakeHighlight ? 'next-stake' : ''}`}
+                      ${isNextStakeColumn ? 'next-stake' : ''}`}
           style={{
             gridColumn: col + 1,
             gridRow: 6,
@@ -550,7 +557,7 @@ export function Board({ G, ctx, moves }: any) {
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
         <h3 key="opponent-title">Black - {opponent?.victory_points || 0} VP</h3>
         <div className="opponent-hand">
-          {Array.from({ length: opponent?.hand?.length || 0 }).map((_, i) => (
+          {opponent?.hand && Array.from({ length: opponent.hand.length || 0 }).map((_, i) => (
             <div key={`opponent-card-${i}`} className="card-back opponent-card" />
           ))}
         </div>
@@ -574,9 +581,10 @@ export function Board({ G, ctx, moves }: any) {
       {/* Minimalist game info - just show whose turn it is and messages */}
       <div className="game-info">
         <div key="active-player">
-          {ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
+          {ctx && ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
         </div>
         {message && <div key="message" style={{ color: 'red', fontWeight: 'bold', marginTop: '10px' }}>{message}</div>}
+        {G?.roundState === 'complete' && <div key="round-complete" style={{ color: 'green', fontWeight: 'bold', marginTop: '10px' }}>Round Complete!</div>}
       </div>
 
       {/* Custom cursor for cards */}

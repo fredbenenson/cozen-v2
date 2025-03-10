@@ -46,8 +46,8 @@
 }
 
 .stake-cell {
-  background-color: rgba(255, 215, 0, 0.1);
-  border: 1px dashed #b8860b;
+  background-color: rgba(76, 175, 80, 0.2); /* Light green background for all stake cells */
+  border: 1px solid rgba(76, 175, 80, 0.4); /* Subtle solid border for all stake cells */
 }
 
 .selected-cell {
@@ -289,13 +289,12 @@
 }
 
 .available-stake {
-  background-color: #e8f5e9;
-  border: 1px dashed #2e7d32;
+  /* No additional styling - rely on the stake-cell style */
 }
 
 .next-stake {
-  background-color: #dcedc8;
-  border: 2px dashed #4caf50;
+  /* Only show dashed border for the next stake position */
+  border: 2px dashed #2e7d32;
   box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
   animation: pulseBorder 1.5s infinite;
 }
@@ -340,12 +339,15 @@
 
 @keyframes pulseBorder {
   0% {
-    border-color: #4caf50;
+    border-color: #2e7d32;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
   }
   50% {
-    border-color: #81c784;
+    border-color: #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
   }
   100% {
-    border-color: #4caf50;
+    border-color: #2e7d32;
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
   }
 }
