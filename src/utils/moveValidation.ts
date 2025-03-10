@@ -27,21 +27,17 @@ export function isValidStakeColumn(columnIndex: number, playerColor: PlayerID): 
 }
 
 /**
- * Checks if a position is in a player's territory for wagering
+ * Checks if a position belongs to a player for wagering
+ * Players can wager in any column that has a stake, but only in positions that belong to them
  */
 export function isValidWagerPosition(rowIndex: number, columnIndex: number, playerColor: PlayerID): boolean {
-  // First, check if the rows are in the player's territory
-  const validRow = playerColor === 'red' 
-    ? BOARD.RED_TERRITORY.ROWS.includes(rowIndex)
-    : BOARD.BLACK_TERRITORY.ROWS.includes(rowIndex);
-    
-  // Second, validate the column belongs to this player's territory
-  const validColumn = playerColor === 'red'
-    ? BOARD.RED_TERRITORY.COLUMNS.includes(columnIndex)
-    : BOARD.BLACK_TERRITORY.COLUMNS.includes(columnIndex);
-    
-  // Must satisfy both conditions
-  return validRow && validColumn;
+  // For wagering, we only need to check if the position belongs to the player
+  // This is determined by the row - Red owns rows 6-10, Black owns rows 0-4
+  if (playerColor === 'red') {
+    return BOARD.RED_TERRITORY.ROWS.includes(rowIndex);
+  } else {
+    return BOARD.BLACK_TERRITORY.ROWS.includes(rowIndex);
+  }
 }
 
 /**

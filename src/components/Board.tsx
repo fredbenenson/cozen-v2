@@ -94,20 +94,8 @@ export function Board({ G, ctx, moves }: any) {
   
   // Check if a specific position is valid for wagering for the current player
   const isWagerablePosition = (rowIndex: number, columnIndex: number, playerColor: 'red' | 'black'): boolean => {
-    // Current human player is always red ('0'), so when checking UI highlights,
-    // we should only consider the human player's valid wager positions
+    // Current human player is always red ('0')
     const currentPlayerColor = 'red'; // Human player is always red
-    
-    // If we're checking a position for the black player (AI's territory),
-    // it's never wagerable for the human player
-    if (playerColor === 'black') {
-      return false;
-    }
-    
-    // Must be a valid position for the current player
-    if (!isValidWagerPosition(rowIndex, columnIndex, currentPlayerColor)) {
-      return false;
-    }
     
     // Column must have a stake card
     if (!isWagerableColumn(columnIndex)) {
@@ -115,6 +103,9 @@ export function Board({ G, ctx, moves }: any) {
     }
     
     // Position must be empty and belong to the current player
+    // For red player, check red positions (6-10)
+    // For black player, check black positions (0-4)
+    // The position's owner field should match the current player
     const position = G.board[columnIndex]?.positions?.find(
       p => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
     );

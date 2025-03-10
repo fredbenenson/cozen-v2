@@ -122,16 +122,9 @@ const moves = {
       return INVALID_MOVE;
     }
     
-    // First, check if the column is in the player's territory
-    const { RED_TERRITORY, BLACK_TERRITORY } = BOARD;
-    const validTerritoryColumn = playerColor === 'red' 
-      ? RED_TERRITORY.COLUMNS.includes(column)
-      : BLACK_TERRITORY.COLUMNS.includes(column);
-      
-    if (!validTerritoryColumn) {
-      if (ENABLE_LOGGING) console.log(`Column ${column} is not in ${playerColor}'s territory`);
-      return INVALID_MOVE;
-    }
+    // Players can wager in any column that has a stake
+    // The column check was removed - players can wager in any column that has a stake
+    // The position check will ensure they can only place cards in their territory
     
     // Then check if player has valid wager positions in this column
     if (!hasValidWagerPositions(G, column, playerColor)) {
