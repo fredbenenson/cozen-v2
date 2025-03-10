@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozen - Boardgame.io Implementation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+    }
+    .link-box {
+      display: inline-block;
+      padding: 20px;
+      margin: 10px;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      text-decoration: none;
+      color: #333;
+      width: 300px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .link-box:hover {
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .server-status {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #e8f5e9;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    .terminal {
+      background-color: #202020;
+      color: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      font-family: monospace;
+      text-align: left;
+      margin: 20px auto;
+      max-width: 800px;
+    }
+    .terminal-command {
+      color: #8ae234;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cozen - Boardgame.io Implementation</h1>
+    <p>Welcome to the Cozen card game implementation using boardgame.io</p>
+    
+    <div>
+      <a href="/boardgame/local" class="link-box">
+        <h2>Play Local Game</h2>
+        <p>Play with two players sharing the same screen</p>
+      </a>
+      
+      <a href="/boardgame/ai" class="link-box">
+        <h2>Play Against AI</h2>
+        <p>Challenge the AI to a game of Cozen</p>
+      </a>
+      
+      <a href="/boardgame/board" class="link-box">
+        <h2>Game Board Preview</h2>
+        <p>View an interactive preview of the game board</p>
+      </a>
+    </div>
+    
+    <div class="server-status">
+      <h3>Server Status</h3>
+      <p>✅ Frontend server is running on port 8000</p>
+      <p>✅ Boardgame.io server is running on port 8001</p>
+      <p>API available at: <a href="http://localhost:8001/games">http://localhost:8001/games</a></p>
+    </div>
+    
+    <div class="terminal">
+      <p>To test game logic, run:</p>
+      <p><span class="terminal-command">$</span> npm run test:boardgame</p>
+      <p>This runs a simple game simulation using the TestClient</p>
+    </div>
+  </div>
+</body>
+</html>

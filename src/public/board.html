@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozen - Game Board</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .board {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+    }
+    .player-info {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .columns {
+      display: flex;
+      width: 100%;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    .column {
+      flex: 1;
+      max-width: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 0 5px;
+      min-height: 400px;
+      position: relative;
+      background-color: white;
+    }
+    .column-header {
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .stake-card {
+      width: 70px;
+      height: 100px;
+      border: 2px solid #333;
+      border-radius: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 24px;
+      margin-bottom: 15px;
+    }
+    .positions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      flex: 1;
+    }
+    .position {
+      width: 70px;
+      height: 100px; /* Just tall enough for a card */
+      margin: 2px 0;
+      border: 1px dashed #999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: visible; /* Allow cards to overflow the position */
+    }
+    .black-pos {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    .red-pos {
+      background-color: rgba(255, 0, 0, 0.05);
+    }
+    .stake-pos {
+      background-color: rgba(255, 215, 0, 0.1);
+      height: 100px;
+    }
+    .card {
+      width: 70px;
+      height: 100px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      position: relative;
+      cursor: pointer;
+      margin: 0 5px;
+      background-color: white;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    }
+    .card::before, .card::after {
+      content: attr(data-value);
+      position: absolute;
+      font-weight: bold;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .card::before {
+      top: 3px;
+      left: 3px;
+    }
+    .card::after {
+      bottom: 3px;
+      right: 3px;
+      transform: rotate(180deg);
+    }
+    .position .card {
+      width: 60px;
+      height: 80px;
+      font-size: 14px;
+    }
+    .stake-card {
+      width: 70px;
+      height: 100px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      position: relative;
+      font-weight: bold;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+      background-color: white;
+    }
+    .stake-card::before, .stake-card::after {
+      content: attr(data-value);
+      position: absolute;
+      font-weight: bold;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .stake-card::before {
+      top: 3px;
+      left: 3px;
+    }
+    .stake-card::after {
+      bottom: 3px;
+      right: 3px;
+      transform: rotate(180deg);
+    }
+    /* Wager container styles */
+    .wager-container {
+      position: relative;
+      height: 100px;
+      width: 100px;
+      margin: 0 auto;
+    }
+    /* Hide center value for better appearance */
+    .card-center, .stake-card-center {
+      display: none;
+    }
+    .hand {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .hand .card {
+      margin: 5px;
+    }
+    .red-card {
+      background-color: #ffeeee;
+      color: #cc0000;
+      border-color: #cc0000;
+    }
+    .black-card {
+      background-color: #eeeeff;
+      color: #000099;
+      border-color: #000099;
+    }
+    .selected {
+      box-shadow: 0 0 10px 3px gold;
+    }
+    .column.selected {
+      border: 2px solid blue;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .button {
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    .button:hover {
+      background-color: #45a049;
+    }
+    .button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .game-info {
+      text-align: center;
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f5e9;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 30px;
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cozen - Game Board Preview</h1>
+
+    <div class="board">
+      <!-- Opponent info (Black player) -->
+      <div class="player-info" style="background-color: #e0e0e0;">
+        <h3>Black Player (0 VP)</h3>
+        <div>Hand: 5 cards (7♣, J♠, 5♠, 7♠, 5♣)</div>
+        <div>Stakes available: 0, 1, 2, 3</div>
+      </div>
+
+      <!-- Board columns -->
+      <div class="columns" style="overflow-x: auto; justify-content: flex-start;">
+        <!-- Column 0 -->
+        <div class="column">
+          <div class="column-header">Column 0</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 1 -->
+        <div class="column">
+          <div class="column-header">Column 1</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="column">
+          <div class="column-header">Column 2</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 3 -->
+        <div class="column">
+          <div class="column-header">Column 3</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 4 (Black player starting column) -->
+        <div class="column">
+          <div class="column-header">Column 4</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos">
+              <div class="stake-card black-card" data-value="8♣">
+                <div class="stake-card-center">8♣</div>
+              </div>
+            </div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 5 (Red player starting column) -->
+        <div class="column selected">
+          <div class="column-header">Column 5</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos">
+              <div class="stake-card red-card" data-value="A♦">
+                <div class="stake-card-center">A♦</div>
+              </div>
+            </div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 6 -->
+        <div class="column">
+          <div class="column-header">Column 6</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 7 -->
+        <div class="column">
+          <div class="column-header">Column 7</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 8 -->
+        <div class="column">
+          <div class="column-header">Column 8</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+
+        <!-- Column 9 -->
+        <div class="column">
+          <div class="column-header">Column 9</div>
+          <div class="positions">
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position black-pos"><!-- Empty position --></div>
+            <div class="position stake-pos"><!-- Empty stake position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+            <div class="position red-pos"><!-- Empty position --></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player's hand (Red player) -->
+      <div class="player-info" style="background-color: #ffe6e6;">
+        <h3>Red Player (You) - 0 VP</h3>
+        <div class="hand">
+          <div class="card red-card" data-value="2♥">
+            <div class="card-center">2♥</div>
+          </div>
+          <div class="card red-card" data-value="10♦">
+            <div class="card-center">10♦</div>
+          </div>
+          <div class="card red-card" data-value="4♦">
+            <div class="card-center">4♦</div>
+          </div>
+          <div class="card red-card selected" data-value="3♦">
+            <div class="card-center">3♦</div>
+          </div>
+          <div class="card red-card" data-value="8♥">
+            <div class="card-center">8♥</div>
+          </div>
+        </div>
+        <div style="margin-top: 10px;">Stakes available: 6, 7, 8, 9</div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="actions">
+        <button class="button" disabled>Stake Card</button>
+        <button class="button">Wager Cards</button>
+      </div>
+
+      <!-- Game info -->
+      <div class="game-info">
+        <div>ACTIVE PLAYER: BLACK</div>
+        <div>Deck remaining: 20 cards for each player</div>
+        <div style="margin-top: 10px; font-style: italic;">Black player is thinking about their move...</div>
+      </div>
+    </div>
+
+    <a href="/" class="back-link">← Back to Home</a>
+  </div>
+
+  <script>
+    // Simple interactivity for demonstration
+    document.addEventListener('DOMContentLoaded', function() {
+      // Game state
+      const gameState = {
+        turnCount: 1,
+        activePlayer: 'black',
+        activePhase: 'wager', // 'stake' or 'wager'
+        redVP: 0,
+        blackVP: 0,
+        redStakesAvailable: 4, // 6, 7, 8, 9
+        blackStakesAvailable: 4, // 0, 1, 2, 3
+        redColumns: [5], // Red player starts at column 5
+        blackColumns: [4], // Black player starts at column 4
+        message: ''
+      };
+
+      // Message display
+      const showMessage = (message, type = 'info') => {
+        gameState.message = message;
+        updateGameInfo();
+        setTimeout(() => {
+          gameState.message = '';
+          updateGameInfo();
+        }, 3000);
+      };
+
+      // Card selection
+      const cards = document.querySelectorAll('.hand .card');
+      cards.forEach(card => {
+        card.addEventListener('click', function() {
+          this.classList.toggle('selected');
+          updateButtons();
+        });
+      });
+
+      // Column selection
+      const columns = document.querySelectorAll('.column');
+      columns.forEach(column => {
+        column.addEventListener('click', function() {
+          // Only allow selecting columns with stake cards
+          if (column.querySelector('.stake-card')) {
+            columns.forEach(col => col.classList.remove('selected'));
+            this.classList.add('selected');
+            updateButtons();
+          }
+        });
+      });
+
+      // Update button states
+      function updateButtons() {
+        const selectedCards = document.querySelectorAll('.hand .card.selected');
+        const selectedColumn = document.querySelector('.column.selected');
+        
+        const stakeButton = document.querySelector('.button:nth-child(1)');
+        const wagerButton = document.querySelector('.button:nth-child(2)');
+        
+        // Only enable buttons when it's the red player's turn
+        if (gameState.activePlayer !== 'red') {
+          stakeButton.disabled = true;
+          wagerButton.disabled = true;
+          return;
+        }
+        
+        // For stake button: 
+        // - Player must have exactly 1 card selected
+        // - Player must have available stakes
+        // - The next stake column must be valid
+        const nextStakeColumn = stakeService.getNextAvailableColumn('red');
+        const canStake = selectedCards.length === 1 && 
+                        gameState.redStakesAvailable > 0 && 
+                        stakeService.isValidStakeColumn(nextStakeColumn, 'red');
+        
+        stakeButton.disabled = !canStake;
+        stakeButton.title = canStake ? `Stake to column ${nextStakeColumn}` : 'Cannot stake';
+        
+        // For wager button:
+        // - Player must have at least 1 card selected
+        // - Player must have a column selected
+        // - The column must have a stake
+        // - The column must have empty positions for red player
+        const canWager = selectedCards.length > 0 && 
+                         selectedColumn && 
+                         selectedColumn.querySelector('.stake-card');
+        
+        wagerButton.disabled = !canWager;
+      }
+
+      // Update game info display
+      function updateGameInfo() {
+        const gameInfo = document.querySelector('.game-info');
+        gameInfo.innerHTML = `
+          <div>ACTIVE PLAYER: ${gameState.activePlayer.toUpperCase()}</div>
+          <div>Deck remaining: 20 cards for each player</div>
+          ${gameState.activePlayer === 'black' 
+            ? '<div style="margin-top: 10px; font-style: italic;">Black player is thinking about their move...</div>' 
+            : ''}
+          ${gameState.message ? `<div style="color: red; font-weight: bold; margin-top: 10px;">${gameState.message}</div>` : ''}
+        `;
+
+        // Update VP display
+        document.querySelector('.player-info:first-child h3').textContent = `Black Player (${gameState.blackVP} VP)`;
+        document.querySelector('.player-info:last-of-type h3').textContent = `Red Player (You) - ${gameState.redVP} VP`;
+      }
+
+      // Stake service functions
+      const stakeService = {
+        // Get next available column for staking based on player
+        getNextAvailableColumn: function(playerColor) {
+          // Red starts at column 5 and expands to the right
+          // Black starts at column 4 and expands to the left
+          
+          if (playerColor === 'red') {
+            // Get the rightmost column currently owned by Red
+            const maxRedColumn = Math.max(...gameState.redColumns);
+            // Next column to stake is the one to the right
+            return maxRedColumn + 1;
+          } else {
+            // Get the leftmost column currently owned by Black
+            const minBlackColumn = Math.min(...gameState.blackColumns);
+            // Next column to stake is the one to the left
+            return minBlackColumn - 1;
+          }
+        },
+        
+        // Check if the column is valid for staking
+        isValidStakeColumn: function(columnIndex, playerColor) {
+          // Column index should be between 0 and 9
+          if (columnIndex < 0 || columnIndex > 9) {
+            return false;
+          }
+          
+          // Column should not already have a stake
+          const columnElement = document.querySelector(`.column:nth-child(${columnIndex + 1})`);
+          if (!columnElement || columnElement.querySelector('.stake-card')) {
+            return false;
+          }
+          
+          return true;
+        },
+        
+        // Place a stake card in the specified column
+        placeStake: function(columnIndex, card) {
+          const columnElement = document.querySelector(`.column:nth-child(${columnIndex + 1})`);
+          if (!columnElement) {
+            showMessage(`Column ${columnIndex} not found`);
+            return false;
+          }
+          
+          // Find the stake position in the column
+          const stakePosition = columnElement.querySelector('.position.stake-pos');
+          if (!stakePosition) {
+            showMessage(`Stake position not found in column ${columnIndex}`);
+            return false;
+          }
+          
+          // Create the stake card element
+          const cardValue = card.querySelector('.card-center').textContent;
+          const isRed = card.classList.contains('red-card');
+          const newStakeCard = document.createElement('div');
+          newStakeCard.className = `stake-card ${isRed ? 'red-card' : 'black-card'}`;
+          newStakeCard.setAttribute('data-value', cardValue);
+          
+          // Add center value
+          const centerValue = document.createElement('div');
+          centerValue.className = 'stake-card-center';
+          centerValue.textContent = cardValue;
+          newStakeCard.appendChild(centerValue);
+          
+          // Add the stake card to the stake position
+          stakePosition.appendChild(newStakeCard);
+          
+          // Update game state
+          if (isRed) {
+            gameState.redColumns.push(columnIndex);
+            gameState.redStakesAvailable--;
+          } else {
+            gameState.blackColumns.push(columnIndex);
+            gameState.blackStakesAvailable--;
+          }
+          
+          return true;
+        }
+      };
+
+      // Button actions
+      const stakeButton = document.querySelector('.button:nth-child(1)');
+      stakeButton.addEventListener('click', function() {
+        const selectedCard = document.querySelector('.hand .card.selected');
+        if (!selectedCard) {
+          showMessage('Please select a card to stake');
+          return;
+        }
+        
+        // Get the player color (always red in this demo)
+        const playerColor = 'red';
+        
+        // Get the next column to stake
+        const nextColumn = stakeService.getNextAvailableColumn(playerColor);
+        
+        // Validate the column
+        if (!stakeService.isValidStakeColumn(nextColumn, playerColor)) {
+          showMessage(`Invalid stake column: ${nextColumn}`);
+          return;
+        }
+        
+        // Place the stake
+        if (stakeService.placeStake(nextColumn, selectedCard)) {
+          // Remove the card from hand
+          selectedCard.remove();
+          
+          // Update game state
+          gameState.turnCount++;
+          gameState.activePlayer = 'black'; // Switch to black player
+          showMessage(`Card staked successfully in column ${nextColumn}`);
+          updateGameInfo();
+          updateButtons();
+          
+          // Auto-trigger black player's move
+          simulateBlackPlayerMove();
+        }
+      });
+
+      const wagerButton = document.querySelector('.button:nth-child(2)');
+      wagerButton.addEventListener('click', function() {
+        const selectedCards = document.querySelectorAll('.hand .card.selected');
+        const selectedColumn = document.querySelector('.column.selected');
+        
+        if (selectedCards.length === 0) {
+          showMessage('Please select cards to wager');
+          return;
+        }
+
+        if (!selectedColumn) {
+          showMessage('Please select a column to wager on');
+          return;
+        }
+
+        // Get the player color (in this demo, always red)
+        const playerColor = 'red';
+        
+        // Find the stake position index (should be 4 in our layout)
+        const positions = selectedColumn.querySelectorAll('.position');
+        let stakePositionIndex = -1;
+        
+        for (let i = 0; i < positions.length; i++) {
+          if (positions[i].classList.contains('stake-pos')) {
+            stakePositionIndex = i;
+            break;
+          }
+        }
+        
+        if (stakePositionIndex === -1) {
+          showMessage('Could not find stake position');
+          return;
+        }
+        
+        // Find the column index (to get column number)
+        const columnHeader = selectedColumn.querySelector('.column-header');
+        const columnNumber = parseInt(columnHeader.textContent.match(/\d+/)[0]);
+        
+        // Create a stacked card representation for the wager
+        const wagerContainer = document.createElement('div');
+        wagerContainer.className = 'wager-container';
+        wagerContainer.style.position = 'relative';
+        
+        // Add all selected cards to the wager container in a stacked fashion
+        const selectedCardsArray = Array.from(selectedCards);
+        const totalCards = selectedCardsArray.length;
+        
+        // Only use vertical offset - no horizontal offset
+        const vertOffset = 25; // Vertical offset between cards
+        
+        // Reverse the array to have the last card on top
+        selectedCardsArray.reverse().forEach((card, index) => {
+          const cardValue = card.getAttribute('data-value');
+          const isRed = card.classList.contains('red-card');
+          
+          const wagerCard = document.createElement('div');
+          wagerCard.className = `card ${isRed ? 'red-card' : 'black-card'}`;
+          wagerCard.setAttribute('data-value', cardValue);
+          
+          // Position cards in a vertically stacked manner (no horizontal offset)
+          wagerCard.style.position = 'absolute';
+          wagerCard.style.width = '70px'; // Same as stake cards
+          wagerCard.style.height = '100px'; // Same as stake cards
+          wagerCard.style.left = '0px'; // No horizontal offset
+          wagerCard.style.top = `${index * vertOffset}px`;
+          wagerCard.style.zIndex = index;
+          
+          wagerContainer.appendChild(wagerCard);
+        });
+        
+        // Determine where to place cards based on player color
+        let emptyPosition = null;
+        
+        if (playerColor === 'red') {
+          // Red player places cards below the stake
+          for (let i = stakePositionIndex + 1; i < positions.length; i++) {
+            if (!positions[i].querySelector('.card') && !positions[i].querySelector('.wager-container')) {
+              emptyPosition = positions[i];
+              break;
+            }
+          }
+        } else {
+          // Black player places cards above the stake
+          for (let i = stakePositionIndex - 1; i >= 0; i--) {
+            if (!positions[i].querySelector('.card') && !positions[i].querySelector('.wager-container')) {
+              emptyPosition = positions[i];
+              break;
+            }
+          }
+        }
+
+        if (!emptyPosition) {
+          showMessage('No empty positions available in this column');
+          return;
+        }
+
+        // Add the wager container to the position
+        emptyPosition.appendChild(wagerContainer);
+
+        // Create a log entry showing the cards played
+        const cardsText = Array.from(selectedCards).map(card => card.textContent).join(', ');
+        showMessage(`You wagered ${cardsText} to column ${columnNumber}`);
+
+        // Remove the cards from hand
+        selectedCards.forEach(card => card.remove());
+
+        // Update game state
+        gameState.turnCount++;
+        gameState.activePlayer = gameState.activePlayer === 'red' ? 'black' : 'red';
+        
+        // Scoring logic - more cards played = higher chance of scoring
+        const scoreChance = 0.3 + (selectedCards.length * 0.1); // Base 30% + 10% per card
+        if (Math.random() < scoreChance) {
+          gameState.redVP++;
+          showMessage('You scored a victory point!');
+        }
+        
+        updateGameInfo();
+        updateButtons();
+        
+        // Deselect column
+        selectedColumn.classList.remove('selected');
+        
+        // Auto-trigger Black's turn
+        if (gameState.activePlayer === 'black') {
+          simulateBlackPlayerMove();
+        }
+      });
+
+      // AI simulation for black player
+      function simulateBlackPlayerMove() {
+        if (gameState.activePlayer !== 'black') return;
+        
+        // Simulate "thinking" time
+        setTimeout(() => {
+          // Random choice between staking and wagering
+          const action = gameState.blackStakesAvailable > 0 && Math.random() > 0.7 ? 'stake' : 'wager';
+          
+          if (action === 'stake' && gameState.blackStakesAvailable > 0) {
+            // Stake action
+            const nextColumn = stakeService.getNextAvailableColumn('black');
+            
+            if (!stakeService.isValidStakeColumn(nextColumn, 'black')) {
+              showMessage('Black player cannot stake in column ' + nextColumn);
+              // Fall back to wagering
+              simulateBlackWager();
+              return;
+            }
+            
+            // Create a fake card for Black player to stake
+            const blackCards = ["7♣", "J♠", "5♠", "7♠", "5♣"];
+            const randomCard = blackCards[Math.floor(Math.random() * blackCards.length)];
+            const fakeCard = document.createElement('div');
+            fakeCard.className = 'card black-card';
+            fakeCard.setAttribute('data-value', randomCard);
+            
+            // Add center value
+            const centerValue = document.createElement('div');
+            centerValue.className = 'card-center';
+            centerValue.textContent = randomCard;
+            fakeCard.appendChild(centerValue);
+            
+            // Place the stake
+            if (stakeService.placeStake(nextColumn, fakeCard)) {
+              // Update game state
+              gameState.turnCount++;
+              gameState.activePlayer = 'red';
+              showMessage(`Black player staked ${randomCard} in column ${nextColumn}`);
+              updateGameInfo();
+              updateButtons();
+            } else {
+              // If staking failed, try wagering
+              simulateBlackWager();
+            }
+          } else {
+            // Wager action
+            simulateBlackWager();
+          }
+        }, 2000); // Simulate 2 seconds of thinking
+      }
+      
+      // Helper function for AI wagering
+      function simulateBlackWager() {
+        // Find a column with a stake card that has available positions
+        const columns = document.querySelectorAll('.column');
+        let targetColumn = null;
+        
+        // Prefer columns owned by Black (column 4 or lower)
+        for (const column of columns) {
+          const columnHeader = column.querySelector('.column-header');
+          const columnIndex = parseInt(columnHeader.textContent.match(/\d+/)[0]);
+          
+          if (column.querySelector('.stake-card') && gameState.blackColumns.includes(columnIndex)) {
+            targetColumn = column;
+            break;
+          }
+        }
+        
+        // If no Black columns found, try any column with a stake
+        if (!targetColumn) {
+          for (const column of columns) {
+            if (column.querySelector('.stake-card')) {
+              targetColumn = column;
+              break;
+            }
+          }
+        }
+        
+        if (!targetColumn) {
+          showMessage('Black player could not find a valid column for wager');
+          return;
+        }
+        
+        // Find the stake position
+        const positions = targetColumn.querySelectorAll('.position');
+        let stakePositionIndex = -1;
+        
+        for (let i = 0; i < positions.length; i++) {
+          if (positions[i].classList.contains('stake-pos')) {
+            stakePositionIndex = i;
+            break;
+          }
+        }
+        
+        // Find an empty position above the stake (for Black player)
+        let emptyPosition = null;
+        for (let i = stakePositionIndex - 1; i >= 0; i--) {
+          if (!positions[i].querySelector('.card') && !positions[i].querySelector('.wager-container')) {
+            emptyPosition = positions[i];
+            break;
+          }
+        }
+        
+        if (!emptyPosition) {
+          showMessage('Black player could not find an empty position');
+          return;
+        }
+        
+        // Create a stacked card representation for the wager
+        const wagerContainer = document.createElement('div');
+        wagerContainer.className = 'wager-container';
+        wagerContainer.style.position = 'relative';
+        
+        // Randomly decide how many cards to wager (1-3)
+        const numCards = Math.floor(Math.random() * 3) + 1;
+        const blackCards = ["7♣", "J♠", "5♠", "7♠", "5♣"];
+        const selectedCards = [];
+        
+        // Generate random cards
+        for (let i = 0; i < numCards; i++) {
+          const randomIndex = Math.floor(Math.random() * blackCards.length);
+          selectedCards.push(blackCards[randomIndex]);
+        }
+        
+        // Only use vertical offset - no horizontal offset
+        const vertOffset = 25; // Vertical offset between cards
+        
+        // Add cards to the wager container in a stacked fashion (in reverse to have last card on top)
+        [...selectedCards].reverse().forEach((cardValue, index) => {
+          const wagerCard = document.createElement('div');
+          wagerCard.className = 'card black-card';
+          wagerCard.setAttribute('data-value', cardValue);
+          
+          // Position cards in a vertically stacked manner (no horizontal offset)
+          wagerCard.style.position = 'absolute';
+          wagerCard.style.width = '70px'; // Same as stake cards
+          wagerCard.style.height = '100px'; // Same as stake cards
+          wagerCard.style.left = '0px'; // No horizontal offset
+          wagerCard.style.top = `${index * vertOffset}px`;
+          wagerCard.style.zIndex = index;
+          
+          wagerContainer.appendChild(wagerCard);
+        });
+        
+        // Add the wager container to the position
+        emptyPosition.appendChild(wagerContainer);
+        
+        // Update game state
+        gameState.turnCount++;
+        gameState.activePlayer = 'red';
+        
+        // Scoring logic - more cards played = higher chance of scoring
+        const scoreChance = 0.3 + (selectedCards.length * 0.1); // Base 30% + 10% per card
+        if (Math.random() < scoreChance) {
+          gameState.blackVP++;
+          showMessage('Black player scored a victory point!');
+        }
+        
+        updateGameInfo();
+        updateButtons();
+        
+        const columnHeader = targetColumn.querySelector('.column-header');
+        const columnNumber = parseInt(columnHeader.textContent.match(/\d+/)[0]);
+        showMessage('Black player has wagered ' + selectedCards.join(', ') + ' to column ' + columnNumber);
+      }
+
+      // Add AI move button
+      const aiMoveButton = document.createElement('button');
+      aiMoveButton.className = 'button';
+      aiMoveButton.style.backgroundColor = '#333';
+      aiMoveButton.textContent = 'Simulate AI Move';
+      aiMoveButton.addEventListener('click', simulateBlackPlayerMove);
+      
+      // Add a reset button for demo purposes
+      const actionsDiv = document.querySelector('.actions');
+      actionsDiv.appendChild(aiMoveButton);
+      
+      const resetButton = document.createElement('button');
+      resetButton.className = 'button';
+      resetButton.style.backgroundColor = '#f44336';
+      resetButton.textContent = 'Reset Demo';
+      actionsDiv.appendChild(resetButton);
+      
+      resetButton.addEventListener('click', function() {
+        location.reload();
+      });
+      
+      // Auto-trigger AI move if it's Black's turn
+      if (gameState.activePlayer === 'black') {
+        simulateBlackPlayerMove();
+      }
+
+      // Initial updates
+      updateButtons();
+      updateGameInfo();
+    });
+  </script>
+</body>
+</html>
