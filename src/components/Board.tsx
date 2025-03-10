@@ -430,7 +430,19 @@ export function Board({ G, ctx, moves }: any) {
           className={`column ${selectedColumn === columnIndex ? 'selected' : ''}`}
           onClick={() => column.stakedCard && selectColumn(columnIndex)}
         >
-          <div className="column-header">Column {columnIndex}</div>
+          <div 
+            className="column-header" 
+            style={player?.availableStakes?.includes(columnIndex) ? {
+              backgroundColor: '#e8f5e9',
+              fontWeight: 'bold',
+              color: '#2e7d32'
+            } : {}}
+          >
+            Column {columnIndex}
+            {player?.availableStakes?.includes(columnIndex) && 
+              <span style={{ fontSize: '10px', display: 'block' }}>Available for stake</span>
+            }
+          </div>
           <div className="positions">
             {/* Black player position section (top) */}
             <div className="positions-section">
@@ -570,7 +582,14 @@ export function Board({ G, ctx, moves }: any) {
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
         <h3 key="opponent-title">AI Player (Black) - {opponent?.victory_points || 0} VP</h3>
         <div key="opponent-hand">Cards in hand: {opponent?.hand?.length || 0}</div>
-        <div key="opponent-stakes">Stakes available: {opponent?.availableStakes?.join(', ') || 'None'}</div>
+        <div key="opponent-stakes">
+          Stakes available: {opponent?.availableStakes?.join(', ') || 'None'}
+          {opponent?.availableStakes?.length > 0 && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              Black stakes columns 0-4, right-to-left from center
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Board columns with integrated stake positions */}
@@ -584,7 +603,14 @@ export function Board({ G, ctx, moves }: any) {
         <div className="hand" key="player-hand">
           {renderHand()}
         </div>
-        <div key="player-stakes" style={{ marginTop: '10px' }}>Stakes available: {player?.availableStakes?.join(', ') || 'None'}</div>
+        <div key="player-stakes" style={{ marginTop: '10px' }}>
+          Stakes available: {player?.availableStakes?.join(', ') || 'None'}
+          {player?.availableStakes?.length > 0 && (
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              Red stakes columns 5-9, left-to-right from center
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Action buttons */}
