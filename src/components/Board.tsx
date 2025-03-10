@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { CozenState, Card } from '../types/game';
-import { Color } from '../types/game';
+import { Color, Rank, Suit } from '../types/game';
 import './Board.css';
 import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
 import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
+import { getCardDisplayValue, getCardRankSymbol } from '../utils/cardUtils';
 
 export function Board({ G, ctx, moves }: any) {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
@@ -251,8 +252,8 @@ export function Board({ G, ctx, moves }: any) {
       );
     }
     
-    // Regular face-up card
-    const cardValue = card.number?.toString() + (card.color === Color.Red ? '♦' : '♣');
+    // Use our utility function to get the card display value
+    const cardValue = getCardDisplayValue(card);
     return (
       <div
         key={card.id}
@@ -283,7 +284,10 @@ export function Board({ G, ctx, moves }: any) {
 
     return player.hand.map(card => {
       if (!card) return null;
-      const cardValue = card.number?.toString() + (card.color === Color.Red ? '♦' : '♣');
+      
+      // Use our utility function for consistent card display
+      const cardValue = getCardDisplayValue(card);
+      
       return (
         <div
           key={card.id}
@@ -302,7 +306,9 @@ export function Board({ G, ctx, moves }: any) {
     const showStack = selectedCards.length > 1;
     const maxVisibleCards = Math.min(selectedCards.length, 3);
     const firstCard = selectedCards[0];
-    const cardValue = firstCard.number?.toString();
+    
+    // Use our utility function to get the card rank symbol
+    const cardValue = getCardRankSymbol(firstCard.number);
     const isRed = firstCard.color === Color.Red;
 
     return (
