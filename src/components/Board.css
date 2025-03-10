@@ -67,6 +67,86 @@
   box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
 }
 
+/* Ensure grid cells have proper positioning */
+.grid-cell {
+  position: relative;
+}
+
+/* Custom cursor styles */
+.cursor-card {
+  cursor: none !important;
+}
+
+.custom-cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.05s ease-out;
+}
+
+.cursor-card-element {
+  width: 40px;
+  height: 55px;
+  border: 2px solid #333;
+  border-radius: 5px;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  transform-origin: center;
+}
+
+.cursor-card-red {
+  background-color: #ffeeee;
+  color: #cc0000;
+  border-color: #cc0000;
+}
+
+.cursor-card-black {
+  background-color: #eeeeff;
+  color: #000099;
+  border-color: #000099;
+}
+
+.cursor-card-stack {
+  position: relative;
+}
+
+.cursor-card-stack .cursor-card-element:nth-child(2) {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  transform: rotate(-5deg);
+}
+
+.cursor-card-stack .cursor-card-element:nth-child(3) {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  transform: rotate(-10deg);
+}
+
+.cursor-card-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 .card::before, .card::after {
   content: attr(data-value);
   position: absolute;
@@ -103,10 +183,25 @@
   justify-content: center;
   margin: 20px 0;
   flex-wrap: wrap;
+  position: relative;
+  min-height: 120px;
 }
 
 .hand .card {
-  margin: 5px;
+  margin: 0 -15px 5px 0;
+  transition: transform 0.2s ease;
+}
+
+/* Create solitaire-like spread for hand cards */
+.hand .card:hover {
+  transform: translateY(-15px);
+  z-index: 5;
+}
+
+/* Make selected cards stand out more */
+.hand .card.selected {
+  transform: translateY(-20px);
+  z-index: 10;
 }
 
 .selected {
@@ -180,6 +275,44 @@
   border: 2px dashed #4caf50;
   box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
   animation: pulseBorder 1.5s infinite;
+}
+
+/* Column highlighting for wagering */
+.wager-highlight {
+  background-color: rgba(255, 193, 7, 0.2) !important;
+  border: 2px dashed #ffb300 !important;
+  box-shadow: 0 0 8px rgba(255, 193, 7, 0.5);
+  cursor: pointer !important;
+  animation: pulseWager 1.5s infinite;
+}
+
+/* Animation for wagering highlights */
+@keyframes pulseWager {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+  }
+}
+
+/* Drop indicator */
+.drop-here {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #333;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 5;
 }
 
 @keyframes pulseBorder {

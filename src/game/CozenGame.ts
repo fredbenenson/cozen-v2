@@ -5,14 +5,20 @@ import { CozenState, Card } from '../types/game';
 import { setupGame } from './setup';
 import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
 import { enumerate } from '../ai/enumerate';
+import { getSortedPositionsForColumn, hasValidWagerPositions, isValidWagerPosition, BOARD } from '../utils/moveValidation';
 
 // Flag to control logging - helps reduce noise during AI simulations
 let ENABLE_LOGGING = false;
 
-// Function to enable logging after initial AI search is complete
-// We'll call this explicitly when the UI loads
+// Functions to control logging
 export function enableGameLogging() {
   ENABLE_LOGGING = true;
+  console.log("Game logging enabled");
+}
+
+export function disableGameLogging() {
+  ENABLE_LOGGING = false;
+  console.log("Game logging disabled");
 }
 
 // Move implementations
@@ -116,6 +122,23 @@ const moves = {
       return INVALID_MOVE;
     }
     
+    // First, check if the column is in the player's territory
+    const { RED_TERRITORY, BLACK_TERRITORY } = BOARD;
+    const validTerritoryColumn = playerColor === 'red' 
+      ? RED_TERRITORY.COLUMNS.includes(column)
+      : BLACK_TERRITORY.COLUMNS.includes(column);
+      
+    if (!validTerritoryColumn) {
+      if (ENABLE_LOGGING) console.log(`Column ${column} is not in ${playerColor}'s territory`);
+      return INVALID_MOVE;
+    }
+    
+    // Then check if player has valid wager positions in this column
+    if (!hasValidWagerPositions(G, column, playerColor)) {
+      if (ENABLE_LOGGING) console.log(`No valid wager positions for ${playerColor} in column ${column}`);
+      return INVALID_MOVE;
+    }
+    
     // Find cards in hand
     const cardsToPlay: any[] = [];
     const indicesToRemove: number[] = [];
@@ -136,6 +159,13 @@ const moves = {
     
     if (cardsToPlay.length === 0) {
       if (ENABLE_LOGGING) console.log(`No cards to play`);
+      return INVALID_MOVE;
+    }
+    
+    // Check if we have enough valid positions for all cards
+    const validPositions = getSortedPositionsForColumn(G, column, playerColor);
+    if (cardsToPlay.length > validPositions.length) {
+      if (ENABLE_LOGGING) console.log(`Not enough positions (${validPositions.length}) for all cards (${cardsToPlay.length})`);
       return INVALID_MOVE;
     }
     
@@ -181,6 +211,7 @@ function checkRoundCompleteState(G: CozenState) {
   }
 }
 
+
 // Helper function to place cards in a column
 function placeWageredCards(
   G: CozenState,
@@ -188,27 +219,55 @@ function placeWageredCards(
   cards: any[],
   columnIndex: number
 ) {
-  const column = G.board[columnIndex];
+  if (ENABLE_LOGGING) {
+    console.log(`${playerColor} is trying to wager ${cards.length} cards in column ${columnIndex}`);
+  }
   
-  // Find empty positions owned by this player
-  const availablePositions = column.positions
-    .map((pos, index) => ({ pos, index }))
-    .filter(item => item.pos.owner === playerColor && !item.pos.card);
+  // Get empty positions for this player in this column, properly sorted
+  const positionIds = getSortedPositionsForColumn(G, columnIndex, playerColor);
   
-  // Sort positions based on player (red plays bottom-up, black plays top-down)
-  availablePositions.sort((a, b) => {
-    if (playerColor === 'red') {
-      return b.pos.coord[0] - a.pos.coord[0]; // Red plays bottom-up
-    } else {
-      return a.pos.coord[0] - b.pos.coord[0]; // Black plays top-down
+  if (ENABLE_LOGGING) {
+    console.log(`Found ${positionIds.length} empty positions for ${playerColor} in column ${columnIndex}`);
+  }
+  
+  // Convert position IDs to indices in the column's positions array
+  const positionIndices = positionIds.map(id => {
+    return G.board[columnIndex].positions.findIndex(pos => pos.n === id);
+  }).filter(index => index !== -1);
+  
+  // Calculate how many cards we can place
+  const cardsToPlace = Math.min(cards.length, positionIndices.length);
+  
+  // Place each card in its own position
+  for (let i = 0; i < cardsToPlace; i++) {
+    const posIndex = positionIndices[i];
+    const position = G.board[columnIndex].positions[posIndex];
+    
+    // Make sure we're not trying to place in the stake row (5)
+    if (position.coord[0] === 5) {
+      if (ENABLE_LOGGING) {
+        console.log(`Skipping stake row position at ${position.coord}`);
+      }
+      continue;
     }
-  });
+    
+    // Set the card directly, not as an array
+    G.board[columnIndex].positions[posIndex].card = cards[i];
+    
+    if (ENABLE_LOGGING) {
+      console.log(`${playerColor} placed card ${cards[i].id} in column ${columnIndex}, position ${posIndex} (row ${position.coord[0]})`);
+    }
+  }
   
-  // If we have available positions, place all cards in the first position
-  if (availablePositions.length > 0) {
-    const posIndex = availablePositions[0].index;
-    // Directly modify the position's card property
-    G.board[columnIndex].positions[posIndex].card = cards;
+  if (cardsToPlace === 0 && ENABLE_LOGGING) {
+    console.log(`No available positions for ${playerColor} in column ${columnIndex}`);
+  } else if (cardsToPlace < cards.length && ENABLE_LOGGING) {
+    console.log(`Not enough positions for all cards. Placed ${cardsToPlace}/${cards.length} cards.`);
+  }
+  
+  // This should be just once at the end
+  if (cardsToPlace > 0 && ENABLE_LOGGING) {
+    console.log(`Successfully placed ${cardsToPlace} cards in column ${columnIndex} for ${playerColor}`);
   }
 }
 

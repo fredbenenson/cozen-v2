@@ -3,12 +3,15 @@ import { BoardProps } from 'boardgame.io/react';
 import { CozenState, Card } from '../types/game';
 import { Color } from '../types/game';
 import './Board.css';
-import { enableGameLogging } from '../game/CozenGame';
+import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
+import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
 
 export function Board({ G, ctx, moves }: any) {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const [isCursorVisible, setIsCursorVisible] = useState(false);
   
   // Enable game logging once the board component mounts
   // This way, AI's initial moves won't flood the console
@@ -16,11 +19,48 @@ export function Board({ G, ctx, moves }: any) {
     // Wait a short time to ensure all initial AI calculations are done
     const timer = setTimeout(() => {
       enableGameLogging();
-      console.log('Game logging enabled');
     }, 1000);
     
     return () => clearTimeout(timer);
   }, []);
+  
+  // Monitor for turn changes and manage logging
+  useEffect(() => {
+    // Is it the AI's turn? (player '1' is AI/Black)
+    if (ctx.currentPlayer === '1') {
+      disableGameLogging();
+    } else {
+      enableGameLogging();
+    }
+  }, [ctx.currentPlayer]);
+  
+  // Track mouse movement for custom cursor
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setCursorPosition({ x: e.clientX, y: e.clientY });
+      setIsCursorVisible(true);
+    };
+    
+    const handleMouseLeave = () => {
+      setIsCursorVisible(false);
+    };
+    
+    if (selectedCards.length > 0) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseleave', handleMouseLeave);
+      
+      // Add a class to the body to hide the default cursor
+      document.body.classList.add('cursor-card');
+    } else {
+      document.body.classList.remove('cursor-card');
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.body.classList.remove('cursor-card');
+    };
+  }, [selectedCards]);
 
   // Always set the human player to Red and the AI to Black for consistent UI
   // Note: playerID is "0" for first player, "1" for second player
@@ -43,6 +83,43 @@ export function Board({ G, ctx, moves }: any) {
     // Always use the Red staking pattern since player is always Red
     // Red stakes columns from left to right (5, 6, 7, 8, 9)
     return player.availableStakes.sort((a, b) => a - b)[0];
+  };
+  
+  // Check if a column is valid for wagering
+  const isWagerableColumn = (columnIndex: number): boolean => {
+    // Column must have a stake card to be wagerable
+    const hasStakedCard = G.board[columnIndex]?.stakedCard !== undefined;
+    return hasStakedCard;
+  };
+  
+  // Check if a specific position is valid for wagering for the current player
+  const isWagerablePosition = (rowIndex: number, columnIndex: number, playerColor: 'red' | 'black'): boolean => {
+    // Current human player is always red ('0'), so when checking UI highlights,
+    // we should only consider the human player's valid wager positions
+    const currentPlayerColor = 'red'; // Human player is always red
+    
+    // If we're checking a position for the black player (AI's territory),
+    // it's never wagerable for the human player
+    if (playerColor === 'black') {
+      return false;
+    }
+    
+    // Must be a valid position for the current player
+    if (!isValidWagerPosition(rowIndex, columnIndex, currentPlayerColor)) {
+      return false;
+    }
+    
+    // Column must have a stake card
+    if (!isWagerableColumn(columnIndex)) {
+      return false;
+    }
+    
+    // Position must be empty and belong to the current player
+    const position = G.board[columnIndex]?.positions?.find(
+      p => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
+    );
+    
+    return position && !position.card;
   };
 
   // Toggle card selection
@@ -79,7 +156,7 @@ export function Board({ G, ctx, moves }: any) {
   };
 
   // Stake a card
-  const stakeCard = () => {
+  const stakeCard = (columnIndex?: number) => {
     if (ctx.currentPlayer !== '0') { // Player is always red ('0')
       showMessage("It's not your turn!");
       return;
@@ -96,7 +173,10 @@ export function Board({ G, ctx, moves }: any) {
     }
 
     // Get next column that will be staked (always left-to-right for red, starting from column 5)
-    const nextStakeColumn = Math.min(...player.availableStakes);
+    // If a specific column was clicked, use that if it's available
+    let nextStakeColumn = columnIndex !== undefined && player.availableStakes.includes(columnIndex) 
+      ? columnIndex
+      : Math.min(...player.availableStakes);
 
     // Display debug info
     console.log("Staking card:", selectedCards[0]);
@@ -121,7 +201,7 @@ export function Board({ G, ctx, moves }: any) {
   };
 
   // Wager cards
-  const wagerCards = () => {
+  const wagerCards = (columnIndex?: number) => {
     if (ctx.currentPlayer !== '0') { // Player is always red ('0')
       showMessage("It's not your turn!");
       return;
@@ -132,17 +212,34 @@ export function Board({ G, ctx, moves }: any) {
       return;
     }
 
-    if (selectedColumn === null) {
+    // If a column is provided, use that. Otherwise, use the selected column
+    const targetColumn = columnIndex !== undefined ? columnIndex : selectedColumn;
+
+    if (targetColumn === null) {
       showMessage('You must select a column to wager on.');
+      return;
+    }
+
+    // Check if the column has a stake card
+    if (!isWagerableColumn(targetColumn)) {
+      showMessage('This column doesn\'t have a stake card to wager on.');
       return;
     }
 
     // Display debug info
     console.log("Wagering cards:", selectedCards);
-    console.log("Selected column:", selectedColumn);
+    console.log("Selected column:", targetColumn);
 
     // Execute the wager move
-    moves.wagerCards(selectedCards.map(c => c.id), selectedColumn);
+    console.log(`Executing wagerCards move with cards:`, selectedCards.map(c => c.id), `and column:`, targetColumn);
+    const result = moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
+    
+    // Check if move failed
+    if (result === 'INVALID_MOVE') {
+      console.error('Wager move failed with INVALID_MOVE response');
+      showMessage('Invalid wager move!');
+      return;
+    }
 
     // Reset selections
     setSelectedCards([]);
@@ -162,11 +259,19 @@ export function Board({ G, ctx, moves }: any) {
     );
   };
 
-  // Render an array of cards (for wagers)
-  const renderCardArray = (cards: Card[]) => {
-    if (!cards || cards.length === 0) return null;
-    // Just show the top card for simplicity in the grid view
-    return renderCard(cards[0]);
+  // Render a card for display
+  const renderCardArray = (cards: Card[] | Card) => {
+    if (!cards) return null;
+    
+    // Even though we now only store single cards per position,
+    // keep this function to handle any legacy data format 
+    // or future changes
+    if (Array.isArray(cards)) {
+      if (cards.length === 0) return null;
+      return renderCard(cards[0]);
+    } else {
+      return renderCard(cards);
+    }
   };
 
   // Render player hand
@@ -186,6 +291,50 @@ export function Board({ G, ctx, moves }: any) {
       );
     });
   };
+  
+  // Render custom cursor for selected cards
+  const renderCustomCursor = () => {
+    if (!isCursorVisible || selectedCards.length === 0) return null;
+    
+    const showStack = selectedCards.length > 1;
+    const maxVisibleCards = Math.min(selectedCards.length, 3);
+    const firstCard = selectedCards[0];
+    const cardValue = firstCard.number?.toString();
+    const isRed = firstCard.color === Color.Red;
+
+    return (
+      <div 
+        className="custom-cursor"
+        style={{
+          display: isCursorVisible ? 'block' : 'none',
+          left: `${cursorPosition.x}px`,
+          top: `${cursorPosition.y}px`,
+        }}
+      >
+        <div className={`cursor-card-stack ${showStack ? 'has-stack' : ''}`}>
+          {/* Render up to 3 cards in the stack, with the first card on top */}
+          {showStack && Array.from({ length: Math.min(2, maxVisibleCards - 1) }).map((_, i) => (
+            <div 
+              key={`stack-${i}`}
+              className={`cursor-card-element ${isRed ? 'cursor-card-red' : 'cursor-card-black'}`}
+            />
+          ))}
+          
+          {/* Main (top) card */}
+          <div 
+            className={`cursor-card-element ${isRed ? 'cursor-card-red' : 'cursor-card-black'}`}
+          >
+            {cardValue}
+          </div>
+          
+          {/* Count badge for more than 3 cards */}
+          {selectedCards.length > 3 && (
+            <div className="cursor-card-count">{selectedCards.length}</div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Calculate if player can stake - player is always red ('0')
   const canStake = () => {
@@ -199,14 +348,27 @@ export function Board({ G, ctx, moves }: any) {
     return isPlayersTurn && selectedCards.length > 0 && selectedColumn !== null;
   };
 
-  // Get card at position
+  // Get card at position 
   const getCardAtPosition = (columnIndex: number, owner: 'red' | 'black') => {
     if (!G?.board?.[columnIndex]?.positions) return null;
 
-    const position = G.board[columnIndex].positions.find(p => p?.owner === owner);
-    if (!position?.card) return null;
-
-    return position.card;
+    // For each player side, we need the row closest to the stake row that has a card
+    const positions = G.board[columnIndex].positions
+      .filter(p => p?.owner === owner && p?.card);
+    
+    if (positions.length === 0) return null;
+    
+    // Sort based on owner - red positions are closer to bottom, black positions closer to top
+    const sortedPositions = [...positions].sort((a, b) => {
+      if (owner === 'red') {
+        return b.coord[0] - a.coord[0]; // Red closest to stake (lowest row number first)
+      } else {
+        return a.coord[0] - b.coord[0]; // Black closest to stake (highest row number first)
+      }
+    });
+    
+    // Return the card from the position closest to the stake
+    return sortedPositions[0].card;
   };
 
   // Render the grid-based board
@@ -219,20 +381,48 @@ export function Board({ G, ctx, moves }: any) {
     // Add 5 rows for Black player (rows 1-5)
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 10; col++) {
-        const isBlackCard = row === 4; // Cards only in bottom row for Black
         const gridRow = row + 1; // Starting from row 1
+        
+        // Get the position for this exact grid cell
+        const position = G.board[col]?.positions?.find(
+          p => p.owner === 'black' && p.coord[0] === row
+        );
+        
+        // Check if this position has a card
+        const hasCard = position?.card !== undefined;
+        
+        // Check if this position is valid for wagering (Black territory)
+        const canWager = selectedCards.length > 0 && 
+                         position && 
+                         isWagerablePosition(row, col, 'black');
+        const showWagerHighlight = canWager && ctx.currentPlayer === '0';
 
         gridCells.push(
           <div
             key={`black-${row}-${col}`}
-            className={`grid-cell black-cell ${selectedColumn === col ? 'selected-cell' : ''}`}
+            className={`grid-cell black-cell 
+                       ${selectedColumn === col ? 'selected-cell' : ''}
+                       ${showWagerHighlight ? 'wager-highlight' : ''}`}
             style={{
               gridColumn: col + 1,
-              gridRow: gridRow
+              gridRow: gridRow,
+              cursor: (canWager || hasCard) ? 'pointer' : 'default'
             }}
-            onClick={() => isBlackCard && G.board[col].stakedCard && selectColumn(col)}
+            onClick={() => {
+              if (canWager) {
+                console.log(`Trying to wager on column ${col} (Black position, row ${row})`);
+                wagerCards(col);
+              } else if (hasCard && G.board[col].stakedCard) {
+                selectColumn(col);
+              }
+            }}
           >
-            {isBlackCard && renderCardArray(getCardAtPosition(col, 'black') as Card[])}
+            {hasCard && renderCardArray(position.card)}
+            
+            {/* Drop here indicator */}
+            {canWager && (
+              <div className="drop-here">Wager Here</div>
+            )}
           </div>
         );
       }
@@ -246,20 +436,46 @@ export function Board({ G, ctx, moves }: any) {
       const isNextStakeForBlack = opponent?.availableStakes?.length > 0 && 
         col === Math.max(...opponent.availableStakes);
       const isNextStakeColumn = isNextStakeForRed || isNextStakeForBlack;
-
+      
+      // Check if this column is valid for the current selection
+      const canStakeHere = selectedCards.length === 1 && isAvailableForStake;
+      
+      // No wagering allowed on the stake row itself
+      const canWagerHere = false;
+      
+      const showWagerHighlight = canWagerHere && ctx.currentPlayer === '0';
+      const showStakeHighlight = canStakeHere && ctx.currentPlayer === '0';
+      
       gridCells.push(
         <div
           key={`stake-${col}`}
-          className={`grid-cell stake-cell ${selectedColumn === col ? 'selected-cell' : ''} 
+          className={`grid-cell stake-cell 
+                      ${selectedColumn === col ? 'selected-cell' : ''} 
                       ${isAvailableForStake ? 'available-stake' : ''}
-                      ${isNextStakeColumn ? 'next-stake' : ''}`}
+                      ${isNextStakeColumn ? 'next-stake' : ''}
+                      ${showWagerHighlight ? 'wager-highlight' : ''}
+                      ${showStakeHighlight ? 'next-stake' : ''}`}
           style={{
             gridColumn: col + 1,
-            gridRow: 6
+            gridRow: 6,
+            cursor: (canStakeHere || canWagerHere) ? 'pointer' : 'default'
           }}
-          onClick={() => G.board[col].stakedCard && selectColumn(col)}
+          onClick={() => {
+            if (canStakeHere) {
+              stakeCard(col);
+            } else if (G.board[col].stakedCard) {
+              // Only select column for stake row, no wagering
+              selectColumn(col);
+            }
+          }}
         >
           {G.board[col].stakedCard && renderCard(G.board[col].stakedCard)}
+          {/* Drop here indicator - only for staking */}
+          {canStakeHere && (
+            <div className="drop-here">
+              Stake Here
+            </div>
+          )}
         </div>
       );
     }
@@ -267,20 +483,50 @@ export function Board({ G, ctx, moves }: any) {
     // Add 5 rows for Red player (rows 7-11)
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 10; col++) {
-        const isRedCard = row === 0; // Cards only in top row for Red
         const gridRow = row + 7; // Starting from row 7 (after stake row)
+        
+        // Find the actual game board row (6-10)
+        const boardRow = row + 6;
+        
+        // Get the position for this exact grid cell
+        const position = G.board[col]?.positions?.find(
+          p => p.owner === 'red' && p.coord[0] === boardRow
+        );
+        
+        // Check if this position has a card
+        const hasCard = position?.card !== undefined;
+        
+        // Check if this position is valid for wagering (Red territory)
+        const canWager = selectedCards.length > 0 && 
+                         position && 
+                         isWagerablePosition(boardRow, col, 'red');
+        const showWagerHighlight = canWager && ctx.currentPlayer === '0';
 
         gridCells.push(
           <div
             key={`red-${row}-${col}`}
-            className={`grid-cell red-cell ${selectedColumn === col ? 'selected-cell' : ''}`}
+            className={`grid-cell red-cell 
+                       ${selectedColumn === col ? 'selected-cell' : ''}
+                       ${showWagerHighlight ? 'wager-highlight' : ''}`}
             style={{
               gridColumn: col + 1,
-              gridRow: gridRow
+              gridRow: gridRow,
+              cursor: (canWager || hasCard) ? 'pointer' : 'default'
             }}
-            onClick={() => isRedCard && G.board[col].stakedCard && selectColumn(col)}
+            onClick={() => {
+              if (canWager) {
+                console.log(`Trying to wager on column ${col} (Red position, row ${boardRow})`);
+                wagerCards(col);
+              } else if (hasCard && G.board[col].stakedCard) {
+                selectColumn(col);
+              }
+            }}
           >
-            {isRedCard && renderCardArray(getCardAtPosition(col, 'red') as Card[])}
+            {hasCard && renderCardArray(position.card)}
+            {/* Drop here indicator */}
+            {canWager && (
+              <div className="drop-here">Wager Here</div>
+            )}
           </div>
         );
       }
@@ -291,18 +537,9 @@ export function Board({ G, ctx, moves }: any) {
 
   return (
     <div className="board">
-      {/* Opponent info - Always the AI/Black player */}
+      {/* Opponent info - minimal */}
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
-        <h3 key="opponent-title">AI Player (Black) - {opponent?.victory_points || 0} VP</h3>
-        <div key="opponent-hand">Cards in hand: {opponent?.hand?.length || 0}</div>
-        <div key="opponent-stakes">
-          Stakes available: {opponent?.availableStakes?.join(', ') || 'None'}
-          {opponent?.availableStakes?.length > 0 && (
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              Black stakes columns 0-4, right-to-left from center
-            </div>
-          )}
-        </div>
+        <h3 key="opponent-title">Black - {opponent?.victory_points || 0} VP</h3>
       </div>
 
       {/* Grid-based board */}
@@ -310,51 +547,26 @@ export function Board({ G, ctx, moves }: any) {
         {renderGrid()}
       </div>
 
-      {/* Player's hand - Always the human/Red player */}
+      {/* Player's hand - minimal */}
       <div className="player-info" style={{ backgroundColor: '#ffe6e6' }}>
-        <h3 key="player-title">You (Red) - {player?.victory_points || 0} VP</h3>
+        <h3 key="player-title">Red - {player?.victory_points || 0} VP</h3>
         <div className="hand" key="player-hand">
           {renderHand()}
         </div>
-        <div key="player-stakes" style={{ marginTop: '10px' }}>
-          Stakes available: {player?.availableStakes?.join(', ') || 'None'}
-          {player?.availableStakes?.length > 0 && (
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              Red stakes columns 5-9, left-to-right from center
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="actions">
-        <button
-          key="stake-button"
-          className="button"
-          onClick={stakeCard}
-          disabled={!canStake()}
-        >
-          Stake Card
-        </button>
-        <button
-          key="wager-button"
-          className="button"
-          onClick={wagerCards}
-          disabled={!canWager()}
-        >
-          Wager Cards
-        </button>
-      </div>
+      {/* Action buttons removed - all actions done through UI */}
 
-      {/* Game info */}
+      {/* Minimalist game info - just show whose turn it is and messages */}
       <div className="game-info">
         <div key="active-player">
-          Active Player: {ctx.currentPlayer === '0' ? 'Your Turn (Red)' : 'AI\'s Turn (Black)'}
+          {ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
         </div>
-        <div key="round-state">Round State: {G?.roundState || 'UNKNOWN'}</div>
-        <div key="turn-count">Turn: {G?.turnCount || 0}</div>
         {message && <div key="message" style={{ color: 'red', fontWeight: 'bold', marginTop: '10px' }}>{message}</div>}
       </div>
+
+      {/* Custom cursor for cards */}
+      {renderCustomCursor()}
     </div>
   );
 }
