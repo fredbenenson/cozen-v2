@@ -11,6 +11,9 @@ const styles = `
     align-items: center;
     margin: 20px;
     font-family: Arial, sans-serif;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
   }
   .player-info {
     width: 100%;
@@ -28,14 +31,14 @@ const styles = `
   }
   .column {
     flex: 1;
-    max-width: 120px;
+    min-width: 120px;
+    width: 160px;
     display: flex;
     flex-direction: column;
     align-items: center;
     border: 1px solid #ddd;
-    padding: 10px 5px;
+    padding: 10px 8px;
     margin: 0 5px;
-    min-height: 450px;
     position: relative;
     background-color: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -64,6 +67,15 @@ const styles = `
     width: 100%;
     flex: 1;
     position: relative;
+    min-height: 500px;
+  }
+  .positions-section {
+    flex: 1;
+    display: flex; 
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
   }
   .positions::before {
     content: "";
@@ -76,13 +88,16 @@ const styles = `
     z-index: 0;
   }
   .position {
-    width: 70px;
-    height: 100px;
-    margin: 2px 0;
+    width: 90px;
+    min-height: 100px;
+    height: auto;
+    margin: 5px 0;
     border: 1px dashed #999;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
     align-items: center;
+    padding: 10px 5px;
     overflow: visible;
     border-radius: 5px;
   }
@@ -116,7 +131,7 @@ const styles = `
   }
   .stake-pos {
     background-color: rgba(255, 215, 0, 0.1);
-    height: 100px;
+    min-height: 100px;
     border: 1px dashed #b8860b;
     position: relative;
     border-radius: 5px;
@@ -133,8 +148,8 @@ const styles = `
     opacity: 0.7;
   }
   .card {
-    width: 70px;
-    height: 100px;
+    width: 60px;
+    height: 85px;
     border: 2px solid #333;
     border-radius: 8px;
     position: relative;
@@ -161,12 +176,13 @@ const styles = `
   }
   .position .card {
     width: 60px;
-    height: 80px;
+    height: 85px;
     font-size: 14px;
+    margin-bottom: 5px;
   }
   .stake-card {
-    width: 70px;
-    height: 100px;
+    width: 60px;
+    height: 85px;
     border: 2px solid #333;
     border-radius: 8px;
     position: relative;
@@ -191,10 +207,13 @@ const styles = `
     transform: rotate(180deg);
   }
   .wager-container {
-    position: relative;
-    height: 100px;
-    width: 100px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 5px 0;
+    min-height: 100px;
+    height: auto;
   }
   .hand {
     display: flex;
@@ -413,11 +432,8 @@ export function Board({ G, ctx, moves }: any) {
         >
           <div className="column-header">Column {columnIndex}</div>
           <div className="positions">
-            {/* Spacer at the top */}
-            <div style={{ flex: 1 }}></div>
-            
-            {/* Main gameplay positions in the middle */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* Black player position section (top) */}
+            <div className="positions-section">
               {/* Black player position (directly above stake) */}
               <div key={`${columnIndex}-black-position`} className="position black-pos">
                 {/* Find any black cards played on this column */}
@@ -429,16 +445,19 @@ export function Board({ G, ctx, moves }: any) {
                   )
                 }
               </div>
-              
-              {/* Stake position (middle) */}
-              <div 
-                key={`stake-${columnIndex}`}
-                className={`position stake-pos ${selectedColumn === columnIndex ? 'selected' : ''}`}
-                onClick={() => column?.stakedCard && selectColumn(columnIndex)}
-              >
-                {column?.stakedCard && renderStakeCard(column.stakedCard, columnIndex)}
-              </div>
-              
+            </div>
+            
+            {/* Stake position (middle) */}
+            <div 
+              key={`stake-${columnIndex}`}
+              className={`position stake-pos ${selectedColumn === columnIndex ? 'selected' : ''}`}
+              onClick={() => column?.stakedCard && selectColumn(columnIndex)}
+            >
+              {column?.stakedCard && renderStakeCard(column.stakedCard, columnIndex)}
+            </div>
+            
+            {/* Red player position section (bottom) */}
+            <div className="positions-section">
               {/* Red player position (directly below stake) */}
               <div key={`${columnIndex}-red-position`} className="position red-pos">
                 {/* Find any red cards played on this column */}
@@ -451,9 +470,6 @@ export function Board({ G, ctx, moves }: any) {
                 }
               </div>
             </div>
-            
-            {/* Spacer at the bottom */}
-            <div style={{ flex: 1 }}></div>
           </div>
         </div>
       );
@@ -466,41 +482,27 @@ export function Board({ G, ctx, moves }: any) {
     if (Array.isArray(card)) {
       if (card.length === 0) return null;
       
-      // Just show the top card with a counter
-      const topCard = card[card.length - 1];
-      if (!topCard) return null;
-      
-      const cardValue = topCard.number?.toString() + (topCard.color === Color.Red ? '♦' : '♣');
-      const cardKey = topCard.id || `${positionId}-top-card`;
-      
+      // Show all cards in a vertical stack
       return (
-        <div className="wager-container" key={`container-${positionId || 'unknown'}`} style={{ position: 'relative' }}>
-          <div 
-            key={cardKey}
-            className={`card ${topCard.color === Color.Red ? 'red-card' : 'black-card'}`}
-            data-value={cardValue}
-          />
-          {card.length > 1 && (
-            <div 
-              style={{
-                position: 'absolute',
-                top: '-8px',
-                right: '-8px',
-                background: '#333',
-                color: 'white',
-                borderRadius: '50%',
-                width: '20px',
-                height: '20px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                fontSize: '12px',
-                fontWeight: 'bold',
-              }}
-            >
-              {card.length}
-            </div>
-          )}
+        <div className="wager-container" key={`container-${positionId || 'unknown'}`}>
+          {card.map((c, index) => {
+            if (!c) return null;
+            const cardValue = c.number?.toString() + (c.color === Color.Red ? '♦' : '♣');
+            const cardKey = c.id || `${positionId}-card-${index}`;
+            
+            return (
+              <div 
+                key={cardKey}
+                className={`card ${c.color === Color.Red ? 'red-card' : 'black-card'}`}
+                data-value={cardValue}
+                style={{ 
+                  marginBottom: index < card.length - 1 ? '5px' : '0',
+                  border: '2px solid',
+                  borderColor: c.color === Color.Red ? '#cc0000' : '#000099',
+                }}
+              />
+            );
+          })}
         </div>
       );
     }
