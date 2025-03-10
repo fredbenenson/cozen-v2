@@ -44,7 +44,7 @@ export function setupGame(): CozenState {
         jail: [],
         cards: redCards,
         victory_points: 0,
-        availableStakes: [5, 6, 7, 8, 9],
+        availableStakes: [6, 7, 8, 9], // Exclude column 5 which already has a stake
         stake_offset: 1,
       },
       black: {
@@ -52,7 +52,7 @@ export function setupGame(): CozenState {
         jail: [],
         cards: blackCards,
         victory_points: 0,
-        availableStakes: [0, 1, 2, 3, 4],
+        availableStakes: [0, 1, 2, 3], // Exclude column 4 which already has a stake
         stake_offset: -1,
       },
     },

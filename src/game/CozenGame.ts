@@ -6,6 +6,15 @@ import { setupGame } from './setup';
 import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
 import { enumerate } from '../ai/enumerate';
 
+// Flag to control logging - helps reduce noise during AI simulations
+let ENABLE_LOGGING = false;
+
+// Function to enable logging after initial AI search is complete
+// We'll call this explicitly when the UI loads
+export function enableGameLogging() {
+  ENABLE_LOGGING = true;
+}
+
 // Move implementations
 const moves = {
   // Stake a card in the stakes row
@@ -16,21 +25,38 @@ const moves = {
     
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      if (ENABLE_LOGGING) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
     
     // Find the card in player's hand
     const cardIndex = player.hand.findIndex((card: any) => card.id === cardId);
     if (cardIndex === -1) {
-      console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
+      if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
       return INVALID_MOVE;
     }
     
-    // Get valid stake column
-    const column = getValidStakeColumn(playerColor, G);
-    if (column === undefined) {
-      console.log(`No valid stake column for ${playerColor}`);
+    // Check if player has any available stake columns
+    if (player.availableStakes.length === 0) {
+      if (ENABLE_LOGGING) console.log(`No available stake columns for ${playerColor}`);
+      return INVALID_MOVE;
+    }
+    
+    // Get the next valid stake column based on game rules
+    // Red stakes from center outward (columns 5-9)
+    // Black stakes from center outward (columns 4-0)
+    let column: number;
+    if (playerColor === 'red') {
+      // Red stakes left-to-right from column 5
+      column = Math.min(...player.availableStakes);
+    } else {
+      // Black stakes right-to-left from column 4
+      column = Math.max(...player.availableStakes);
+    }
+    
+    // Double-check the column is actually available and doesn't already have a stake
+    if (G.board[column].stakedCard) {
+      if (ENABLE_LOGGING) console.log(`Column ${column} already has a stake card`);
       return INVALID_MOVE;
     }
     
@@ -45,10 +71,13 @@ const moves = {
     // Place stake in column
     G.board[column].stakedCard = card;
     
-    // Update available stakes
-    const stakeIndex = player.availableStakes.indexOf(column);
-    if (stakeIndex !== -1) {
-      player.availableStakes.splice(stakeIndex, 1);
+    // Remove this column from available stakes
+    player.availableStakes = player.availableStakes.filter(c => c !== column);
+    
+    // Log the stake action
+    if (ENABLE_LOGGING) {
+      console.log(`${playerColor} staked a ${card.number} in column ${column}`);
+      console.log(`Remaining stakes for ${playerColor}: ${player.availableStakes.join(', ')}`);
     }
     
     // Draw a new card if not in last_play state
@@ -77,13 +106,13 @@ const moves = {
     
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      if (ENABLE_LOGGING) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
     
     // Check if column has a stake
     if (!G.board[column] || !G.board[column].stakedCard) {
-      console.log(`Column ${column} does not have a stake`);
+      if (ENABLE_LOGGING) console.log(`Column ${column} does not have a stake`);
       return INVALID_MOVE;
     }
     
@@ -94,7 +123,7 @@ const moves = {
     for (const cardId of cardIds) {
       const index = player.hand.findIndex(card => card.id === cardId);
       if (index === -1) {
-        console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
+        if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
         return INVALID_MOVE;
       }
       
@@ -106,7 +135,7 @@ const moves = {
     }
     
     if (cardsToPlay.length === 0) {
-      console.log(`No cards to play`);
+      if (ENABLE_LOGGING) console.log(`No cards to play`);
       return INVALID_MOVE;
     }
     
@@ -132,24 +161,7 @@ const moves = {
   },
 };
 
-// Helper function to get valid stake column
-function getValidStakeColumn(playerColor: 'red' | 'black', G: CozenState): number | undefined {
-  const player = G.players[playerColor];
-  
-  // If no available stakes, can't stake
-  if (player.availableStakes.length === 0) return undefined;
-  
-  // Rule: Stakes must be placed outward from center
-  // Black stakes are 0-4, Red stakes are 5-9
-  // Find the next valid stake column
-  if (playerColor === 'black') {
-    // For black, we move right-to-left from the center
-    return player.availableStakes.sort((a, b) => b - a)[0];
-  } else {
-    // For red, we move left-to-right from the center
-    return player.availableStakes.sort((a, b) => a - b)[0];
-  }
-}
+// Helper functions for game state updates
 
 // Helper to check if we need to enter last_play state
 function checkLastPlayState(G: CozenState) {

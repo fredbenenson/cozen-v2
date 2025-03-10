@@ -1,0 +1,195 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 20px;
+  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.player-info {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(11, 1fr);
+  gap: 5px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.grid-cell {
+  border: 1px dashed #999;
+  border-radius: 5px;
+  height: 100px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.black-cell {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.red-cell {
+  background-color: rgba(255, 0, 0, 0.05);
+}
+
+.stake-cell {
+  background-color: rgba(255, 215, 0, 0.1);
+  border: 1px dashed #b8860b;
+}
+
+.selected-cell {
+  border: 2px solid #3498db;
+  background-color: rgba(52, 152, 219, 0.05);
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.3);
+}
+
+.card {
+  width: 70px;
+  height: 90px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  position: relative;
+  cursor: pointer;
+  background-color: white;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+.card::before, .card::after {
+  content: attr(data-value);
+  position: absolute;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.card::before {
+  top: 3px;
+  left: 3px;
+}
+
+.card::after {
+  bottom: 3px;
+  right: 3px;
+  transform: rotate(180deg);
+}
+
+.red-card {
+  background-color: #ffeeee;
+  color: #cc0000;
+  border-color: #cc0000;
+}
+
+.black-card {
+  background-color: #eeeeff;
+  color: #000099;
+  border-color: #000099;
+}
+
+.hand {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.hand .card {
+  margin: 5px;
+}
+
+.selected {
+  box-shadow: 0 0 10px 3px gold;
+}
+
+.column-label {
+  text-align: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.button {
+  padding: 10px 20px;
+  margin: 0 10px;
+  cursor: pointer;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.button:hover {
+  background-color: #45a049;
+}
+
+.button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.button:not(:disabled):hover {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.game-info {
+  text-align: center;
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f8f8;
+  border-radius: 5px;
+  display: inline-block;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #eee;
+}
+
+.game-info div {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.available-stake {
+  background-color: #e8f5e9;
+  border: 1px dashed #2e7d32;
+}
+
+.next-stake {
+  background-color: #dcedc8;
+  border: 2px dashed #4caf50;
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.4);
+  animation: pulseBorder 1.5s infinite;
+}
+
+@keyframes pulseBorder {
+  0% {
+    border-color: #4caf50;
+  }
+  50% {
+    border-color: #81c784;
+  }
+  100% {
+    border-color: #4caf50;
+  }
+}

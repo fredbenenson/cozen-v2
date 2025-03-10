@@ -292,14 +292,16 @@ export function setupNextRound(G: CozenState) {
     // Shuffle deck
     player.cards = shuffleDeck(player.cards);
     
-    // Reset available stakes
-    player.availableStakes = playerID === 'red' 
+    // Reset available stakes (all columns initially available)
+    const allStakes = playerID === 'red' 
       ? [5, 6, 7, 8, 9] 
       : [0, 1, 2, 3, 4];
     
+    // Filter out columns that already have stake cards
+    player.availableStakes = allStakes.filter(col => !G.board[col].stakedCard);
+    
     // Draw new hand
     player.hand = player.cards.splice(0, 5);
-    console.log(`${playerID} new hand drawn: ${player.hand.map(c => c.number).join(',')} (${player.hand.length} cards in hand, ${player.cards.length} in deck)`);
   });
   
   // Set up new stakes if needed
