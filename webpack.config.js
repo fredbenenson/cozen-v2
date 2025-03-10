@@ -2,9 +2,9 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './src/boardgame/index.tsx',
+  entry: './src/index.tsx',
   output: {
-    path: path.resolve(__dirname, 'dist/boardgame'),
+    path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
   },
   resolve: {
@@ -27,12 +27,12 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './src/boardgame/index.html',
+      template: './src/public/index.html',
     }),
   ],
   devServer: {
     static: {
-      directory: path.join(__dirname, 'dist/boardgame'),
+      directory: path.join(__dirname, 'dist'),
     },
     port: 8000,
     historyApiFallback: true,

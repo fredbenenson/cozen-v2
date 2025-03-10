@@ -5,16 +5,14 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "start:boardgame": "ts-node src/boardgame/server.ts",
-    "simple:boardgame": "node src/boardgame/simple-server.js",
+    "start:server": "ts-node src/game/server.ts",
+    "simple:server": "node src/game/simple-server.js",
     "test": "jest --verbose",
-    "visualize-minimax": "ts-node src/tools/visualizeMinimaxCLI.ts",
-    "visualizer": "ts-node src/tools/visualizerServer.ts",
     "build": "tsc",
-    "build:boardgame": "webpack --mode production",
-    "dev:boardgame": "webpack serve --mode development",
-    "test:boardgame": "ts-node src/boardgame/TestClient.ts",
-    "server:boardgame": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/boardgame/server.ts"
+    "build:web": "webpack --mode production",
+    "dev": "webpack serve --mode development",
+    "test:client": "ts-node src/game/TestClient.ts",
+    "server": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/game/server.ts"
   },
   "keywords": [
     "cozen",
@@ -26,8 +24,9 @@
   "dependencies": {
     "@types/koa": "^2.15.0",
     "@types/koa-router": "^7.4.8",
-    "boardgame.io": "^0.22.1",
+    "boardgame.io": "^0.50.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.17.1",
     "koa-router": "^13.0.1",
     "koa-static": "^5.0.0",

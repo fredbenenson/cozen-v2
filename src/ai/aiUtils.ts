@@ -3,6 +3,7 @@ import { Player } from '../types/player';
 import { Round, Column } from '../types/round';
 import { AIMove, AIDifficulty, DIFFICULTY_VALUES } from './aiTypes';
 import { StakeService } from '../services/stakeService';
+import { CardEvaluation } from '../services/cardEvaluation';
 
 /**
  * Generates all possible stake moves for a player
@@ -246,41 +247,15 @@ function evaluateWagerMove(cards: Card[], column: number, round: Round, player: 
     
   const allCards = [...existingCards, ...cards];
   
-  // Use a simplified version of card evaluation to estimate hand strength
-  let score = 0;
+  // Extract card numbers from Card objects
+  const cardNumbers = allCards.map(card => card.number);
   
-  // Handle pairs (3 points each)
-  const numberCounts = new Map<number, number>();
-  for (const card of allCards) {
-    numberCounts.set(card.number, (numberCounts.get(card.number) || 0) + 1);
-  }
+  // Use the canonical card evaluation service with stake number if it belongs to player
+  const stakeNumber = stake.color === player.color ? stake.number : -1;
+  const evaluation = CardEvaluation.evaluateHand(cardNumbers, stakeNumber);
   
-  // Count pairs (note: this doesn't handle more than 1 pair correctly but is a good estimate)
-  for (const [_, count] of numberCounts.entries()) {
-    if (count >= 2) {
-      score += 3; // 3 points per pair
-      break; // Only count one pair for simplicity
-    }
-  }
-  
-  // Simple check for straights
-  const cardNumbers = Array.from(allCards).map(c => c.number).sort((a, b) => a - b);
-  let maxStraightLength = 1;
-  let currentStraightLength = 1;
-  
-  for (let i = 1; i < cardNumbers.length; i++) {
-    if (cardNumbers[i] === cardNumbers[i-1] + 1) {
-      currentStraightLength++;
-    } else if (cardNumbers[i] !== cardNumbers[i-1]) {
-      currentStraightLength = 1;
-    }
-    maxStraightLength = Math.max(maxStraightLength, currentStraightLength);
-  }
-  
-  // Add points for straights (1 point per card in straight)
-  if (maxStraightLength >= 2) {
-    score += maxStraightLength;
-  }
+  // Get hand strength from evaluation
+  let score = evaluation.strength;
   
   // If stake belongs to opponent and we're likely to win, add extra incentive
   if (stake.color !== player.color) {
@@ -359,44 +334,17 @@ function evaluatePosition(round: Round, perspectiveColor: string): number {
 }
 
 /**
- * Evaluates the strength of a player's hand
+ * Evaluates the strength of a player's hand using the canonical CardEvaluation service
  */
 function evaluateHandStrength(hand: Card[]): number {
-  let strength = 0;
+  // Extract card numbers from Card objects
+  const cardNumbers = hand.map(card => card.number);
   
-  // Check for pairs
-  const numberCounts = new Map<number, number>();
-  for (const card of hand) {
-    numberCounts.set(card.number, (numberCounts.get(card.number) || 0) + 1);
-  }
+  // Use the canonical card evaluation service with no stake card
+  const result = CardEvaluation.evaluateHand(cardNumbers, -1);
   
-  // Count pairs (3 points each)
-  for (const [_, count] of numberCounts.entries()) {
-    if (count >= 2) {
-      strength += 3;
-    }
-  }
-  
-  // Check for straights
-  const cardNumbers = Array.from(hand).map(c => c.number).sort((a, b) => a - b);
-  let maxStraightLength = 1;
-  let currentStraightLength = 1;
-  
-  for (let i = 1; i < cardNumbers.length; i++) {
-    if (cardNumbers[i] === cardNumbers[i-1] + 1) {
-      currentStraightLength++;
-    } else if (cardNumbers[i] !== cardNumbers[i-1]) {
-      currentStraightLength = 1;
-    }
-    maxStraightLength = Math.max(maxStraightLength, currentStraightLength);
-  }
-  
-  // Add points for straights (1 point per card in straight)
-  if (maxStraightLength >= 2) {
-    strength += maxStraightLength;
-  }
-  
-  return strength;
+  // Return the strength value from the evaluation
+  return result.strength;
 }
 
 /**
