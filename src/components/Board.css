@@ -67,6 +67,19 @@
   box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
 }
 
+/* Card back style */
+.card-back {
+  width: 70px;
+  height: 90px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  position: relative;
+  background-image: url('/card_back_v1.png');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
 /* Ensure grid cells have proper positioning */
 .grid-cell {
   position: relative;
@@ -178,7 +191,7 @@
   border-color: #000099;
 }
 
-.hand {
+.hand, .opponent-hand {
   display: flex;
   justify-content: center;
   margin: 20px 0;
@@ -187,9 +200,19 @@
   min-height: 120px;
 }
 
-.hand .card {
+.hand .card, .opponent-hand .card-back {
   margin: 0 -15px 5px 0;
   transition: transform 0.2s ease;
+}
+
+/* Style for opponent's hand */
+.opponent-hand {
+  min-height: 90px;
+}
+
+.opponent-card {
+  transform: scale(0.8);
+  margin: 0 -25px 0 0 !important;
 }
 
 /* Create solitaire-like spread for hand cards */

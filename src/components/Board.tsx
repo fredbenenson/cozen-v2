@@ -246,9 +246,21 @@ export function Board({ G, ctx, moves }: any) {
     setSelectedColumn(null);
   };
 
-  // Render a card
-  const renderCard = (card: Card | null) => {
+  // Render a card (face up or card back)
+  const renderCard = (card: Card | null, showBack: boolean = false) => {
     if (!card) return null;
+    
+    // If we want to show the card back (for opponent's cards)
+    if (showBack) {
+      return (
+        <div
+          key={card.id}
+          className="card-back"
+        />
+      );
+    }
+    
+    // Regular face-up card
     const cardValue = card.number?.toString() + (card.color === Color.Red ? '♦' : '♣');
     return (
       <div
@@ -260,7 +272,7 @@ export function Board({ G, ctx, moves }: any) {
   };
 
   // Render a card for display
-  const renderCardArray = (cards: Card[] | Card) => {
+  const renderCardArray = (cards: Card[] | Card, showBack: boolean = false) => {
     if (!cards) return null;
     
     // Even though we now only store single cards per position,
@@ -268,9 +280,9 @@ export function Board({ G, ctx, moves }: any) {
     // or future changes
     if (Array.isArray(cards)) {
       if (cards.length === 0) return null;
-      return renderCard(cards[0]);
+      return renderCard(cards[0], showBack);
     } else {
-      return renderCard(cards);
+      return renderCard(cards, showBack);
     }
   };
 
@@ -417,7 +429,7 @@ export function Board({ G, ctx, moves }: any) {
               }
             }}
           >
-            {hasCard && renderCardArray(position.card)}
+            {hasCard && renderCardArray(position.card, true)}
             
             {/* Drop here indicator */}
             {canWager && (
@@ -537,9 +549,14 @@ export function Board({ G, ctx, moves }: any) {
 
   return (
     <div className="board">
-      {/* Opponent info - minimal */}
+      {/* Opponent info - minimal with card backs */}
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
         <h3 key="opponent-title">Black - {opponent?.victory_points || 0} VP</h3>
+        <div className="opponent-hand">
+          {Array.from({ length: opponent?.hand?.length || 0 }).map((_, i) => (
+            <div key={`opponent-card-${i}`} className="card-back opponent-card" />
+          ))}
+        </div>
       </div>
 
       {/* Grid-based board */}
