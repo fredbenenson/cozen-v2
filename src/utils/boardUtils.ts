@@ -279,6 +279,13 @@ export function setupNextRound(G: CozenState) {
   // Reset cards jailed count
   G.cardsJailed = 0;
   
+  // Clear all cards from the board positions first
+  G.board.forEach(column => {
+    column.positions.forEach(position => {
+      position.card = undefined;
+    });
+  });
+  
   // Return cards from hand to deck
   ['red', 'black'].forEach(playerID => {
     const player = G.players[playerID as 'red' | 'black'];
@@ -297,18 +304,34 @@ export function setupNextRound(G: CozenState) {
       ? [5, 6, 7, 8, 9] 
       : [0, 1, 2, 3, 4];
     
-    // Filter out columns that already have stake cards
-    player.availableStakes = allStakes.filter(col => !G.board[col].stakedCard);
-    
-    // Draw new hand
-    player.hand = player.cards.splice(0, 5);
+    // Reset all stake cards - we'll place new ones below
+    player.availableStakes = [...allStakes];
   });
   
-  // Set up new stakes if needed
+  // Clear all stakes on the board
+  G.board.forEach(column => {
+    column.stakedCard = undefined;
+  });
+  
+  // Deal hands first
+  ['red', 'black'].forEach(playerID => {
+    const player = G.players[playerID as 'red' | 'black'];
+    
+    // Draw new hand
+    if (player.cards.length >= 5) {
+      player.hand = player.cards.splice(0, 5);
+    } else {
+      // If not enough cards, use what's available
+      player.hand = [...player.cards];
+      player.cards = [];
+    }
+  });
+  
+  // Set up new stakes
   if (!keepStakes) {
     // Draw new stakes
-    const redStake = G.players.red.cards.shift();
-    const blackStake = G.players.black.cards.shift();
+    const redStake = G.players.red.cards.length > 0 ? G.players.red.cards.shift() : undefined;
+    const blackStake = G.players.black.cards.length > 0 ? G.players.black.cards.shift() : undefined;
     
     G.firstStakes = {
       red: redStake ? [redStake] : [],
@@ -335,12 +358,23 @@ export function setupNextRound(G: CozenState) {
     // Implementation for the special rule - add additional stakes in next columns
     // Let's assume we already have stakes at columns 4 and 5
     
+    // Place initial stakes back on the board
+    if (G.firstStakes.red.length > 0) {
+      G.board[5].stakedCard = G.firstStakes.red[0];
+      G.players.red.availableStakes = G.players.red.availableStakes.filter(c => c !== 5);
+    }
+    
+    if (G.firstStakes.black.length > 0) {
+      G.board[4].stakedCard = G.firstStakes.black[0];
+      G.players.black.availableStakes = G.players.black.availableStakes.filter(c => c !== 4);
+    }
+    
     // Find next available columns for each player
     const nextRedColumn = G.players.red.availableStakes.find(c => c > 5);
     const nextBlackColumn = G.players.black.availableStakes.find(c => c < 4);
     
     if (nextRedColumn !== undefined) {
-      const redStake = G.players.red.cards.shift();
+      const redStake = G.players.red.cards.length > 0 ? G.players.red.cards.shift() : undefined;
       if (redStake) {
         G.board[nextRedColumn].stakedCard = redStake;
         G.players.red.availableStakes = G.players.red.availableStakes.filter(c => c !== nextRedColumn);
@@ -349,7 +383,7 @@ export function setupNextRound(G: CozenState) {
     }
     
     if (nextBlackColumn !== undefined) {
-      const blackStake = G.players.black.cards.shift();
+      const blackStake = G.players.black.cards.length > 0 ? G.players.black.cards.shift() : undefined;
       if (blackStake) {
         G.board[nextBlackColumn].stakedCard = blackStake;
         G.players.black.availableStakes = G.players.black.availableStakes.filter(c => c !== nextBlackColumn);
@@ -357,4 +391,16 @@ export function setupNextRound(G: CozenState) {
       }
     }
   }
+  
+  // Double check that we have hands for both players
+  ['red', 'black'].forEach(playerID => {
+    const player = G.players[playerID as 'red' | 'black'];
+    if (player.hand.length === 0 && player.cards.length > 0) {
+      // If somehow we missed dealing a hand, fix it now
+      player.hand = player.cards.splice(0, Math.min(5, player.cards.length));
+    }
+  });
+  
+  // Ensure message is cleared for next round (don't hold round-end notifications)
+  G.message = "";
 }

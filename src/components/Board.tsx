@@ -390,6 +390,13 @@ export function Board({ G, ctx, moves }: any) {
     return sortedPositions[0].card;
   };
 
+  // Watch for phase changes and show messages
+  useEffect(() => {
+    if (ctx.phase === 'roundEnd') {
+      showMessage('Round Complete! Starting next round...');
+    }
+  }, [ctx.phase]);
+  
   // Render the grid-based board
   const renderGrid = () => {
     if (!G?.board) return null;
@@ -550,6 +557,50 @@ export function Board({ G, ctx, moves }: any) {
 
     return gridCells;
   };
+
+  // Handle showing a transition message during round end phase
+  if (ctx.phase === 'roundEnd') {
+    // Calculate the VP gained this round for each player
+    const redVPGained = G.victoryPointScores?.red || 0;
+    const blackVPGained = G.victoryPointScores?.black || 0;
+    
+    return (
+      <div className="board">
+        <div className="round-transition">
+          <h2>Round Complete!</h2>
+          <p>Scoring the board and preparing the next round...</p>
+          
+          <div style={{ marginTop: '1rem', fontSize: '1.1rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <span style={{ color: '#cc0000', fontWeight: 'bold' }}>
+                Red: {G.players.red.victory_points} VP
+              </span>
+              {redVPGained > 0 && 
+                <span style={{ color: 'green', marginLeft: '0.5rem' }}>
+                  (+{redVPGained} this round)
+                </span>
+              }
+            </div>
+            
+            <div>
+              <span style={{ color: '#000099', fontWeight: 'bold' }}>
+                Black: {G.players.black.victory_points} VP
+              </span>
+              {blackVPGained > 0 && 
+                <span style={{ color: 'green', marginLeft: '0.5rem' }}>
+                  (+{blackVPGained} this round)
+                </span>
+              }
+            </div>
+          </div>
+          
+          <p style={{ marginTop: '1rem', color: '#888', fontStyle: 'italic' }}>
+            {G.activePlayer === 'red' ? 'Red' : 'Black'} will go first in the next round
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="board">

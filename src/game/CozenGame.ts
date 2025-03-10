@@ -321,7 +321,15 @@ export const CozenGame: any = {
         
         // Don't return anything - let Immer handle immutability
       },
-      endIf: () => true, // Always end after processing
+      endIf: ({ G }) => {
+        // Wait at least 500ms in roundEnd phase before continuing
+        // This ensures the client has time to update before starting a new round
+        return new Promise(resolve => {
+          setTimeout(() => {
+            resolve(true);
+          }, 500);
+        });
+      },
     },
   },
   

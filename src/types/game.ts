@@ -116,6 +116,7 @@ export interface CozenState {
   cardsJailed: number;
   isFirstRound: boolean;
   turnCount: number;
+  message?: string;
   victoryPointScores: {
     red: number;
     black: number;
