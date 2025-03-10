@@ -117,6 +117,7 @@ export interface CozenState {
   isFirstRound: boolean;
   turnCount: number;
   message?: string;
+  developerMode?: boolean;
   victoryPointScores: {
     red: number;
     black: number;

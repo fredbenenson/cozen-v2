@@ -1,8 +1,8 @@
-# Cozen v2: A Strategic Card Game API
+# Cozen: A Strategic Card Game
 
 ## Overview
 
-Cozen is a strategic card game of deception and skill, originally designed by Zach Gage. This TypeScript-based implementation provides a full-featured backend API for playing Cozen, complete with game logic, authentication, and WebSocket support.
+Cozen is a strategic card game of deception and skill, originally designed by Zach Gage. This implementation is built using TypeScript and the boardgame.io framework, providing an interactive digital version with AI opponent capabilities.
 
 ## Game Rules
 
@@ -17,14 +17,13 @@ For a complete overview of game rules, please refer to the [RULES.md](RULES.md) 
 
 - Node.js (v20.0.0 or later)
 - npm (v10.0.0 or later)
-- MongoDB (for original implementation)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/fredbenenson/cozen-v2.git
-cd cozen-v2
+git clone https://github.com/fredbenenson/cozen.git
+cd cozen
 ```
 
 2. Install dependencies:
@@ -32,103 +31,83 @@ cd cozen-v2
 npm install
 ```
 
-3. For the original implementation, create a `.env` file in the project root with:
-```
-MONGODB_URI=mongodb://localhost:27017/cozen
-JWT_SECRET=your_jwt_secret_key
-PORT=3000
-```
+## Running the Game
 
-## Running the Application
-
-### Original Implementation
-
+To start the development server:
 ```bash
-npm start
+npm run dev
 ```
 
-### Boardgame.io Implementation (New!)
-
-The project now includes a boardgame.io-based implementation that provides better state management and multiplayer capabilities.
-
-To run the boardgame.io server:
+To build for production:
 ```bash
-npm run start:boardgame
-```
-
-To test the implementation in console mode:
-```bash
-npm run test:boardgame
-```
-
-For development with auto-reload:
-```bash
-npm run dev:boardgame
+npm run build
 ```
 
 ## Boardgame.io Implementation
 
-The new boardgame.io implementation offers several advantages:
+This project uses boardgame.io as its core framework, which provides:
 
-- Improved state management with immutable updates
-- Built-in multiplayer server
-- AI support with Monte Carlo Tree Search
-- Better separation of game logic and UI
+- Structured game state management
+- Turn-based gameplay logic
+- Event handling for game actions
+- Client/server architecture for multiplayer
+- AI player support
 
-See the [boardgame implementation README](src/boardgame/README.md) for more details.
+The main boardgame.io components include:
 
-## CLI Interface
+- `CozenGame.ts`: Core game logic and move definitions
+- `Board.tsx`: React UI component for rendering the game board
+- `setup.ts`: Initial game state and setup functions
+- `moves.ts`: Game move implementations
+- `turnOrder.ts`: Turn order management
+- `server.ts`: Server configuration for multiplayer
 
-The original implementation includes a CLI for testing and interacting with the game:
+## AI Implementation
 
-```bash
-npm run cli
-```
+The game includes an AI opponent that:
 
-The CLI provides an interactive game setup where you can:
-- Create test players
-- Initialize a game
-- Make moves (stake or play cards)
-- Explore game state
+- Uses a minimax algorithm with alpha-beta pruning
+- Evaluates board positions based on card value and positioning
+- Makes strategic decisions about staking and wagering cards
+- Provides a challenging gameplay experience
 
-### CLI Commands
-- `stake <number> <column>`: Stake a card (e.g., `stake 5 2`)
-- `play <number>,<number> <column>`: Play multiple cards (e.g., `play 3,4 1`)
-- `quit`: Exit the game
-
-## API Endpoints (Original Implementation)
-
-### Authentication Routes
-- `POST /auth/register`: Register a new player
-- `POST /auth/login`: Authenticate a player
-- `POST /auth/create-player`: Create a player without authentication
-
-### Game Routes
-- `POST /games/create`: Create a new game
-- `POST /games/:gameId/move`: Make a move in an existing game
+The AI components are in the `src/ai` directory.
 
 ## Project Structure
 
 - `src/`
-  - `boardgame/`: Boardgame.io implementation (NEW!)
-  - `config/`: Configuration files
-  - `middleware/`: Express middleware
-  - `models/`: Mongoose models
-  - `routes/`: API route handlers
-  - `services/`: Game logic and business services
-  - `tests/`: Unit and integration tests
+  - `ai/`: AI player implementation
+  - `components/`: React UI components
+  - `game/`: Core boardgame.io game logic
+  - `services/`: Game services and utilities
   - `types/`: TypeScript type definitions
   - `utils/`: Utility functions
-  - `websocket/`: WebSocket configuration
-  - `cli.ts`: Command-line interface
-  - `index.ts`: Main application entry point
+  - `index.tsx`: Main application entry point
+
+## Game Visualization
+
+For debugging and development purposes, the project includes visualization tools:
+
+- Minimax decision tree visualizer
+- Game state renderer
+- Board state debugger
+
+These tools can be found in the `visualizations/` directory.
+
+## TODO
+
+- **Security Enhancement**: Implement proper information hiding for opponent's cards on the server side. Currently, all card information is sent to the client and visually hidden with CSS, which is not secure for a production environment.
+- Improve AI decision making for late-game scenarios
+- Add comprehensive test coverage for game logic
+- Implement multiplayer matchmaking
+- Create tutorial mode for new players
+- Add animations for card movements
+- Optimize performance for mobile devices
 
 ## Technologies
 
 - TypeScript
-- Express.js
-- MongoDB (Mongoose)
-- Socket.IO
-- Jest (Testing)
-- boardgame.io (New implementation)
-- React (for boardgame.io UI)
+- React
+- boardgame.io
+- Node.js
+- CSS

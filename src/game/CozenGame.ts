@@ -23,6 +23,7 @@ export function disableGameLogging() {
 
 // Move implementations
 const moves = {
+  
   // Stake a card in the stakes row
   stakeCard: ({ G, ctx }: any, cardId: string) => {
     // Map numeric player IDs to red/black colors
@@ -346,6 +347,11 @@ export const CozenGame: any = {
   
   // Define what parts of state are private to each player
   playerView: ({ G, playerID }) => {
+    // If developer mode is enabled, show all cards
+    if (G.developerMode) {
+      return G;
+    }
+    
     // Hide opponent's hand - only if playerID is provided
     if (playerID === '0' || playerID === '1') {
       // Map numeric player IDs to colors

@@ -7,12 +7,16 @@ import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
 import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
 import { getCardDisplayValue, getCardRankSymbol } from '../utils/cardUtils';
 
-export function Board({ G, ctx, moves }: any) {
+export function Board({ G, ctx, moves, events }: any) {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isCursorVisible, setIsCursorVisible] = useState(false);
+  const [showOpponentCards, setShowOpponentCards] = useState(false);
+  
+  // State to track if we're peeking at opponent cards
+  // We'll use this for visual hiding only, since all card data will still come to the client
   
   // Enable game logging once the board component mounts
   // This way, AI's initial moves won't flood the console
@@ -24,6 +28,8 @@ export function Board({ G, ctx, moves }: any) {
     
     return () => clearTimeout(timer);
   }, []);
+  
+  // No need to sync with game state as we're using a purely client-side approach now
   
   // Monitor for turn changes and manage logging
   useEffect(() => {
@@ -248,11 +254,51 @@ export function Board({ G, ctx, moves }: any) {
     setSelectedColumn(null);
   };
 
-  // Render a card (face up or card back)
+  // Render a card (face up or card back) with flipping capability
   const renderCard = (card: Card | null, showBack: boolean = false) => {
     if (!card) return null;
     
-    // If we want to show the card back (for opponent's cards)
+    // Handle hidden cards (opponent's hand)
+    if ('hidden' in card) {
+      // When 'peeking', make up a random card to display
+      const rank = Math.floor(Math.random() * 13) + 1; // 1-13
+      const rankSymbol = getCardRankSymbol(rank);
+      const suit = ["♠", "♥", "♦", "♣"][Math.floor(Math.random() * 4)];
+      
+      // Generate a display value for the corner
+      const displayValue = `${rankSymbol}${suit}`;
+      
+      return (
+        <div className="card-container">
+          <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
+            <div className="card-back" />
+            <div className={`card-front card black-card`} data-value={displayValue}>
+              <div className="card-center-value">{rankSymbol}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Regular card with values
+    const cardValue = getCardDisplayValue(card);
+    const rankSymbol = getCardRankSymbol(card.number);
+    
+    // For opponent's cards (black cards on the board)
+    if (showBack && card.color === Color.Black) {
+      return (
+        <div className="card-container">
+          <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
+            <div className="card-back" />
+            <div className={`card-front card black-card`} data-value={cardValue}>
+              <div className="card-center-value">{rankSymbol}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // For regular back cards (not flippable)
     if (showBack) {
       return (
         <div
@@ -262,14 +308,15 @@ export function Board({ G, ctx, moves }: any) {
       );
     }
     
-    // Use our utility function to get the card display value
-    const cardValue = getCardDisplayValue(card);
+    // For regular face-up cards
     return (
       <div
         key={card.id}
         className={`card ${card.color === Color.Red ? 'red-card' : 'black-card'}`}
         data-value={cardValue}
-      />
+      >
+        <div className="card-center-value">{rankSymbol}</div>
+      </div>
     );
   };
 
@@ -297,6 +344,7 @@ export function Board({ G, ctx, moves }: any) {
       
       // Use our utility function for consistent card display
       const cardValue = getCardDisplayValue(card);
+      const rankSymbol = getCardRankSymbol(card.number);
       
       return (
         <div
@@ -304,7 +352,9 @@ export function Board({ G, ctx, moves }: any) {
           className={`card ${card.color === Color.Red ? 'red-card' : 'black-card'} ${selectedCards.some(c => c.id === card.id) ? 'selected' : ''}`}
           data-value={cardValue}
           onClick={() => toggleCardSelection(card)}
-        />
+        >
+          <div className="card-center-value">{rankSymbol}</div>
+        </div>
       );
     });
   };
@@ -602,15 +652,52 @@ export function Board({ G, ctx, moves }: any) {
     );
   }
 
+  // Simple toggle to flip cards visually (purely client-side)
+  const toggleOpponentCards = () => {
+    // Just toggle the UI state for the card flip animation
+    setShowOpponentCards(!showOpponentCards);
+    console.log(`Card peek mode ${!showOpponentCards ? "enabled" : "disabled"}`);
+  };
+
   return (
     <div className="board">
-      {/* Opponent info - minimal with card backs */}
+      {/* Opponent info with toggleable card display */}
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
+        <div className="toggle-cards-container">
+          <label className="form-switch">
+            <input 
+              type="checkbox" 
+              checked={showOpponentCards}
+              onChange={toggleOpponentCards}
+            />
+            <i></i>
+            <span className="toggle-label">{showOpponentCards ? "Hide Opponent Cards" : "Show Opponent Cards"}</span>
+          </label>
+        </div>
         <h3 key="opponent-title">Black - {opponent?.victory_points || 0} VP</h3>
         <div className="opponent-hand">
-          {opponent?.hand && Array.from({ length: opponent.hand.length || 0 }).map((_, i) => (
-            <div key={`opponent-card-${i}`} className="card-back opponent-card" />
-          ))}
+          {opponent?.hand && opponent.hand.map((card: any, i: number) => {
+            // Default to question marks for hidden cards
+            let cardValue = "?";
+            let rankSymbol = "?";
+            
+            // With developer mode enabled, we'll have full card data
+            if (card.number !== undefined) {
+              cardValue = getCardDisplayValue(card);
+              rankSymbol = getCardRankSymbol(card.number);
+            }
+            
+            return (
+              <div className="card-container" key={`opponent-card-${i}`}>
+                <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
+                  <div className="card-back opponent-card"></div>
+                  <div className={`card-front card black-card`} data-value={cardValue}>
+                    <div className="card-center-value">{rankSymbol}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
