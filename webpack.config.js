@@ -7,6 +7,9 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
   },
+  // Add dev mode configuration
+  mode: 'development',
+  devtool: 'inline-source-map',
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
   },
