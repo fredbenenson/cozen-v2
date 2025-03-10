@@ -34,51 +34,46 @@ const moves = {
       return INVALID_MOVE;
     }
     
-    // Create a copy of the state (for immutability)
-    const newG = { ...G };
-    const newPlayer = { ...newG.players[playerColor] };
-    newG.players = { ...newG.players, [playerColor]: newPlayer };
-    
-    // Get the card and remove from hand
-    const card = { ...newPlayer.hand[cardIndex] };
-    newPlayer.hand = [
-      ...newPlayer.hand.slice(0, cardIndex),
-      ...newPlayer.hand.slice(cardIndex + 1)
-    ];
+    // Get the card and remove from hand (modify G directly)
+    const card = { ...player.hand[cardIndex] };
+    player.hand.splice(cardIndex, 1);
     
     // Mark card as played and set owner
     card.played = true;
     card.owner = playerColor;
     
     // Place stake in column
-    newG.board = [...newG.board];
-    newG.board[column] = { ...newG.board[column], stakedCard: card };
+    G.board[column].stakedCard = card;
     
     // Update available stakes
-    newPlayer.availableStakes = newPlayer.availableStakes.filter((c: number) => c !== column);
+    const stakeIndex = player.availableStakes.indexOf(column);
+    if (stakeIndex !== -1) {
+      player.availableStakes.splice(stakeIndex, 1);
+    }
     
     // Draw a new card if not in last_play state
-    if (newG.roundState !== 'last_play' && newPlayer.cards.length > 0) {
-      const newCard = newPlayer.cards[0];
-      newPlayer.hand = [...newPlayer.hand, newCard];
-      newPlayer.cards = newPlayer.cards.slice(1);
+    if (G.roundState !== 'last_play' && player.cards.length > 0) {
+      const newCard = player.cards[0];
+      player.hand.push(newCard);
+      player.cards.shift();
     }
     
     // Check if this affects game state
-    checkLastPlayState(newG);
-    checkRoundCompleteState(newG);
+    checkLastPlayState(G);
+    checkRoundCompleteState(G);
     
     // Switch active player
-    newG.activePlayer = newG.inactivePlayer;
-    newG.inactivePlayer = playerColor;
+    G.activePlayer = G.inactivePlayer;
+    G.inactivePlayer = playerColor;
     
-    return newG;
+    // Don't return anything - Immer will handle the immutability
   },
   
   // Wager cards in a column
   wagerCards: ({ G, ctx }: any, cardIds: string[], column: number) => {
     // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
+    const player = G.players[playerColor];
     
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
@@ -86,30 +81,24 @@ const moves = {
       return INVALID_MOVE;
     }
     
-    // Create a copy of the state (for immutability)
-    const newG = { ...G };
-    const newPlayer = { ...newG.players[playerColor] };
-    newG.players = { ...newG.players, [playerColor]: newPlayer };
-    
     // Check if column has a stake
-    if (!newG.board[column] || !newG.board[column].stakedCard) {
+    if (!G.board[column] || !G.board[column].stakedCard) {
       console.log(`Column ${column} does not have a stake`);
       return INVALID_MOVE;
     }
     
     // Find cards in hand
     const cardsToPlay: any[] = [];
-    const newHand = [...newPlayer.hand];
     const indicesToRemove: number[] = [];
     
     for (const cardId of cardIds) {
-      const index = newHand.findIndex(card => card.id === cardId);
+      const index = player.hand.findIndex(card => card.id === cardId);
       if (index === -1) {
         console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
         return INVALID_MOVE;
       }
       
-      const card = { ...newHand[index] };
+      const card = { ...player.hand[index] };
       card.played = true;
       card.owner = playerColor;
       cardsToPlay.push(card);
@@ -125,22 +114,21 @@ const moves = {
     // Sort indices in descending order to avoid shifting issues
     indicesToRemove.sort((a, b) => b - a);
     for (const index of indicesToRemove) {
-      newHand.splice(index, 1);
+      player.hand.splice(index, 1);
     }
-    newPlayer.hand = newHand;
     
     // Place cards in the column
-    placeWageredCards(newG, playerColor, cardsToPlay, column);
+    placeWageredCards(G, playerColor, cardsToPlay, column);
     
     // Check if this affects game state
-    checkLastPlayState(newG);
-    checkRoundCompleteState(newG);
+    checkLastPlayState(G);
+    checkRoundCompleteState(G);
     
     // Switch active player
-    newG.activePlayer = newG.inactivePlayer;
-    newG.inactivePlayer = playerColor;
+    G.activePlayer = G.inactivePlayer;
+    G.inactivePlayer = playerColor;
     
-    return newG;
+    // Don't return anything - Immer will handle the immutability
   },
 };
 
@@ -190,10 +178,6 @@ function placeWageredCards(
 ) {
   const column = G.board[columnIndex];
   
-  // Create a copy of the column
-  G.board[columnIndex] = { ...column };
-  G.board[columnIndex].positions = [...column.positions];
-  
   // Find empty positions owned by this player
   const availablePositions = column.positions
     .map((pos, index) => ({ pos, index }))
@@ -211,10 +195,8 @@ function placeWageredCards(
   // If we have available positions, place all cards in the first position
   if (availablePositions.length > 0) {
     const posIndex = availablePositions[0].index;
-    G.board[columnIndex].positions[posIndex] = {
-      ...G.board[columnIndex].positions[posIndex],
-      card: cards // Store all cards in the position
-    };
+    // Directly modify the position's card property
+    G.board[columnIndex].positions[posIndex].card = cards;
   }
 }
 
@@ -262,21 +244,18 @@ export const CozenGame: any = {
       moves: {},
       next: 'play',
       onBegin: ({ G }) => {
-        // Create a copy of the state
-        const newG = { ...G };
-        
         // Score the board and determine winners of contested columns
-        scoreBoard(newG);
+        scoreBoard(G);
         
         // Check for game winner
-        const winner = checkVictory(newG);
+        const winner = checkVictory(G);
         
         // If no winner, set up the next round
         if (!winner) {
-          setupNextRound(newG);
+          setupNextRound(G);
         }
         
-        return newG;
+        // Don't return anything - let Immer handle immutability
       },
       endIf: () => true, // Always end after processing
     },

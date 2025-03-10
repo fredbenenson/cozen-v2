@@ -4,14 +4,13 @@ import { Local } from 'boardgame.io/multiplayer';
 import { SocketIO } from 'boardgame.io/multiplayer';
 import { MCTSBot } from 'boardgame.io/ai';
 import { CozenGame } from './CozenGame';
-import { CozenBoard } from '../components/Board';
-import { EnhancedBoard } from '../components/EnhancedBoard';
+import { Board } from '../components/Board';
 import { enumerate } from '../ai/enumerate';
 
 // Create a client with local multiplayer (for testing)
 export const CozenLocalClient = Client({
   game: CozenGame,
-  board: EnhancedBoard, // Using our enhanced board
+  board: Board,
   debug: false,
   multiplayer: Local(),
 });
@@ -19,7 +18,7 @@ export const CozenLocalClient = Client({
 // Create a client with AI opponent
 export const CozenAIClient = Client({
   game: CozenGame,
-  board: EnhancedBoard, // Using our enhanced board
+  board: Board,
   debug: false,
   multiplayer: Local({
     bots: {
@@ -31,7 +30,7 @@ export const CozenAIClient = Client({
 // Create a client with online multiplayer
 export const CozenOnlineClient = (serverURI: string) => Client({
   game: CozenGame,
-  board: EnhancedBoard, // Using our enhanced board
+  board: Board,
   debug: false,
   multiplayer: SocketIO({ server: serverURI }),
 });
@@ -56,7 +55,14 @@ export const LocalGameComponent = () => (
 // Component for playing against AI
 export const AIGameComponent = () => (
   <div>
-    <h1>Cozen - Play Against AI</h1>
+    <h2 style={{ 
+      textAlign: 'center', 
+      color: '#444',
+      margin: '0 0 20px 0',
+      fontWeight: 'normal'
+    }}>
+      Playing against AI
+    </h2>
     <CozenAIClient playerID="0" />
   </div>
 );
