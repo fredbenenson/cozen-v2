@@ -42,7 +42,9 @@ const styles = `
     border-radius: 5px;
   }
   .column.selected {
-    border: 2px solid blue;
+    border: 2px solid #3498db;
+    background-color: rgba(52, 152, 219, 0.05);
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.3);
   }
   .column-header {
     text-align: center;
@@ -241,6 +243,12 @@ const styles = `
   .button:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .button:not(:disabled):hover {
+    background-color: #45a049;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   }
   .game-info {
     text-align: center;
@@ -317,12 +325,16 @@ export function Board({ G, ctx, moves }: any) {
       return;
     }
     
+    // Check if this column has a stake card
     if (!G.board[columnIndex].stakedCard) {
       showMessage("Can't select a column without a stake card!");
       return;
     }
     
+    // Toggle selection
     setSelectedColumn(columnIndex === selectedColumn ? null : columnIndex);
+    
+    console.log(`Selected column: ${columnIndex}`);
   };
   
   // Stake a card
@@ -337,12 +349,19 @@ export function Board({ G, ctx, moves }: any) {
       return;
     }
     
-    if (player.availableStakes.length === 0) {
+    if (player?.availableStakes?.length === 0) {
       showMessage('No available columns to stake!');
       return;
     }
     
+    // Display debug info
+    console.log("Staking card:", selectedCards[0]);
+    console.log("Available stakes:", player.availableStakes);
+    
+    // Execute the stake move
     moves.stakeCard(selectedCards[0].id);
+    
+    // Reset selections
     setSelectedCards([]);
     setSelectedColumn(null);
   };
@@ -364,7 +383,14 @@ export function Board({ G, ctx, moves }: any) {
       return;
     }
     
+    // Display debug info
+    console.log("Wagering cards:", selectedCards);
+    console.log("Selected column:", selectedColumn);
+    
+    // Execute the wager move
     moves.wagerCards(selectedCards.map(c => c.id), selectedColumn);
+    
+    // Reset selections
     setSelectedCards([]);
     setSelectedColumn(null);
   };
@@ -440,27 +466,41 @@ export function Board({ G, ctx, moves }: any) {
     if (Array.isArray(card)) {
       if (card.length === 0) return null;
       
-      // Create a stacked card container
+      // Just show the top card with a counter
+      const topCard = card[card.length - 1];
+      if (!topCard) return null;
+      
+      const cardValue = topCard.number?.toString() + (topCard.color === Color.Red ? '♦' : '♣');
+      const cardKey = topCard.id || `${positionId}-top-card`;
+      
       return (
-        <div className="wager-container" key={`container-${positionId || 'unknown'}`}>
-          {card.map((c, index) => {
-            if (!c) return null;
-            const cardValue = c.number?.toString() + (c.color === Color.Red ? '♦' : '♣');
-            const cardKey = c.id || `${positionId}-card-${index}`;
-            return (
-              <div 
-                key={cardKey}
-                className={`card ${c.color === Color.Red ? 'red-card' : 'black-card'}`}
-                data-value={cardValue}
-                style={{
-                  position: 'absolute',
-                  top: `${index * 25}px`,
-                  left: '0px',
-                  zIndex: index
-                }}
-              />
-            );
-          })}
+        <div className="wager-container" key={`container-${positionId || 'unknown'}`} style={{ position: 'relative' }}>
+          <div 
+            key={cardKey}
+            className={`card ${topCard.color === Color.Red ? 'red-card' : 'black-card'}`}
+            data-value={cardValue}
+          />
+          {card.length > 1 && (
+            <div 
+              style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                background: '#333',
+                color: 'white',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}
+            >
+              {card.length}
+            </div>
+          )}
         </div>
       );
     }
