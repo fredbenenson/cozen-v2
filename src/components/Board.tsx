@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
-import { CozenState, Card } from '../types/game';
+import { CozenState, Card, Position } from '../types/game';
 import { Color, Rank, Suit } from '../types/game';
 import './Board.css';
 import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
@@ -202,13 +202,11 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     showMessage(`Staking in column ${nextStakeColumn}`);
 
     // Execute the stake move (returns INVALID_MOVE if it fails)
-    const result = moves.stakeCard(selectedCards[0].id);
+    const invalidMove = 'INVALID_MOVE';
+    moves.stakeCard(selectedCards[0].id);
 
-    // Check if the move was invalid
-    if (result && typeof result === 'string' && result === 'INVALID_MOVE') {
-      showMessage('Invalid move! Cannot stake in this column.');
-      return;
-    }
+    // We can't actually check the result in strict mode since it returns void
+    // The game state will update automatically via boardgame.io
 
     // Reset selections
     setSelectedCards([]);
@@ -247,14 +245,10 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
 
     // Execute the wager move
     console.log(`Executing wagerCards move with cards:`, selectedCards.map(c => c.id), `and column:`, targetColumn);
-    const result = moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
+    moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
     
-    // Check if move failed
-    if (result && typeof result === 'string' && result === 'INVALID_MOVE') {
-      console.error('Wager move failed with INVALID_MOVE response');
-      showMessage('Invalid wager move!');
-      return;
-    }
+    // We can't actually check the result in strict mode since it returns void
+    // The game state will update automatically via boardgame.io
 
     // Reset selections
     setSelectedCards([]);
@@ -576,7 +570,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
             }
           }}
         >
-          {G.board[col].stakedCard && renderCard(G.board[col].stakedCard)}
+          {G.board[col].stakedCard && renderCard(G.board[col].stakedCard || null)}
           {/* Drop here indicator - only for staking */}
           {canStakeHere && (
             <div className="drop-here">
