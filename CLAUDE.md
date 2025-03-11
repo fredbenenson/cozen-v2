@@ -31,28 +31,34 @@ This document tracks the progress of migrating the codebase to strict TypeScript
 
 ## Remaining Issues
 
-1. CLI.ts (5 errors):
-   - Property access on 'never' types
-   - Need to properly type AI move options
-
-2. Board.tsx (6 errors):
-   - Type compatibility with Position interface
-   - Optional properties not being checked for undefined
-   - Type mismatches in function calls
-
-3. TestClient.ts and MinimalTest.ts:
+1. TestClient.ts and MinimalTest.ts:
    - Incompatibilities with newer boardgame.io interfaces
    - Need to update setup function signature
 
+## Fixed Issues
+
+1. CLI.ts:
+   - Added AIMove interface to properly type AI move options
+   - Fixed type casting for move properties
+
+2. Board.tsx:
+   - Fixed type compatibility with Position interface
+   - Added null checks and undefined handling
+   - Fixed function parameter types
+   - Updated move handling to work with void return types
+
 ## Next Steps
 
-1. Finish fixing the Board.tsx component issues
-2. Fix CLI.ts type errors 
-3. Update test files to match new boardgame.io interfaces
-4. Consider adding additional compiler options to enforce better practices:
+1. Update test files to match new boardgame.io interfaces
+   - Either update TestClient.ts and MinimalTest.ts
+   - Or ignore them for now if they're only used for testing
+
+2. Consider adding additional compiler options to enforce better practices:
    - strictNullChecks
    - strictPropertyInitialization
    - strictBindCallApply
+
+3. Extend type safety to more files in the codebase
 
 ## Useful Commands
 
