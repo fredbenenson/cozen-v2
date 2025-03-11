@@ -1,5 +1,5 @@
 import { CozenGame } from '../game/CozenGame';
-import { Card, Color, Suit } from '../types/game';
+import { Card, Color, Suit, Column } from '../types/game';
 import { Client } from 'boardgame.io/client';
 
 describe('Round Transitions', () => {
@@ -45,7 +45,7 @@ describe('Round Transitions', () => {
     expect(newState.players.black.hand.length).toBeGreaterThan(0);
     
     // Verify at least one stake exists on the board
-    const hasStakes = newState.board.some(col => col.stakedCard);
+    const hasStakes = newState.board.some((col: Column) => col.stakedCard !== undefined);
     expect(hasStakes).toBe(true);
     
     // Verify turn number has increased
