@@ -108,6 +108,12 @@ const moves = {
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
     
+    // Force a phase re-evaluation if the round is complete
+    if (G.roundState === 'complete' && ctx.events?.endPhase) {
+      if (ENABLE_LOGGING) console.log('Force ending phase after round completion in stakeCard');
+      ctx.events.endPhase();
+    }
+    
     // Don't return anything - Immer will handle the immutability
   },
   
@@ -187,6 +193,12 @@ const moves = {
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
     
+    // Force a phase re-evaluation if the round is complete
+    if (G.roundState === 'complete' && ctx.events?.endPhase) {
+      if (ENABLE_LOGGING) console.log('Force ending phase after round completion in wagerCards');
+      ctx.events.endPhase();
+    }
+    
     // Don't return anything - Immer will handle the immutability
   },
 };
@@ -240,6 +252,7 @@ function checkRoundCompleteState(G: CozenState) {
     G.roundState = 'complete';
     if (ENABLE_LOGGING) {
       console.log('[DEBUG] ROUND COMPLETE - Final turn completed after one player emptied their hand');
+      console.log('[DEBUG] *** CRITICAL: Round state set to "complete" ***');
     }
   }
   
@@ -324,6 +337,8 @@ export const CozenGame: Game<CozenState> = {
       start: true,
       next: 'roundEnd',
       endIf: (G: CozenState, ctx: Ctx) => {
+        // Null safety check
+        if (!G || !G.players) return false;
         
         // Only log during actual gameplay, not AI simulations
         if (ENABLE_LOGGING) {
@@ -335,6 +350,14 @@ export const CozenGame: Game<CozenState> = {
         if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0 && G.roundState !== 'complete') {
           if (ENABLE_LOGGING) {
             console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
+          }
+          G.roundState = 'complete';
+        }
+        
+        // Second check - if game is in last_play state and active player has no cards, end round
+        if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0 && G.roundState !== 'complete') {
+          if (ENABLE_LOGGING) {
+            console.log('[DEBUG] FORCED COMPLETE: Active player has no cards in last_play state');
           }
           G.roundState = 'complete';
         }
