@@ -2,6 +2,12 @@
 // This file adds proper type definitions for boardgame.io to help with strict TypeScript mode
 
 declare module 'boardgame.io' {
+  // Default Plugin APIs interface to match newer boardgame.io versions
+  export interface DefaultPluginAPIs {
+    // Add any fields required by the boardgame.io internals
+    [key: string]: any;
+  }
+
   export interface Ctx {
     numPlayers: number;
     turn: number;
@@ -24,9 +30,15 @@ declare module 'boardgame.io' {
     };
   }
 
-  export interface Game<GameState = any> {
+  // New interface for boardgame.io 0.50+ that uses a context object
+  export type GameContext<T = any> = Record<string, unknown> & DefaultPluginAPIs & { ctx: Ctx } & T;
+
+  // Original Game interface kept for backward compatibility
+  export interface Game<GameState = any, ContextData = any, API extends any = any> {
     name?: string;
-    setup: (ctx: Ctx, setupData?: any) => GameState;
+    // Support both the older ctx param and newer context object patterns
+    setup: ((ctx: Ctx, setupData?: any) => GameState) | 
+           ((context: GameContext<ContextData>, setupData?: any) => GameState);
     moves?: Record<string, (context: { G: GameState; ctx: Ctx }, ...args: any[]) => GameState | void | string>;
     phases?: Record<string, PhaseConfig<GameState>>;
     turn?: TurnConfig<GameState>;
@@ -150,4 +162,19 @@ declare module 'boardgame.io/ai' {
 declare module 'boardgame.io/multiplayer' {
   export function SocketIO(options?: { server?: string; socketOpts?: any }): any;
   export function Local(): any;
+}
+
+declare module 'boardgame.io/client' {
+  // Import all types to match any version of the library
+  import { Game } from 'boardgame.io';
+
+  export function Client(config: {
+    game: any;
+    board?: any;
+    numPlayers?: number;
+    multiplayer?: any;
+    debug?: boolean;
+    ai?: any;
+    playerID?: string;
+  }): any;
 }

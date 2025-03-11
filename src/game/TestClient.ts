@@ -5,7 +5,6 @@ import { Color } from '../types/game';
 
 // Create a simple client for console testing
 const client = Client({
-  // @ts-ignore - Ignoring incompatible boardgame.io interface versions
   game: CozenGame,
   numPlayers: 2,
   playerID: '0', // Start as red player
