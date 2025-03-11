@@ -134,7 +134,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
       (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
     );
     
-    return position && !position.card;
+    return !!position && !position.card;
   };
 
   // Toggle card selection
@@ -205,7 +205,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     const result = moves.stakeCard(selectedCards[0].id);
 
     // Check if the move was invalid
-    if (result === 'INVALID_MOVE') {
+    if (result && typeof result === 'string' && result === 'INVALID_MOVE') {
       showMessage('Invalid move! Cannot stake in this column.');
       return;
     }
@@ -250,7 +250,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     const result = moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
     
     // Check if move failed
-    if (result === 'INVALID_MOVE') {
+    if (result && typeof result === 'string' && result === 'INVALID_MOVE') {
       console.error('Wager move failed with INVALID_MOVE response');
       showMessage('Invalid wager move!');
       return;
@@ -328,7 +328,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
   };
 
   // Render a card for display
-  const renderCardArray = (cards: Card[] | Card, showBack: boolean = false) => {
+  const renderCardArray = (cards: Card[] | Card | undefined, showBack: boolean = false) => {
     if (!cards) return null;
     
     // Even though we now only store single cards per position,
@@ -430,7 +430,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
 
     // For each player side, we need the row closest to the stake row that has a card
     const positions = G.board[columnIndex].positions
-      .filter((p: { owner: string; card: any }) => p?.owner === owner && p?.card);
+      .filter((p: Position) => p.owner === owner && p.card !== undefined);
     
     if (positions.length === 0) return null;
     
