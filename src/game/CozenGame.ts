@@ -309,7 +309,7 @@ function placeWageredCards(
   }
 }
 
-export const CozenGame: any = {
+export const CozenGame: Game<CozenState> = {
   name: 'cozen',
   
   // Setup function initializes the game state
@@ -323,7 +323,7 @@ export const CozenGame: any = {
     play: {
       start: true,
       next: 'roundEnd',
-      endIf: (state) => {
+      endIf: (state: any) => {
         const { G } = state;
         
         // Only log during actual gameplay, not AI simulations
@@ -403,7 +403,7 @@ export const CozenGame: any = {
         
         // Don't return anything - let Immer handle immutability
       },
-      endIf: ({ G }) => {
+      endIf: ({ G }: { G: CozenState }) => {
         // Wait 3 seconds in roundEnd phase before continuing
         // This ensures the client has time to update and show the transition screen
         console.log('[DEBUG] Starting roundEnd timeout (3 seconds)');
@@ -418,7 +418,7 @@ export const CozenGame: any = {
   },
   
   // Game ends when a player reaches 70 victory points
-  endIf: ({ G }) => {
+  endIf: ({ G }: { G: CozenState }) => {
     if (G.players.red.victory_points >= 70) {
       return { winner: 'red' };
     }

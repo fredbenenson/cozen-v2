@@ -2,7 +2,7 @@ import React from 'react';
 import { Client } from 'boardgame.io/react';
 import { Local } from 'boardgame.io/multiplayer';
 import { SocketIO } from 'boardgame.io/multiplayer';
-import { MCTSBot } from 'boardgame.io/ai';
+import { RandomBot } from 'boardgame.io/ai'; // Using RandomBot instead of MCTSBot which isn't in our typedef
 import { CozenGame } from './CozenGame';
 import { Board } from '../components/Board';
 import { enumerate } from '../ai/enumerate';
@@ -20,11 +20,10 @@ export const CozenAIClient = Client({
   game: CozenGame,
   board: Board,
   debug: false,
-  multiplayer: Local({
-    bots: {
-      '1': MCTSBot,
-    },
-  }),
+  multiplayer: Local(),
+  ai: {
+    enumerate: enumerate
+  },
 });
 
 // Create a client with online multiplayer

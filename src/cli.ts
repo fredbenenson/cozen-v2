@@ -118,7 +118,7 @@ function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> 
       const prefix = isSelectedMove ? "→ " : "  ";
       
       // Extract card numbers from card IDs
-      const cardIds = moveOption.cards.map(id => {
+      const cardIds = moveOption.cards.map((id: string) => {
         if (typeof id !== 'string') return 'unknown';
         
         // Parse the card ID format (color_number_suit or just number)
