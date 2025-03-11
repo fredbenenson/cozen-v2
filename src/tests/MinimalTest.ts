@@ -9,6 +9,7 @@ interface SimpleState {
 }
 
 // Simple game definition
+// @ts-ignore - Incompatible boardgame.io interface versions
 const SimpleGame: Game = {
   name: 'simple-game',
   
@@ -53,6 +54,7 @@ const SimpleGame: Game = {
 // Run a simple test
 function runSimpleTest() {
   // Create a client for the simple game
+  // @ts-ignore - Incompatible boardgame.io interface versions
   const client = Client({
     game: SimpleGame,
     numPlayers: 2,

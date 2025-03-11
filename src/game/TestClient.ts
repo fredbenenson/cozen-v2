@@ -4,6 +4,7 @@ import { CozenState, Card } from '../types/game';
 import { Color } from '../types/game';
 
 // Create a simple client for console testing
+// @ts-ignore - Ignoring incompatible boardgame.io interface versions
 const client = Client({
   game: CozenGame,
   numPlayers: 2,
@@ -211,7 +212,12 @@ function testMoveValidity() {
 
 // Run diagnostics
 console.log('Initial game state:');
-printBoard(client.getState()?.G);
+const initialState = client.getState();
+if (initialState && initialState.G) {
+  printBoard(initialState.G);
+} else {
+  console.log('No initial state available');
+}
 runDiagnostics();
 
 // Run a simple test that will work
