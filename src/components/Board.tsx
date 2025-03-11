@@ -31,6 +31,13 @@ export function Board({ G, ctx, moves, events }: any) {
   
   // No need to sync with game state as we're using a purely client-side approach now
   
+  // Simple toggle to flip cards visually (purely client-side)
+  const toggleOpponentCards = () => {
+    // Just toggle the UI state for the card flip animation
+    setShowOpponentCards(!showOpponentCards);
+    console.log(`Card peek mode ${!showOpponentCards ? "enabled" : "disabled"}`);
+  };
+  
   // Monitor for turn changes and manage logging
   useEffect(() => {
     // Is it the AI's turn? (player '1' is AI/Black)
@@ -440,12 +447,39 @@ export function Board({ G, ctx, moves, events }: any) {
     return sortedPositions[0].card;
   };
 
+  // Add a state to track when we're in between rounds
+  const [showRoundEnd, setShowRoundEnd] = useState(false);
+  const [roundEndData, setRoundEndData] = useState<any>(null);
+  
   // Watch for phase changes and show messages
   useEffect(() => {
+    console.log(`Phase changed to: ${ctx.phase}`);
+    
     if (ctx.phase === 'roundEnd') {
+      console.log('Phase is roundEnd! Should display transition screen');
+      console.log('Round state:', G.roundState);
+      console.log('Victory points:', G.players.red.victory_points, G.players.black.victory_points);
+      
+      // Save current state data for the round end screen
+      setRoundEndData({
+        redVP: G.players.red.victory_points,
+        blackVP: G.players.black.victory_points,
+        redVPGained: G.victoryPointScores?.red || 0,
+        blackVPGained: G.victoryPointScores?.black || 0,
+        nextPlayer: G.activePlayer
+      });
+      
+      // Set our UI state to show the round end screen
+      setShowRoundEnd(true);
+      
+      // Keep this screen visible for at least 5 seconds
+      setTimeout(() => {
+        setShowRoundEnd(false);
+      }, 5000);
+      
       showMessage('Round Complete! Starting next round...');
     }
-  }, [ctx.phase]);
+  }, [ctx.phase, G]);
   
   // Render the grid-based board
   const renderGrid = () => {
@@ -608,58 +642,8 @@ export function Board({ G, ctx, moves, events }: any) {
     return gridCells;
   };
 
-  // Handle showing a transition message during round end phase
-  if (ctx.phase === 'roundEnd') {
-    // Calculate the VP gained this round for each player
-    const redVPGained = G.victoryPointScores?.red || 0;
-    const blackVPGained = G.victoryPointScores?.black || 0;
-    
-    return (
-      <div className="board">
-        <div className="round-transition">
-          <h2>Round Complete!</h2>
-          <p>Scoring the board and preparing the next round...</p>
-          
-          <div style={{ marginTop: '1rem', fontSize: '1.1rem' }}>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ color: '#cc0000', fontWeight: 'bold' }}>
-                Red: {G.players.red.victory_points} VP
-              </span>
-              {redVPGained > 0 && 
-                <span style={{ color: 'green', marginLeft: '0.5rem' }}>
-                  (+{redVPGained} this round)
-                </span>
-              }
-            </div>
-            
-            <div>
-              <span style={{ color: '#000099', fontWeight: 'bold' }}>
-                Black: {G.players.black.victory_points} VP
-              </span>
-              {blackVPGained > 0 && 
-                <span style={{ color: 'green', marginLeft: '0.5rem' }}>
-                  (+{blackVPGained} this round)
-                </span>
-              }
-            </div>
-          </div>
-          
-          <p style={{ marginTop: '1rem', color: '#888', fontStyle: 'italic' }}>
-            {G.activePlayer === 'red' ? 'Red' : 'Black'} will go first in the next round
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Simple toggle to flip cards visually (purely client-side)
-  const toggleOpponentCards = () => {
-    // Just toggle the UI state for the card flip animation
-    setShowOpponentCards(!showOpponentCards);
-    console.log(`Card peek mode ${!showOpponentCards ? "enabled" : "disabled"}`);
-  };
-
-  return (
+  // Render the main game board contents first
+  const gameBoard = (
     <div className="board">
       {/* Opponent info with toggleable card display */}
       <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
@@ -714,19 +698,118 @@ export function Board({ G, ctx, moves, events }: any) {
         </div>
       </div>
 
-      {/* Action buttons removed - all actions done through UI */}
-
-      {/* Minimalist game info - just show whose turn it is and messages */}
+      {/* Game info with debugging information */}
       <div className="game-info">
         <div key="active-player">
           {ctx && ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
         </div>
+        <div key="round-state" style={{ marginTop: '5px', fontSize: '12px' }}>
+          Round State: <span style={{ fontWeight: 'bold' }}>{G?.roundState || 'unknown'}</span>
+        </div>
+        <div key="phase" style={{ fontSize: '12px' }}>
+          Game Phase: <span style={{ fontWeight: 'bold' }}>{ctx?.phase || 'unknown'}</span>
+        </div>
+        <div key="player-cards" style={{ fontSize: '12px' }}>
+          Cards Left - Red: <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{G?.players?.red?.hand?.length || 0}</span>, 
+          Black: <span style={{ color: '#000099', fontWeight: 'bold' }}>{G?.players?.black?.hand?.length || 0}</span>
+        </div>
         {message && <div key="message" style={{ color: 'red', fontWeight: 'bold', marginTop: '10px' }}>{message}</div>}
         {G?.roundState === 'complete' && <div key="round-complete" style={{ color: 'green', fontWeight: 'bold', marginTop: '10px' }}>Round Complete!</div>}
+        {G?.roundState === 'last_play' && <div key="last-play" style={{ color: 'orange', fontWeight: 'bold', marginTop: '10px' }}>Final Plays!</div>}
       </div>
 
       {/* Custom cursor for cards */}
       {renderCustomCursor()}
     </div>
+  );
+
+  // Define the round end overlay component for later use
+  const roundEndOverlay = (
+    showRoundEnd && roundEndData && (
+      <div className="round-transition-overlay">
+        <div className="round-transition">
+          <h2>Round Complete!</h2>
+          <p>Scoring the board and preparing the next round...</p>
+          
+          <div style={{ marginTop: '1rem', fontSize: '1.1rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <span style={{ color: '#ff7777', fontWeight: 'bold' }}>
+                Red: {roundEndData.redVP} VP
+              </span>
+              {roundEndData.redVPGained > 0 && 
+                <span style={{ color: '#77ff77', marginLeft: '0.5rem' }}>
+                  (+{roundEndData.redVPGained} this round)
+                </span>
+              }
+            </div>
+            
+            <div>
+              <span style={{ color: '#7777ff', fontWeight: 'bold' }}>
+                Black: {roundEndData.blackVP} VP
+              </span>
+              {roundEndData.blackVPGained > 0 && 
+                <span style={{ color: '#77ff77', marginLeft: '0.5rem' }}>
+                  (+{roundEndData.blackVPGained} this round)
+                </span>
+              }
+            </div>
+          </div>
+          
+          <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>
+            {roundEndData.nextPlayer === 'red' ? 'Red' : 'Black'} will go first in the next round
+          </p>
+        </div>
+      </div>
+    )
+  );
+  
+  // Function to manually trigger round end screen (for debugging)
+  const triggerRoundEnd = () => {
+    setRoundEndData({
+      redVP: G.players.red.victory_points,
+      blackVP: G.players.black.victory_points,
+      redVPGained: G.victoryPointScores?.red || 0,
+      blackVPGained: G.victoryPointScores?.black || 0,
+      nextPlayer: G.activePlayer
+    });
+    setShowRoundEnd(true);
+    console.log("Manual round end screen triggered");
+    
+    // For testing, hide after 5 seconds
+    setTimeout(() => {
+      setShowRoundEnd(false);
+      console.log("Round end screen hidden");
+    }, 5000);
+  };
+
+  // Add a button to manually trigger round end (for testing)
+  const debugTrigger = (
+    <button
+      onClick={triggerRoundEnd}
+      style={{
+        position: 'fixed',
+        bottom: '10px',
+        right: '10px',
+        zIndex: 999,
+        padding: '5px 10px',
+        backgroundColor: '#333',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '12px'
+      }}
+    >
+      Test Round End
+    </button>
+  );
+
+  // Final return statement with all components
+  return (
+    <>
+      {debugTrigger}
+      {gameBoard}
+      {roundEndOverlay}
+    </>
   );
 }

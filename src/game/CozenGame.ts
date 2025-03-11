@@ -189,19 +189,57 @@ const moves = {
 
 // Helper to check if we need to enter last_play state
 function checkLastPlayState(G: CozenState) {
+  const activePlayer = G.players[G.activePlayer];
   const inactivePlayer = G.players[G.inactivePlayer];
   
-  if (inactivePlayer.hand.length === 0 && G.roundState !== 'last_play') {
+  // If active player just played their last card, enter last_play immediately
+  if (activePlayer.hand.length === 0 && G.roundState !== 'last_play' && G.roundState !== 'complete') {
     G.roundState = 'last_play';
+    if (ENABLE_LOGGING) {
+      console.log(`[DEBUG] ENTERING LAST_PLAY STATE - ${G.activePlayer} has played all cards`);
+    }
+  }
+  // If inactive player has no cards, the next turn will be the final one
+  else if (inactivePlayer.hand.length === 0 && G.roundState !== 'last_play' && G.roundState !== 'complete') {
+    G.roundState = 'last_play';
+    if (ENABLE_LOGGING) {
+      console.log(`[DEBUG] ENTERING LAST_PLAY STATE - ${G.inactivePlayer} has played all cards`);
+      console.log(`[DEBUG] Inactive player (${G.inactivePlayer}) has ${inactivePlayer.hand.length} cards left`);
+      console.log(`[DEBUG] Active player (${G.activePlayer}) has ${activePlayer.hand.length} cards left`);
+    }
   }
 }
 
 // Helper to check if round is complete
 function checkRoundCompleteState(G: CozenState) {
   const activePlayer = G.players[G.activePlayer];
+  const inactivePlayer = G.players[G.inactivePlayer];
   
-  if (activePlayer.hand.length === 0 && G.roundState === 'last_play') {
+  // Only log during actual gameplay, not AI simulations
+  if (ENABLE_LOGGING) {
+    console.log(`[DEBUG] checkRoundCompleteState called with roundState=${G.roundState}`);
+    console.log(`[DEBUG] Active player (${G.activePlayer}) has ${activePlayer.hand.length} cards left`);
+    console.log(`[DEBUG] Inactive player (${G.inactivePlayer}) has ${inactivePlayer.hand.length} cards left`);
+  }
+  
+  // According to the rules, round ends after:
+  // 1. One player plays their last card (enters last_play state)
+  // 2. The other player gets a final turn
+  // Then the round is complete regardless of cards remaining
+  
+  // If we're in last_play state and the active player has completed their move
+  // then the round is complete (this is their "final turn")
+  if (G.roundState === 'last_play') {
+    // The round is now complete - active player has had their final turn
     G.roundState = 'complete';
+    if (ENABLE_LOGGING) {
+      console.log('[DEBUG] ROUND COMPLETE - Final turn completed after one player emptied their hand');
+    }
+  }
+  
+  // Final state report
+  if (ENABLE_LOGGING) {
+    console.log(`[DEBUG] After checks, roundState=${G.roundState}`);
   }
 }
 
@@ -279,7 +317,29 @@ export const CozenGame: any = {
     play: {
       start: true,
       next: 'roundEnd',
-      endIf: ({ G }) => G.roundState === 'complete',
+      endIf: (state) => {
+        const { G } = state;
+        
+        // Only log during actual gameplay, not AI simulations
+        if (ENABLE_LOGGING) {
+          console.log(`[DEBUG] Phase endIf check: roundState=${G.roundState}`);
+          console.log(`[DEBUG] Red cards: ${G.players.red.hand.length}, Black cards: ${G.players.black.hand.length}`);
+        }
+        
+        // Add a failsafe - if both players have no cards, force complete state
+        if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0 && G.roundState !== 'complete') {
+          if (ENABLE_LOGGING) {
+            console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
+          }
+          G.roundState = 'complete';
+        }
+        
+        const result = G.roundState === 'complete';
+        if (ENABLE_LOGGING) {
+          console.log(`[DEBUG] Phase change decision: ${result ? 'YES - Moving to roundEnd' : 'NO - Staying in play phase'}`);
+        }
+        return result;
+      },
       turn: {
         // Use our own turn order system in the game state
         order: {
@@ -309,26 +369,43 @@ export const CozenGame: any = {
       moves: {},
       next: 'play',
       onBegin: ({ G }) => {
+        if (ENABLE_LOGGING) {
+          console.log('ENTERING ROUND END PHASE');
+          console.log(`Round state: ${G.roundState}`);
+          console.log(`Red cards left: ${G.players.red.hand.length}, Black cards left: ${G.players.black.hand.length}`);
+        }
+        
         // Score the board and determine winners of contested columns
         scoreBoard(G);
         
         // Check for game winner
         const winner = checkVictory(G);
         
+        if (ENABLE_LOGGING) {
+          console.log(`After scoring: Red VP=${G.players.red.victory_points}, Black VP=${G.players.black.victory_points}`);
+          console.log(`Winner check: ${winner || 'No winner yet'}`);
+        }
+        
         // If no winner, set up the next round
         if (!winner) {
           setupNextRound(G);
+          if (ENABLE_LOGGING) {
+            console.log('Next round setup complete');
+            console.log(`New active player: ${G.activePlayer}`);
+          }
         }
         
         // Don't return anything - let Immer handle immutability
       },
       endIf: ({ G }) => {
-        // Wait at least 500ms in roundEnd phase before continuing
-        // This ensures the client has time to update before starting a new round
+        // Wait 3 seconds in roundEnd phase before continuing
+        // This ensures the client has time to update and show the transition screen
+        console.log('[DEBUG] Starting roundEnd timeout (3 seconds)');
         return new Promise(resolve => {
           setTimeout(() => {
+            console.log('[DEBUG] Timeout complete, moving to next round');
             resolve(true);
-          }, 500);
+          }, 3000);
         });
       },
     },

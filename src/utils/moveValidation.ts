@@ -63,6 +63,32 @@ export function hasValidWagerPositions(G: CozenState, columnIndex: number, playe
 }
 
 /**
+ * Check if a player has any valid moves remaining (staking or wagering)
+ */
+export function hasValidMovesRemaining(G: CozenState, playerColor: PlayerID): boolean {
+  // If player has no cards, they have no valid moves
+  if (G.players[playerColor].hand.length === 0) {
+    return false;
+  }
+  
+  // Check if player can stake
+  if (G.players[playerColor].availableStakes.length > 0) {
+    return true;
+  }
+  
+  // Check if player can wager in any column
+  for (let i = 0; i < BOARD.TOTAL_COLUMNS; i++) {
+    // Column must have a stake card to be wagerable
+    if (G.board[i]?.stakedCard && hasValidWagerPositions(G, i, playerColor)) {
+      return true;
+    }
+  }
+  
+  // No valid moves found
+  return false;
+}
+
+/**
  * Gets the next stake column for a player based on game rules
  * Red stakes from 5 to 9, Black stakes from 4 to 0
  */
