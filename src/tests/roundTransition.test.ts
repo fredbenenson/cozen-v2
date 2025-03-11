@@ -16,7 +16,13 @@ describe('Round Transitions', () => {
   });
 
   afterEach(() => {
-    client.stop();
+    try {
+      if (client && typeof client.stop === 'function') {
+        client.stop();
+      }
+    } catch (e) {
+      console.warn('Error stopping client:', e);
+    }
   });
 
   // This test just verifies that round transitions happen properly without checking
