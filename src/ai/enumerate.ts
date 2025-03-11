@@ -1,4 +1,5 @@
-import { CozenState } from '../types/game';
+import { CozenState, Card } from '../types/game';
+import { Ctx } from 'boardgame.io';
 
 interface Move {
   move: string;
@@ -8,7 +9,8 @@ interface Move {
 /**
  * Generate all possible moves for AI
  */
-export function enumerate(G: any, ctx: any, playerID: string): Move[] {
+export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
+  if (!playerID) return [];
   const playerColor = playerID === '0' ? 'red' : 'black';
   const player = G.players[playerColor];
   const moves: Move[] = [];
@@ -20,7 +22,7 @@ export function enumerate(G: any, ctx: any, playerID: string): Move[] {
   if (G.roundState === 'running' || G.roundState === 'last_play') {
     // Option 1: Stake a card
     if (player.hand.length > 0 && player.availableStakes.length > 0) {
-      player.hand.forEach((card: any) => {
+      player.hand.forEach((card: Card) => {
         moves.push({
           move: 'stakeCard',
           args: [card.id]
@@ -34,12 +36,12 @@ export function enumerate(G: any, ctx: any, playerID: string): Move[] {
       const cardCombinations = generateCardCombinations(player.hand);
       
       // For each combination, try each column with a stake
-      cardCombinations.forEach((cards: any[]) => {
-        G.board.forEach((column: any, index: number) => {
+      cardCombinations.forEach((cards: Card[]) => {
+        G.board.forEach((column, index: number) => {
           if (column.stakedCard) {
             moves.push({
               move: 'wagerCards',
-              args: [cards.map((c: any) => c.id), index]
+              args: [cards.map((c: Card) => c.id), index]
             });
           }
         });
@@ -54,8 +56,8 @@ export function enumerate(G: any, ctx: any, playerID: string): Move[] {
  * Generate all combinations of cards that make sense to play together
  * (pairs, straights, and singles)
  */
-function generateCardCombinations(hand: any[]): any[][] {
-  const result: any[][] = [];
+function generateCardCombinations(hand: Card[]): Card[][] {
+  const result: Card[][] = [];
   
   // Single cards
   hand.forEach(card => {

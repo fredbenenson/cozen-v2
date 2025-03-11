@@ -323,8 +323,7 @@ export const CozenGame: Game<CozenState> = {
     play: {
       start: true,
       next: 'roundEnd',
-      endIf: (state: any) => {
-        const { G } = state;
+      endIf: (G: CozenState, ctx: Ctx) => {
         
         // Only log during actual gameplay, not AI simulations
         if (ENABLE_LOGGING) {
@@ -350,21 +349,21 @@ export const CozenGame: Game<CozenState> = {
         // Use our own turn order system in the game state
         order: {
           // Start with current active player (0=red, 1=black)
-          first: ({ G }: { G: CozenState }) => {
+          first: (G: CozenState, ctx: Ctx) => {
             return G.activePlayer === 'red' ? 0 : 1;
           },
           // Always alternate between players
-          next: ({ ctx }: { ctx: Ctx }) => {
+          next: (G: CozenState, ctx: Ctx) => {
             return ctx.playOrderPos === 0 ? 1 : 0;
           }
         },
         // We're going to handle turn switching in our move functions
         moveLimit: 1,
-        onBegin: ({ G }: { G: CozenState }) => {
+        onBegin: (G: CozenState, ctx: Ctx) => {
           // No automatic turn changes needed, handled in moves
           return G;
         },
-        onEnd: ({ G }: { G: CozenState }) => {
+        onEnd: (G: CozenState, ctx: Ctx) => {
           // No automatic turn changes needed, handled in moves
           return G;
         }
@@ -374,7 +373,7 @@ export const CozenGame: Game<CozenState> = {
     roundEnd: {
       moves: {},
       next: 'play',
-      onBegin: ({ G }: { G: CozenState }) => {
+      onBegin: (G: CozenState, ctx: Ctx) => {
         if (ENABLE_LOGGING) {
           console.log('ENTERING ROUND END PHASE');
           console.log(`Round state: ${G.roundState}`);
@@ -403,7 +402,7 @@ export const CozenGame: Game<CozenState> = {
         
         // Don't return anything - let Immer handle immutability
       },
-      endIf: ({ G }: { G: CozenState }) => {
+      endIf: (G: CozenState, ctx: Ctx) => {
         // Wait 3 seconds in roundEnd phase before continuing
         // This ensures the client has time to update and show the transition screen
         console.log('[DEBUG] Starting roundEnd timeout (3 seconds)');
@@ -418,7 +417,7 @@ export const CozenGame: Game<CozenState> = {
   },
   
   // Game ends when a player reaches 70 victory points
-  endIf: ({ G }: { G: CozenState }) => {
+  endIf: (G: CozenState, ctx: Ctx) => {
     if (G.players.red.victory_points >= 70) {
       return { winner: 'red' };
     }
@@ -429,7 +428,7 @@ export const CozenGame: Game<CozenState> = {
   },
   
   // Define what parts of state are private to each player
-  playerView: ({ G, playerID }: { G: CozenState, playerID: string }) => {
+  playerView: (G: CozenState, ctx: Ctx, playerID: string) => {
     // If developer mode is enabled, show all cards
     if (G.developerMode) {
       return G;
