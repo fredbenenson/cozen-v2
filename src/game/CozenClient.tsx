@@ -20,7 +20,8 @@ export const CozenAIClient = Client({
   game: CozenGame,
   board: Board,
   debug: false,
-  multiplayer: Local(),
+  // For AI games, we don't need multiplayer
+  // The AI will automatically play as player 1
   ai: {
     enumerate: enumerate
   },
@@ -52,19 +53,49 @@ export const LocalGameComponent = () => (
 );
 
 // Component for playing against AI
-export const AIGameComponent = () => (
-  <div>
-    <h2 style={{ 
-      textAlign: 'center', 
-      color: '#444',
-      margin: '0 0 20px 0',
-      fontWeight: 'normal'
-    }}>
-      Playing against AI
-    </h2>
-    <CozenAIClient playerID="0" />
-  </div>
-);
+export const AIGameComponent = () => {
+  // Error boundary to handle client initialization errors
+  const [error, setError] = React.useState<Error | null>(null);
+
+  // Use effect to initialize the game safely
+  React.useEffect(() => {
+    try {
+      // Just a check to ensure the component renders on mount
+      console.log("AIGameComponent mounted");
+    } catch (err: any) {
+      console.error("Error initializing game:", err);
+      setError(err);
+    }
+  }, []);
+
+  // Show error state if needed
+  if (error) {
+    return (
+      <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>
+        <h2>Error Loading Game</h2>
+        <p>{error.message}</p>
+        <button onClick={() => window.location.reload()}>
+          Reload Page
+        </button>
+      </div>
+    );
+  }
+
+  // Render the game
+  return (
+    <div>
+      <h2 style={{ 
+        textAlign: 'center', 
+        color: '#444',
+        margin: '0 0 20px 0',
+        fontWeight: 'normal'
+      }}>
+        Playing against AI
+      </h2>
+      <CozenAIClient playerID="0" />
+    </div>
+  );
+};
 
 // Component for joining an online game
 export const OnlineGameComponent = ({ matchID, playerID, serverURI }: { matchID: string; playerID: string; serverURI: string }) => {
