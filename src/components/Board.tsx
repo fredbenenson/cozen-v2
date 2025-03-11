@@ -7,7 +7,7 @@ import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
 import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
 import { getCardDisplayValue, getCardRankSymbol } from '../utils/cardUtils';
 
-export function Board({ G, ctx, moves, events }: any) {
+export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -106,7 +106,7 @@ export function Board({ G, ctx, moves, events }: any) {
 
     // Always use the Red staking pattern since player is always Red
     // Red stakes columns from left to right (5, 6, 7, 8, 9)
-    return player.availableStakes.sort((a, b) => a - b)[0];
+    return player.availableStakes.sort((a: number, b: number) => a - b)[0];
   };
   
   // Check if a column is valid for wagering
@@ -131,7 +131,7 @@ export function Board({ G, ctx, moves, events }: any) {
     // For black player, check black positions (0-4)
     // The position's owner field should match the current player
     const position = G.board[columnIndex]?.positions?.find(
-      p => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
+      (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
     );
     
     return position && !position.card;
@@ -346,7 +346,7 @@ export function Board({ G, ctx, moves, events }: any) {
   const renderHand = () => {
     if (!player?.hand) return null;
 
-    return player.hand.map(card => {
+    return player.hand.map((card: Card) => {
       if (!card) return null;
       
       // Use our utility function for consistent card display
@@ -430,7 +430,7 @@ export function Board({ G, ctx, moves, events }: any) {
 
     // For each player side, we need the row closest to the stake row that has a card
     const positions = G.board[columnIndex].positions
-      .filter(p => p?.owner === owner && p?.card);
+      .filter((p: { owner: string; card: any }) => p?.owner === owner && p?.card);
     
     if (positions.length === 0) return null;
     
