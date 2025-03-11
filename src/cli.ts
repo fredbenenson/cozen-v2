@@ -78,6 +78,14 @@ async function setupGame(useAI: boolean = false, aiColor: Color = Color.Black, d
 }
 
 
+// Define interface for AI move
+interface AIMove {
+  cards: string[];
+  column?: number;
+  isStake: boolean;
+  score?: number;
+}
+
 // Function to get available AI move
 function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> {
   return new Promise((resolve) => {
@@ -99,8 +107,8 @@ function getAIMove(gameState: BaseGameState, ai: CozenAI): Promise<Move | null> 
       return;
     }
 
-    const aiMove = aiMoveResult.move;
-    const aiMoves = aiMoveResult.candidateMoves || [];
+    const aiMove = aiMoveResult.move as AIMove;
+    const aiMoves = (aiMoveResult.candidateMoves || []) as AIMove[];
 
     // Ensure column is defined
     if (aiMove.column === undefined) {
