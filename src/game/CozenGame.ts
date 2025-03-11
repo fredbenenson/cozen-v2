@@ -1,7 +1,7 @@
 import { INVALID_MOVE } from 'boardgame.io/core';
-// Import Game correctly based on boardgame.io v0.50.2
-import type { Game } from 'boardgame.io';
-import { CozenState, Card } from '../types/game';
+// Import Game and Ctx correctly based on boardgame.io v0.50.2
+import type { Game, Ctx } from 'boardgame.io';
+import { CozenState, Card, PlayerID } from '../types/game';
 import { setupGame } from './setup';
 import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
 import { enumerate } from '../ai/enumerate';
@@ -21,13 +21,19 @@ export function disableGameLogging() {
   console.log("Game logging disabled");
 }
 
+// Interface for move context
+interface MoveContext {
+  G: CozenState;
+  ctx: Ctx;
+}
+
 // Move implementations
 const moves = {
   
   // Stake a card in the stakes row
-  stakeCard: ({ G, ctx }: any, cardId: string) => {
+  stakeCard: ({ G, ctx }: MoveContext, cardId: string) => {
     // Map numeric player IDs to red/black colors
-    const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
+    const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
     
     // Check if it's this player's turn in our game state
@@ -37,7 +43,7 @@ const moves = {
     }
     
     // Find the card in player's hand
-    const cardIndex = player.hand.findIndex((card: any) => card.id === cardId);
+    const cardIndex = player.hand.findIndex((card: Card) => card.id === cardId);
     if (cardIndex === -1) {
       if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
       return INVALID_MOVE;
@@ -106,9 +112,9 @@ const moves = {
   },
   
   // Wager cards in a column
-  wagerCards: ({ G, ctx }: any, cardIds: string[], column: number) => {
+  wagerCards: ({ G, ctx }: MoveContext, cardIds: string[], column: number) => {
     // Map numeric player IDs to red/black colors
-    const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
+    const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
     
     // Check if it's this player's turn in our game state
@@ -134,7 +140,7 @@ const moves = {
     }
     
     // Find cards in hand
-    const cardsToPlay: any[] = [];
+    const cardsToPlay: Card[] = [];
     const indicesToRemove: number[] = [];
     
     for (const cardId of cardIds) {
@@ -247,8 +253,8 @@ function checkRoundCompleteState(G: CozenState) {
 // Helper function to place cards in a column
 function placeWageredCards(
   G: CozenState,
-  playerColor: 'red' | 'black',
-  cards: any[],
+  playerColor: PlayerID,
+  cards: Card[],
   columnIndex: number
 ) {
   if (ENABLE_LOGGING) {
@@ -344,21 +350,21 @@ export const CozenGame: any = {
         // Use our own turn order system in the game state
         order: {
           // Start with current active player (0=red, 1=black)
-          first: ({ G }) => {
+          first: ({ G }: { G: CozenState }) => {
             return G.activePlayer === 'red' ? 0 : 1;
           },
           // Always alternate between players
-          next: ({ ctx }) => {
+          next: ({ ctx }: { ctx: Ctx }) => {
             return ctx.playOrderPos === 0 ? 1 : 0;
           }
         },
         // We're going to handle turn switching in our move functions
         moveLimit: 1,
-        onBegin: ({ G }) => {
+        onBegin: ({ G }: { G: CozenState }) => {
           // No automatic turn changes needed, handled in moves
           return G;
         },
-        onEnd: ({ G }) => {
+        onEnd: ({ G }: { G: CozenState }) => {
           // No automatic turn changes needed, handled in moves
           return G;
         }
@@ -368,7 +374,7 @@ export const CozenGame: any = {
     roundEnd: {
       moves: {},
       next: 'play',
-      onBegin: ({ G }) => {
+      onBegin: ({ G }: { G: CozenState }) => {
         if (ENABLE_LOGGING) {
           console.log('ENTERING ROUND END PHASE');
           console.log(`Round state: ${G.roundState}`);
@@ -423,7 +429,7 @@ export const CozenGame: any = {
   },
   
   // Define what parts of state are private to each player
-  playerView: ({ G, playerID }) => {
+  playerView: ({ G, playerID }: { G: CozenState, playerID: string }) => {
     // If developer mode is enabled, show all cards
     if (G.developerMode) {
       return G;
@@ -442,7 +448,7 @@ export const CozenGame: any = {
           [opponentColor]: {
             ...G.players[opponentColor],
             // Replace actual cards with hidden placeholders
-            hand: G.players[opponentColor].hand.map((card: any) => ({ hidden: true })),
+            hand: G.players[opponentColor].hand.map((_: Card) => ({ hidden: true } as any)),
           }
         }
       };
