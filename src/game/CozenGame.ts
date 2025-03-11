@@ -256,6 +256,14 @@ function checkRoundCompleteState(G: CozenState) {
     }
   }
   
+  // Additional check: if both players have no cards, force complete state
+  if (activePlayer.hand.length === 0 && inactivePlayer.hand.length === 0 && G.roundState !== 'complete') {
+    G.roundState = 'complete';
+    if (ENABLE_LOGGING) {
+      console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
+    }
+  }
+  
   // Final state report
   if (ENABLE_LOGGING) {
     console.log(`[DEBUG] After checks, roundState=${G.roundState}`);
@@ -347,7 +355,7 @@ export const CozenGame: Game<CozenState> = {
         }
         
         // Add a failsafe - if both players have no cards, force complete state
-        if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0 && G.roundState !== 'complete') {
+        if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0) {
           if (ENABLE_LOGGING) {
             console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
           }
@@ -355,7 +363,7 @@ export const CozenGame: Game<CozenState> = {
         }
         
         // Second check - if game is in last_play state and active player has no cards, end round
-        if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0 && G.roundState !== 'complete') {
+        if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0) {
           if (ENABLE_LOGGING) {
             console.log('[DEBUG] FORCED COMPLETE: Active player has no cards in last_play state');
           }
