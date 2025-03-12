@@ -3,6 +3,8 @@ import { Color } from '../types/game';
 import { CardEvaluation } from '../services/cardEvaluation';
 import { shuffleDeck } from './deckUtils';
 
+// No bandaid helpers - fix the actual issue in the game logic instead
+
 // Create the initial board with positions
 export function createInitialBoard(): Column[] {
   const MAX_COLUMNS = 10;

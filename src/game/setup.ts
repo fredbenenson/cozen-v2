@@ -36,8 +36,8 @@ export function setupGame(): CozenState {
     blackStake.owner = 'black';
   }
   
-  // Return initial state
-  return {
+  // Create initial state
+  const initialState: CozenState = {
     players: {
       red: {
         hand: redHand,
@@ -73,4 +73,7 @@ export function setupGame(): CozenState {
       black: 0,
     },
   };
+  
+  // Return the initial state
+  return initialState;
 }

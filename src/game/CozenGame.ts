@@ -108,10 +108,9 @@ const moves = {
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
     
-    // Force a phase re-evaluation if the round is complete
-    if (G.roundState === 'complete' && ctx.events?.endPhase) {
-      if (ENABLE_LOGGING) console.log('Force ending phase after round completion in stakeCard');
-      ctx.events.endPhase();
+    // Just set the round state, let boardgame.io handle the transitions
+    if (G.roundState === 'complete' && ENABLE_LOGGING) {
+      console.log('Round complete in stakeCard, phase transition will happen automatically');
     }
     
     // Don't return anything - Immer will handle the immutability
@@ -193,10 +192,9 @@ const moves = {
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
     
-    // Force a phase re-evaluation if the round is complete
-    if (G.roundState === 'complete' && ctx.events?.endPhase) {
-      if (ENABLE_LOGGING) console.log('Force ending phase after round completion in wagerCards');
-      ctx.events.endPhase();
+    // Just set the round state, let boardgame.io handle the transitions
+    if (G.roundState === 'complete' && ENABLE_LOGGING) {
+      console.log('Round complete in wagerCards, phase transition will happen automatically');
     }
     
     // Don't return anything - Immer will handle the immutability
@@ -345,7 +343,7 @@ export const CozenGame: Game<CozenState> = {
       start: true,
       next: 'roundEnd',
       endIf: (G: CozenState, ctx: Ctx) => {
-        // Null safety check
+        // Null safety check 
         if (!G || !G.players) return false;
         
         // Only log during actual gameplay, not AI simulations
@@ -354,27 +352,35 @@ export const CozenGame: Game<CozenState> = {
           console.log(`[DEBUG] Red cards: ${G.players.red.hand.length}, Black cards: ${G.players.black.hand.length}`);
         }
         
-        // Add a failsafe - if both players have no cards, force complete state
-        if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0) {
-          if (ENABLE_LOGGING) {
-            console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
+        // Simple check - just look at the round state that's set in the move functions
+        if (G.roundState !== 'complete') {
+          // Additional safety checks for when a round should end
+          
+          // Both players have no cards
+          if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0) {
+            if (ENABLE_LOGGING) console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
+            G.roundState = 'complete';
           }
-          G.roundState = 'complete';
+          // In last_play state and active player has no cards 
+          else if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0) {
+            if (ENABLE_LOGGING) console.log('[DEBUG] FORCED COMPLETE: Active player has no cards in last_play state');
+            G.roundState = 'complete';
+          }
+          // One player has no cards after a few turns have been played
+          else if ((G.players.red.hand.length === 0 || G.players.black.hand.length === 0) && ctx.turn > 2) {
+            if (ENABLE_LOGGING) console.log('[DEBUG] DETECTED INCOMPLETE ROUND: One player has no cards');
+            G.roundState = 'complete';
+          }
         }
         
-        // Second check - if game is in last_play state and active player has no cards, end round
-        if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0) {
-          if (ENABLE_LOGGING) {
-            console.log('[DEBUG] FORCED COMPLETE: Active player has no cards in last_play state');
-          }
-          G.roundState = 'complete';
-        }
+        // Simple boolean return
+        const shouldEndPhase = G.roundState === 'complete';
         
-        const result = G.roundState === 'complete';
         if (ENABLE_LOGGING) {
-          console.log(`[DEBUG] Phase change decision: ${result ? 'YES - Moving to roundEnd' : 'NO - Staying in play phase'}`);
+          console.log(`[DEBUG] Phase change decision: ${shouldEndPhase ? 'YES - Moving to roundEnd' : 'NO - Staying in play phase'}`);
         }
-        return result;
+        
+        return shouldEndPhase;
       },
       turn: {
         // Use our own turn order system in the game state
@@ -390,21 +396,20 @@ export const CozenGame: Game<CozenState> = {
         },
         // We're going to handle turn switching in our move functions
         moveLimit: 1,
-        onBegin: (G: CozenState, ctx: Ctx) => {
-          // No automatic turn changes needed, handled in moves
-          return G;
-        },
-        onEnd: (G: CozenState, ctx: Ctx) => {
-          // No automatic turn changes needed, handled in moves
-          return G;
-        }
+        // No onBegin or onEnd handlers - they can cause serialization issues
+        // Just let boardgame.io handle the turn transitions
       },
     },
     
     roundEnd: {
       moves: {},
       next: 'play',
+      // Instead of using onBegin, use a move that is automatically triggered
+      // Move executed at the start of the roundEnd phase
       onBegin: (G: CozenState, ctx: Ctx) => {
+        // Process round end logic without returning G
+        // Just do the work and let boardgame.io handle state updates
+        
         if (ENABLE_LOGGING) {
           console.log('ENTERING ROUND END PHASE');
           console.log(`Round state: ${G.roundState}`);
@@ -431,7 +436,7 @@ export const CozenGame: Game<CozenState> = {
           }
         }
         
-        // Don't return anything - let Immer handle immutability
+        // Don't return anything
       },
       endIf: (G: CozenState, ctx: Ctx) => {
         // Wait 3 seconds in roundEnd phase before continuing
