@@ -159,18 +159,12 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   let player: any, opponent: any;
 
   try {
-    // Simple direct access to the player objects
-    // G.players is an object with {red: CozenPlayer, black: CozenPlayer}
-    console.log("Accessing players from game state:", G.players);
-    
-    // Get specific player objects based on color
-    // Example: G.players.red = {hand: [...], victory_points: 0, ...}
+    // Get player objects based on color
     player = currentColor === 'red' ? G.players.red : G.players.black;
     opponent = opponentColor === 'black' ? G.players.black : G.players.red;
     
     // Fallback to prebaked references if needed
     if (!player || !opponent) {
-      console.log("Using prebaked player references as fallback");
       player = player || playerRed;
       opponent = opponent || playerBlack;
     }
@@ -190,21 +184,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     return <div className="board">Initializing players...</div>;
   }
   
-  // Log successful player object retrieval
-  console.log("Successfully retrieved player objects:", {
-    redHand: player.hand?.length,
-    blackHand: opponent.hand?.length
-  });
-  
-  // Additional debugging info about our current game state
-  console.log("Game state loaded:", { 
-    roundState: G.roundState,
-    activePlayer: G.activePlayer,
-    // Access player hands via our successfully retrieved player objects
-    redCards: player?.hand?.length || 0,
-    blackCards: opponent?.hand?.length || 0,
-    board: G.board ? G.board.length : 0
-  });
+  // Players successfully retrieved, continue with the component
 
   // Show message
   const showMessage = (msg: string) => {

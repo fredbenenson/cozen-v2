@@ -22,64 +22,31 @@ import { enumerate } from '../ai/enumerate';
  *   ...other props
  * }
  */
+/**
+ * BoardWrapper Component
+ * 
+ * Handles the case where boardgame.io might provide a doubly-nested G structure.
+ */
 const BoardWrapper = (props: any) => {
-  console.log("BoardWrapper props received:", { 
-    hasG: !!props.G, 
-    hasPlayers: props.G && !!props.G.players,
-    playerKeys: props.G?.players ? Object.keys(props.G.players) : [],
-    gameState: props.G ? Object.keys(props.G) : []
-  });
-  
-  // Check and validate the G object
-  if (props.G) {
-    try {
-      // Verify the expected structure
-      console.log("G properties:", {
-        roundState: props.G.roundState,
-        activePlayer: props.G.activePlayer,
-        hasBoard: Array.isArray(props.G.board)
-      });
-      
-      // Handle case where G is incorrectly nested (G.G instead of just G)
-      // This is a workaround for a boardgame.io issue
-      if (!props.G.players && props.G.G) {
-        console.log("Fixed nested G structure (G.G -> G)");
-        
-        // Create a new props object with the corrected structure
-        const fixedProps = {
-          ...props,
-          G: props.G.G  // Use the nested G as the main G
-        };
-        
-        return <OriginalBoard {...fixedProps} />;
-      }
-    } catch (err) {
-      console.error("Error inspecting props.G:", err);
-    }
+  // Handle case where G is incorrectly nested (G.G instead of just G)
+  if (props.G && !props.G.players && props.G.G) {
+    // Create a new props object with the corrected structure
+    const fixedProps = {
+      ...props,
+      G: props.G.G // Unwrap the nested G
+    };
+    
+    return <OriginalBoard {...fixedProps} />;
   }
   
-  // Pass props through to the Board component
+  // Pass props directly to the Board component
   return <OriginalBoard {...props} />;
 };
 
 // Use the wrapped board component
 const Board = BoardWrapper;
 
-// Debug helper to check if boardgame.io modules are loaded correctly
-console.log('Checking boardgame.io imports:');
-console.log(' - Client available:', typeof Client);
-console.log(' - Local available:', typeof Local);
-console.log(' - SocketIO available:', typeof SocketIO);
-console.log(' - RandomBot available:', typeof RandomBot);
-console.log(' - Enumerate function:', typeof enumerate);
-
-// Debug boardgame.io imports
-console.log('Boardgame.io imports:', {
-  Client: typeof Client, 
-  Local: typeof Local,
-  SocketIO: typeof SocketIO,
-  RandomBot: typeof RandomBot
-});
+// Import initialization complete
 
 // Create a client with local multiplayer (for testing)
 export const CozenLocalClient = Client({

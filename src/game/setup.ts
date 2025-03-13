@@ -3,16 +3,15 @@ import { Color } from '../types/game';
 import { createDeck, shuffleDeck } from '../utils/deckUtils';
 import { createInitialBoard } from '../utils/boardUtils';
 
-// Updated to match boardgame.io's expected setup function signature
+/**
+ * Setup function for boardgame.io game initialization
+ * Creates the initial game state including decks, hands, and board
+ */
 export function setupGame(ctx: any, setupData?: any): CozenState {
-  console.log("Starting game setup with:", { ctx, setupData });
-  
   try {
     // Create and shuffle decks
     const redDeck = shuffleDeck(createDeck(Color.Red));
     const blackDeck = shuffleDeck(createDeck(Color.Black));
-    
-    console.log(`Created decks: Red (${redDeck.length} cards), Black (${blackDeck.length} cards)`);
     
     // Initialize player hands (first 5 cards)
     const redHand = redDeck.slice(0, 5);
@@ -28,7 +27,6 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
     
     // Create the board with columns
     const board = createInitialBoard();
-    console.log(`Created board with ${board.length} columns`);
     
     // Mark initial stake positions
     if (redStake) {
@@ -62,13 +60,6 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       stake_offset: -1,
     };
     
-    console.log("Created player objects:", {
-      redHandCards: redPlayer.hand.length,
-      redDeckCards: redPlayer.cards.length,
-      blackHandCards: blackPlayer.hand.length,
-      blackDeckCards: blackPlayer.cards.length
-    });
-    
     // Create initial state
     const initialState: CozenState = {
       players: {
@@ -93,25 +84,12 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       },
     };
     
-    console.log("Initial state created successfully");
-    console.log("Initial state keys:", Object.keys(initialState));
-    
-    // Additional verification for proper initialization
-    const verifyState = {
-      hasPlayers: !!initialState.players,
-      redPlayer: !!initialState.players.red,
-      blackPlayer: !!initialState.players.black,
-      board: !!initialState.board,
-      stateKeys: Object.keys(initialState)
-    };
-    console.log("State verification before return:", verifyState);
-    
     // Return the initial state
     return initialState;
   } catch (error) {
     console.error("Error during game setup:", error);
     // Create a minimal valid state as fallback
-    const fallbackState: CozenState = {
+    return {
       players: {
         red: {
           hand: [],
@@ -141,11 +119,5 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       developerMode: true,
       victoryPointScores: { red: 0, black: 0 }
     };
-    
-    // Verify the fallback state
-    console.log("Creating fallback state with keys:", Object.keys(fallbackState));
-    console.log("Fallback state has players:", !!fallbackState.players);
-    
-    return fallbackState;
   }
 }

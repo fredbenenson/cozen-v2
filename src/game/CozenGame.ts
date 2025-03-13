@@ -475,26 +475,16 @@ export const CozenGame: Game<CozenState> = {
    * @returns A potentially filtered version of the state for the player
    */
   playerView: (G: CozenState, ctx: Ctx, playerID: string) => {
-    // Debug log to understand what we're receiving
-    console.log("playerView called with:", { 
-      hasPlayers: G && !!G.players,
-      playerID,
-      stateKeys: G ? Object.keys(G) : []
-    });
-    
     // Handle potential G.G nesting (workaround for boardgame.io issue)
-    // Get the real game state, handling potential nesting
     const gameState = (G as any).G ? (G as any).G : G;
     
     // Basic validation of game state
     if (!gameState || !gameState.players) {
-      console.error("playerView received incomplete game state");
       return G; // Return what we received as a fallback
     }
     
     // In developer mode, show the complete state to all players
     if (gameState.developerMode) {
-      console.log("Developer mode enabled, returning full state");
       return gameState;
     }
     
@@ -503,8 +493,6 @@ export const CozenGame: Game<CozenState> = {
       // Convert numeric ID to color
       const playerColor = playerID === '0' ? 'red' : 'black';
       const opponentColor = playerID === '0' ? 'black' : 'red';
-      
-      console.log(`Creating filtered view for ${playerColor} player`);
       
       // Create a filtered copy of the state
       const playerVisibleState = {
