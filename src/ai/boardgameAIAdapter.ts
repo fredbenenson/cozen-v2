@@ -1,8 +1,13 @@
 /**
  * AI Adapter for boardgame.io
- * 
+ *
  * This file connects our minimax AI implementation to boardgame.io's bot system
  */
+
+// Import SUPPRESS_AI_LOGS from the global context if available,
+// otherwise default to true (suppress logs)
+const SUPPRESS_AI_LOGS = typeof (global as any).SUPPRESS_AI_LOGS !== 'undefined' ?
+  (global as any).SUPPRESS_AI_LOGS : true;
 
 import { CozenState, Card, PlayerID, Column as BoardGameColumn } from '../types/game';
 import { Ctx } from 'boardgame.io';
@@ -19,8 +24,9 @@ let aiInstance: CozenAI | null = null;
 /**
  * Convert boardgame.io state to our Round format
  * This allows us to reuse our existing AI evaluation code
+ * Exported for use by CozenBot
  */
-function convertToRound(G: CozenState): Round {
+export function convertToRound(G: CozenState): Round {
   // Handle potentially undefined properties with defaults
   if (!G.players || !G.players.red || !G.players.black) {
     console.error("convertToRound: Invalid game state, missing players!");
@@ -41,7 +47,7 @@ function convertToRound(G: CozenState): Round {
     drawUp: () => {},  // Dummy function since we don't need to modify state
     reset: () => {}    // Dummy function
   };
-  
+
   const blackPlayer: Player = {
     id: 'black-player',
     name: 'AI Player',
@@ -55,27 +61,27 @@ function convertToRound(G: CozenState): Round {
     drawUp: () => {},  // Dummy function
     reset: () => {}    // Dummy function
   };
-  
+
   // Determine active and inactive players with a fallback
-  const activePlayer = (G.activePlayer === 'red' || G.activePlayer === 'black') 
+  const activePlayer = (G.activePlayer === 'red' || G.activePlayer === 'black')
     ? (G.activePlayer === 'red' ? redPlayer : blackPlayer)
     : blackPlayer; // Default to black if undefined
-    
+
   const inactivePlayer = (G.activePlayer === 'red' || G.activePlayer === 'black')
     ? (G.activePlayer === 'red' ? blackPlayer : redPlayer)
     : redPlayer; // Default to red if undefined
-  
+
   // Make sure board exists
   if (!G.board || !Array.isArray(G.board)) {
     console.error("convertToRound: Invalid game state, missing board!");
     throw new Error("Invalid game state, missing board");
   }
-  
+
   // Convert columns format
   const columns: RoundColumn[] = G.board.map((boardColumn: BoardGameColumn) => {
     // Make sure positions array exists
     const positionsArray = boardColumn.positions || [];
-    
+
     // Convert positions to Round format
     const positions: RoundPosition[] = positionsArray.map(pos => ({
       card: pos.card as Card | undefined, // Type assertion because Card | Card[] in game.ts
@@ -83,16 +89,16 @@ function convertToRound(G: CozenState): Round {
       n: pos.n || 0,
       coord: pos.coord || [0, 0]
     }));
-    
+
     return {
       positions,
       stakedCard: boardColumn.stakedCard
     };
   });
-  
+
   // Convert board from columns to 2D array of positions
   const board: RoundPosition[][] = [];
-  
+
   // Initialize empty 10x10 board
   for (let row = 0; row < 10; row++) {
     board[row] = [];
@@ -104,7 +110,7 @@ function convertToRound(G: CozenState): Round {
       };
     }
   }
-  
+
   // Fill in the board with actual position data
   G.board.forEach((column, colIndex) => {
     if (column.positions) {
@@ -123,10 +129,10 @@ function convertToRound(G: CozenState): Round {
       });
     }
   });
-  
+
   // Map the round state with defaults
   const roundState = G.roundState || 'running';
-  
+
   // Create the Round object with fallbacks for all properties
   return {
     redPlayer,
@@ -146,8 +152,9 @@ function convertToRound(G: CozenState): Round {
 
 /**
  * Convert our AI moves to boardgame.io format
+ * Exported for use by CozenBot
  */
-function convertAIMovesToBoardgameMoves(aiMoves: any[], playerID: string): Array<{move: string, args: any[]}> {
+export function convertAIMovesToBoardgameMoves(aiMoves: any[], playerID: string): Array<{move: string, args: any[]}> {
   return aiMoves.map(move => {
     if (move.isStake) {
       return {
@@ -165,7 +172,7 @@ function convertAIMovesToBoardgameMoves(aiMoves: any[], playerID: string): Array
 
 /**
  * Objective function for MCTSBot that uses our existing CozenAI minimax evaluation
- * 
+ *
  * @param G The game state
  * @param ctx The game context
  * @returns A score from 0 to 1 where higher is better for the AI
@@ -174,13 +181,13 @@ export function minimaxObjective(G: CozenState, ctx: Ctx): number {
   try {
     // Make sure we're working with a proper G object
     const gameState = (G as any).G ? (G as any).G : G;
-  
+
     // Check for valid game state
     if (!gameState || !gameState.players || !gameState.players.black) {
       console.error("minimaxObjective: Invalid game state!");
       return 0.5; // Return neutral score when state is invalid
     }
-    
+
     // Create a player object for the AI (always black)
     const player: Player = {
       id: 'ai',
@@ -195,32 +202,32 @@ export function minimaxObjective(G: CozenState, ctx: Ctx): number {
       drawUp: () => {},  // Dummy function
       reset: () => {}    // Dummy function
     };
-    
+
     // Initialize the AI with easy difficulty and a shallow search depth
     // to make evaluations fast enough for the MCTSBot
     if (!aiInstance) {
       aiInstance = new CozenAI(player, AIDifficulty.EASY, 2);
     }
-    
+
     try {
       // Convert to our Round format for evaluation
       const round = convertToRound(gameState);
-      
+
       // For simple evaluations, don't use the full minimax - just evaluate current state
       const score = evaluateGameState(round, "Black");
-      
+
       // Normalize the score to 0-1 range
       // Minimax scores are usually between -100 and 100, so we map that to 0-1
       const normalizedScore = 0.5 + (score / 200);
       return Math.max(0, Math.min(1, normalizedScore));
     } catch (evalError) {
       console.error("Error evaluating game state:", evalError);
-      
+
       // Fallback to simple victory point difference
       const blackScore = gameState.players.black.victory_points || 0;
       const redScore = gameState.players.red?.victory_points || 0;
       const scoreDifference = blackScore - redScore;
-      
+
       // Normalize to 0-1 range, clamping between 0 and 1
       const normalizedScore = 0.5 + (scoreDifference / 140);
       return Math.max(0, Math.min(1, normalizedScore));
@@ -238,69 +245,80 @@ export function minimaxObjective(G: CozenState, ctx: Ctx): number {
 export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Array<{move: string, args: any[]}> {
   // Make sure we're working with a proper G object
   const gameState = (G as any).G ? (G as any).G : G;
-  
+
   if (!gameState || !gameState.players) {
     console.error("enumerate: G or G.players is missing!");
     return [];
   }
-  
+
   // When called from the debug "Play" button, we need to ensure we generate moves for BLACK
   // Also verify if it's actually Black's turn in the game
   const currentTurn = gameState.activePlayer; // 'red' or 'black'
-  
-  // Debug object to inspect what's going on
-  console.log("AI enumerate called with:", {
-    hasG: !!gameState,
-    hasPlayers: !!gameState.players,
-    playerID,
-    ctx: ctx,
-    currentTurn,
-    blackHand: gameState.players.black?.hand?.length
-  });
-  
-  // Always force black moves when pressing "Play" in the AI panel
-  if (playerID === '0') {
-    console.log("enumerate: Not red's turn");
+
+  // Debug logging - only if AI logging is enabled
+  if (!SUPPRESS_AI_LOGS) {
+    console.log("AI enumerate called with:", {
+      hasG: !!gameState,
+      hasPlayers: !!gameState.players,
+      playerID,
+      currentPlayer: ctx.currentPlayer,
+      gameTurn: ctx.turn,
+      phase: ctx.phase,
+      currentTurn,
+      blackHand: gameState.players.black?.hand?.length,
+      redHand: gameState.players.red?.hand?.length,
+      activePlayer: gameState.activePlayer,
+      roundState: gameState.roundState
+    });
+  }
+
+  // Always force AI to only make moves for the black player (playerID = 1)
+  // This prevents the AI debug panel from accidentally making moves for red
+  if (playerID === '0' || playerID === 'red') {
+    if (!SUPPRESS_AI_LOGS) {
+      console.log("enumerate: Not black's turn, AI should only move for black");
+    }
     return [];
   }
-  
-  // If it's not Black's turn in the real game, don't generate moves
-  if (currentTurn !== 'black' && !ctx.turn) {
-    console.log(`enumerate: Not black's turn in the game (current turn: ${currentTurn})`);
-    return [];
+
+  // Make sure we also check the active player in the game state
+  if (currentTurn !== 'black' && gameState.roundState === 'running') {
+    if (!SUPPRESS_AI_LOGS) {
+      console.log(`AI is trying to move but it's ${currentTurn}'s turn according to game state`);
+    }
   }
-  
+
   // If no playerID, use current player from context but prioritize black
   if (!playerID) {
     // For MCTSBot simulations, use current player from context
     playerID = ctx.currentPlayer || '1';
     console.log(`enumerate: Using playerID ${playerID} from context`);
   }
-  
+
   // For logging/debugging
   console.log(`enumerate: Generating moves for player ${playerID === '0' ? 'red' : 'black'}`);
-  
+
   try {
     // Convert to our Round format
     const round = convertToRound(gameState);
-    
+
     // Get the player object
     const player = playerID === '0' ? round.redPlayer : round.blackPlayer;
-    
+
     // Generate moves using our existing functions
     let moves: any[] = [];
-    
+
     // Generate stake moves
     const stakeMoves = generateStakeMoves(round, player);
     moves = moves.concat(stakeMoves);
-    
+
     // Generate wager moves
     const wagerMoves = generateWagerMoves(round, player);
     moves = moves.concat(wagerMoves);
-    
+
     // For debugging
     console.log(`enumerate: Generated ${moves.length} moves for player ${player.color.toLowerCase()}`);
-    
+
     // Convert to boardgame.io format
     return convertAIMovesToBoardgameMoves(moves, playerID);
   } catch (error) {

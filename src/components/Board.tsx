@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { CozenState, Card, Position } from '../types/game';
 import './Board.css';
@@ -304,26 +304,17 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     }
   }, [ctx.phase, G]);
 
-  // Effect to handle AI moves - force UI update after AI moves
+  // AI trigger helper removed - using boardgame.io debug panel is preferred
+
+  // Effect to log turn changes
   useEffect(() => {
-    // This ensures the board updates when players change
-    const isAITurn = !props.isActive && ctx.currentPlayer === '1';
-
-    if (isAITurn) {
-      console.log("Detected AI turn, board state:", G.board?.length || 0, "columns");
-      console.log("AI active:", G.activePlayer === 'black');
-
-      // Force a full board re-render after AI's turn
-      const boardElement = document.querySelector('.game-board');
-      if (boardElement) {
-        // Apply a tiny visual change to force React to update the DOM
-        boardElement.classList.add('ai-turn');
-        setTimeout(() => {
-          boardElement.classList.remove('ai-turn');
-        }, 100);
-      }
+    // Only log turn changes when they happen
+    if (ctx.currentPlayer === '1') {
+      console.log("IMPORTANT: It's the AI's turn (Black)");
+    } else {
+      console.log("IMPORTANT: It's the human player's turn (Red)");
     }
-  }, [ctx.currentPlayer, G.activePlayer, props.isActive, G.board]);
+  }, [ctx.currentPlayer]);
 
   // Render the grid-based board
   const renderGrid = () => {
@@ -472,14 +463,18 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
 
         <GameInfoComponent
           ctx={ctx}
-          G={{
-            roundState: G.roundState,
-            players: {
-              red: { hand: G.players.red.hand },
-              black: { hand: G.players.black.hand }
-            }
-          }}
           message={message}
+          round={G.turnCount}
+          activePlayer={G.activePlayer}
+          cardsRemaining={{ 
+            red: G.players.red.hand.length + G.players.red.cards.length, 
+            black: G.players.black.hand.length + G.players.black.cards.length 
+          }}
+          victoryPoints={{ 
+            red: G.players.red.victory_points, 
+            black: G.players.black.victory_points 
+          }}
+          onTriggerAI={undefined /* AI triggering removed */}
         />
 
         <CustomCursorComponent

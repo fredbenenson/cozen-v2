@@ -71,6 +71,10 @@
   cursor: pointer;
   background-color: white;
   box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* Card back style */
@@ -117,6 +121,10 @@
   align-items: center;
   font-weight: bold;
   transform-origin: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .cursor-card-red {
@@ -195,6 +203,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .red-card {
@@ -374,6 +386,10 @@
   border-radius: 8px;
   box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
   border: 2px solid #333;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .card-front {

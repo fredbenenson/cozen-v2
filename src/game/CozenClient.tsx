@@ -2,10 +2,10 @@ import React from 'react';
 import { Client } from 'boardgame.io/react';
 import { Local } from 'boardgame.io/multiplayer';
 import { SocketIO } from 'boardgame.io/multiplayer';
-import { MCTSBot } from 'boardgame.io/ai'; // Now using MCTSBot with our minimax algorithm
 import { CozenGame } from './CozenGame';
 import { Board as OriginalBoard } from '../components/Board';
-import { enumerate, minimaxObjective } from '../ai/boardgameAIAdapter';
+import { CozenBot } from '../ai/CozenBot';
+import { AIDifficulty } from '../ai/aiTypes';
 
 /**
  * BoardWrapper Component
@@ -55,18 +55,17 @@ export const CozenLocalClient = Client({
   multiplayer: Local(),
 });
 
-// Function to create a new MCTSBot - this allows us to get a fresh instance each time
-const createMCTSBot = () => {
-  return new MCTSBot({
-    game: CozenGame,
-    enumerate: enumerate,
-    objectives: {
-      '0': (G, ctx) => -minimaxObjective(G, ctx) + 1, // Inverse for Red
-      '1': minimaxObjective // Direct for Black
-    },
-    iterations: 100, // Reduced iterations to avoid simulation errors
-    playoutDepth: 3, // Reduced depth to avoid deep recursion issues,
-  });
+// Function to create a fresh CozenBot instance
+// This allows us to get a new AI instance for each move, avoiding state corruption
+const createCozenBot = () => {
+  console.log("===============================");
+  console.log("CREATING NEW COZEN BOT INSTANCE");
+  console.log("Time:", new Date().toISOString());
+  console.log("===============================");
+  
+  // Create a new bot for the black player (1) with medium difficulty
+  const bot = new CozenBot('1', AIDifficulty.MEDIUM, true);
+  return bot;
 };
 
 // Create a client with AI opponent using our minimax algorithm
@@ -75,12 +74,12 @@ export const CozenAIClient = Client({
   board: Board,
   debug: true, // Enable debug panel to see more information
   numPlayers: 2,
-  // Use MCTSBot with our custom AI implementation
+  // Use our custom CozenBot implementation
   ai: {
     // Only apply AI to black player (playerID: 1)
     '1': {
-      // Create a fresh MCTSBot for each move
-      bot: createMCTSBot()
+      // Use our custom CozenBot instead of MCTSBot
+      bot: createCozenBot
     }
   },
 });

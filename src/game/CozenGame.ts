@@ -7,19 +7,124 @@ import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
 import { enumerate } from '../ai/enumerate';
 import { getSortedPositionsForColumn, hasValidWagerPositions, isValidWagerPosition, BOARD } from '../utils/moveValidation';
 
-// Flag to control logging - helps reduce noise during AI simulations
+// Flags to control logging
 let ENABLE_LOGGING = false;
+
+// Make SUPPRESS_AI_LOGS globally accessible for other modules
+let SUPPRESS_AI_LOGS = true;
+try {
+  // For browser environments
+  if (typeof window !== 'undefined') {
+    (window as any).SUPPRESS_AI_LOGS = true;
+  }
+  // For Node environments
+  else if (typeof global !== 'undefined') {
+    (global as any).SUPPRESS_AI_LOGS = true;
+  }
+} catch (e) {
+  // Ignore errors if global/window are not accessible
+}
+
+// Store original console methods
+const originalLog = console.log;
+const originalError = console.error;
+
+// Override console methods to filter out AI-related noise
+const filteredLog = function(...args: any[]) {
+  // Handle empty args
+  if (!args.length) return;
+
+  try {
+    // Convert args to string for checking
+    const msg = args.map(arg => {
+      try {
+        return typeof arg === 'string' ? arg :
+               typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg);
+      } catch {
+        return String(arg);
+      }
+    }).join(' ');
+
+    // Check if this is AI-related or an error from boardgame.io
+    const isAIRelated =
+      msg.includes('AI') ||
+      msg.includes('enumerate') ||
+      msg.includes('minimax') ||
+      msg.includes('invalid move') ||  // Filter out invalid move errors from AI simulation
+      msg.includes('MCTS') ||
+      msg.includes('setImmediate') ||
+      msg.includes('iteration') ||
+      msg.includes('playout');
+
+    // Only log if we're not suppressing AI logs or if this isn't AI-related
+    if (!SUPPRESS_AI_LOGS || !isAIRelated) {
+      originalLog.apply(console, args);
+    }
+  } catch (e) {
+    // If anything goes wrong in our filtering, just log the original message
+    originalLog.apply(console, args);
+  }
+};
+
+// Filter errors in a similar way, but keep important ones
+const filteredError = function(...args: any[]) {
+  if (!args.length) return;
+
+  try {
+    const msg = args.join(' ');
+
+    // Only filter AI simulation errors
+    const isAISimulationError =
+      msg.includes('invalid move') &&
+      (msg.includes('asyncIteration') || msg.includes('MCTS') || msg.includes('playout'));
+
+    if (!SUPPRESS_AI_LOGS || !isAISimulationError) {
+      originalError.apply(console, args);
+    }
+  } catch (e) {
+    // If anything goes wrong, log the original error
+    originalError.apply(console, args);
+  }
+};
 
 // Functions to control logging
 export function enableGameLogging() {
   ENABLE_LOGGING = true;
-  console.log("Game logging enabled");
+  originalLog("Game logging enabled");
 }
 
 export function disableGameLogging() {
   ENABLE_LOGGING = false;
-  console.log("Game logging disabled");
+  originalLog("Game logging disabled");
 }
+
+// Turn AI logging on/off
+export function suppressAILogs() {
+  SUPPRESS_AI_LOGS = true;
+  try {
+    if (typeof window !== 'undefined') {
+      (window as any).SUPPRESS_AI_LOGS = true;
+    } else if (typeof global !== 'undefined') {
+      (global as any).SUPPRESS_AI_LOGS = true;
+    }
+  } catch (e) {}
+  originalLog("AI logs suppressed");
+}
+
+export function showAILogs() {
+  SUPPRESS_AI_LOGS = false;
+  try {
+    if (typeof window !== 'undefined') {
+      (window as any).SUPPRESS_AI_LOGS = false;
+    } else if (typeof global !== 'undefined') {
+      (global as any).SUPPRESS_AI_LOGS = false;
+    }
+  } catch (e) {}
+  originalLog("AI logs shown");
+}
+
+// Suppress AI logs by default
+suppressAILogs();
 
 // Interface for move context
 interface MoveContext {
@@ -33,39 +138,39 @@ const moves = {
   toggleOpponentCards: ({ G, ctx }: MoveContext) => {
     // Toggle the developer mode flag
     G.developerMode = !G.developerMode;
-    
+
     // Log the change
     console.log(`Opponent cards ${G.developerMode ? 'revealed' : 'hidden'} (dev mode ${G.developerMode ? 'on' : 'off'})`);
-    
+
     // Return the modified game state
     return G;
   },
-  
+
   // Stake a card in the stakes row
   stakeCard: ({ G, ctx }: MoveContext, cardId: string) => {
     // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
-    
+
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      if (ENABLE_LOGGING) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      if (ENABLE_LOGGING && !SUPPRESS_AI_LOGS) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
-    
+
     // Find the card in player's hand
     const cardIndex = player.hand.findIndex((card: Card) => card.id === cardId);
     if (cardIndex === -1) {
       if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
       return INVALID_MOVE;
     }
-    
+
     // Check if player has any available stake columns
     if (player.availableStakes.length === 0) {
       if (ENABLE_LOGGING) console.log(`No available stake columns for ${playerColor}`);
       return INVALID_MOVE;
     }
-    
+
     // Get the next valid stake column based on game rules
     // Red stakes from center outward (columns 5-9)
     // Black stakes from center outward (columns 4-0)
@@ -77,137 +182,137 @@ const moves = {
       // Black stakes right-to-left from column 4
       column = Math.max(...player.availableStakes);
     }
-    
+
     // Double-check the column is actually available and doesn't already have a stake
     if (G.board[column].stakedCard) {
       if (ENABLE_LOGGING) console.log(`Column ${column} already has a stake card`);
       return INVALID_MOVE;
     }
-    
+
     // Get the card and remove from hand (modify G directly)
     const card = { ...player.hand[cardIndex] };
     player.hand.splice(cardIndex, 1);
-    
+
     // Mark card as played and set owner
     card.played = true;
     card.owner = playerColor;
-    
+
     // Place stake in column
     G.board[column].stakedCard = card;
-    
+
     // Remove this column from available stakes
     player.availableStakes = player.availableStakes.filter(c => c !== column);
-    
+
     // Log the stake action
     if (ENABLE_LOGGING) {
       console.log(`${playerColor} staked a ${card.number} in column ${column}`);
       console.log(`Remaining stakes for ${playerColor}: ${player.availableStakes.join(', ')}`);
     }
-    
+
     // Draw a new card if not in last_play state
     if (G.roundState !== 'last_play' && player.cards.length > 0) {
       const newCard = player.cards[0];
       player.hand.push(newCard);
       player.cards.shift();
     }
-    
+
     // Check if this affects game state
     checkLastPlayState(G);
     checkRoundCompleteState(G);
-    
+
     // Switch active player
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
-    
+
     // Just set the round state, let boardgame.io handle the transitions
     if (G.roundState === 'complete' && ENABLE_LOGGING) {
       console.log('Round complete in stakeCard, phase transition will happen automatically');
     }
-    
+
     // Don't return anything - Immer will handle the immutability
   },
-  
+
   // Wager cards in a column
   wagerCards: ({ G, ctx }: MoveContext, cardIds: string[], column: number) => {
     // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
-    
+
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      if (ENABLE_LOGGING) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      if (ENABLE_LOGGING && !SUPPRESS_AI_LOGS) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
-    
+
     // Check if column has a stake
     if (!G.board[column] || !G.board[column].stakedCard) {
       if (ENABLE_LOGGING) console.log(`Column ${column} does not have a stake`);
       return INVALID_MOVE;
     }
-    
+
     // Players can wager in any column that has a stake
     // The column check was removed - players can wager in any column that has a stake
     // The position check will ensure they can only place cards in their territory
-    
+
     // Then check if player has valid wager positions in this column
     if (!hasValidWagerPositions(G, column, playerColor)) {
       if (ENABLE_LOGGING) console.log(`No valid wager positions for ${playerColor} in column ${column}`);
       return INVALID_MOVE;
     }
-    
+
     // Find cards in hand
     const cardsToPlay: Card[] = [];
     const indicesToRemove: number[] = [];
-    
+
     for (const cardId of cardIds) {
       const index = player.hand.findIndex(card => card.id === cardId);
       if (index === -1) {
         if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
         return INVALID_MOVE;
       }
-      
+
       const card = { ...player.hand[index] };
       card.played = true;
       card.owner = playerColor;
       cardsToPlay.push(card);
       indicesToRemove.push(index);
     }
-    
+
     if (cardsToPlay.length === 0) {
       if (ENABLE_LOGGING) console.log(`No cards to play`);
       return INVALID_MOVE;
     }
-    
+
     // Check if we have enough valid positions for all cards
     const validPositions = getSortedPositionsForColumn(G, column, playerColor);
     if (cardsToPlay.length > validPositions.length) {
       if (ENABLE_LOGGING) console.log(`Not enough positions (${validPositions.length}) for all cards (${cardsToPlay.length})`);
       return INVALID_MOVE;
     }
-    
+
     // Remove cards from hand
     // Sort indices in descending order to avoid shifting issues
     indicesToRemove.sort((a, b) => b - a);
     for (const index of indicesToRemove) {
       player.hand.splice(index, 1);
     }
-    
+
     // Place cards in the column
     placeWageredCards(G, playerColor, cardsToPlay, column);
-    
+
     // Check if this affects game state
     checkLastPlayState(G);
     checkRoundCompleteState(G);
-    
+
     // Switch active player
     G.activePlayer = G.inactivePlayer;
     G.inactivePlayer = playerColor;
-    
+
     // Just set the round state, let boardgame.io handle the transitions
     if (G.roundState === 'complete' && ENABLE_LOGGING) {
       console.log('Round complete in wagerCards, phase transition will happen automatically');
     }
-    
+
     // Don't return anything - Immer will handle the immutability
   },
 };
@@ -218,7 +323,7 @@ const moves = {
 function checkLastPlayState(G: CozenState) {
   const activePlayer = G.players[G.activePlayer];
   const inactivePlayer = G.players[G.inactivePlayer];
-  
+
   // If active player just played their last card, enter last_play immediately
   if (activePlayer.hand.length === 0 && G.roundState !== 'last_play' && G.roundState !== 'complete') {
     G.roundState = 'last_play';
@@ -241,19 +346,19 @@ function checkLastPlayState(G: CozenState) {
 function checkRoundCompleteState(G: CozenState) {
   const activePlayer = G.players[G.activePlayer];
   const inactivePlayer = G.players[G.inactivePlayer];
-  
+
   // Only log during actual gameplay, not AI simulations
   if (ENABLE_LOGGING) {
     console.log(`[DEBUG] checkRoundCompleteState called with roundState=${G.roundState}`);
     console.log(`[DEBUG] Active player (${G.activePlayer}) has ${activePlayer.hand.length} cards left`);
     console.log(`[DEBUG] Inactive player (${G.inactivePlayer}) has ${inactivePlayer.hand.length} cards left`);
   }
-  
+
   // According to the rules, round ends after:
   // 1. One player plays their last card (enters last_play state)
   // 2. The other player gets a final turn
   // Then the round is complete regardless of cards remaining
-  
+
   // If we're in last_play state and the active player has completed their move
   // then the round is complete (this is their "final turn")
   if (G.roundState === 'last_play') {
@@ -264,7 +369,7 @@ function checkRoundCompleteState(G: CozenState) {
       console.log('[DEBUG] *** CRITICAL: Round state set to "complete" ***');
     }
   }
-  
+
   // Additional check: if both players have no cards, force complete state
   if (activePlayer.hand.length === 0 && inactivePlayer.hand.length === 0 && G.roundState !== 'complete') {
     G.roundState = 'complete';
@@ -272,7 +377,7 @@ function checkRoundCompleteState(G: CozenState) {
       console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
     }
   }
-  
+
   // Final state report
   if (ENABLE_LOGGING) {
     console.log(`[DEBUG] After checks, roundState=${G.roundState}`);
@@ -290,27 +395,27 @@ function placeWageredCards(
   if (ENABLE_LOGGING) {
     console.log(`${playerColor} is trying to wager ${cards.length} cards in column ${columnIndex}`);
   }
-  
+
   // Get empty positions for this player in this column, properly sorted
   const positionIds = getSortedPositionsForColumn(G, columnIndex, playerColor);
-  
+
   if (ENABLE_LOGGING) {
     console.log(`Found ${positionIds.length} empty positions for ${playerColor} in column ${columnIndex}`);
   }
-  
+
   // Convert position IDs to indices in the column's positions array
   const positionIndices = positionIds.map(id => {
     return G.board[columnIndex].positions.findIndex(pos => pos.n === id);
   }).filter(index => index !== -1);
-  
+
   // Calculate how many cards we can place
   const cardsToPlace = Math.min(cards.length, positionIndices.length);
-  
+
   // Place each card in its own position
   for (let i = 0; i < cardsToPlace; i++) {
     const posIndex = positionIndices[i];
     const position = G.board[columnIndex].positions[posIndex];
-    
+
     // Make sure we're not trying to place in the stake row (5)
     if (position.coord[0] === 5) {
       if (ENABLE_LOGGING) {
@@ -318,55 +423,95 @@ function placeWageredCards(
       }
       continue;
     }
-    
+
     // Set the card directly, not as an array
     G.board[columnIndex].positions[posIndex].card = cards[i];
-    
+
     if (ENABLE_LOGGING) {
       console.log(`${playerColor} placed card ${cards[i].id} in column ${columnIndex}, position ${posIndex} (row ${position.coord[0]})`);
     }
   }
-  
+
   if (cardsToPlace === 0 && ENABLE_LOGGING) {
     console.log(`No available positions for ${playerColor} in column ${columnIndex}`);
   } else if (cardsToPlace < cards.length && ENABLE_LOGGING) {
     console.log(`Not enough positions for all cards. Placed ${cardsToPlace}/${cards.length} cards.`);
   }
-  
+
   // This should be just once at the end
   if (cardsToPlace > 0 && ENABLE_LOGGING) {
     console.log(`Successfully placed ${cardsToPlace} cards in column ${columnIndex} for ${playerColor}`);
   }
 }
 
+// Helper function to ensure our internal turn state matches boardgame.io's state
+const synchronizePlayers = (G: CozenState, ctx: Ctx) => {
+  // Guard against undefined ctx or missing currentPlayer
+  if (!ctx || typeof ctx.currentPlayer === 'undefined') {
+    // Just log the issue and keep the existing activePlayer
+    console.error("Invalid ctx object or missing currentPlayer in synchronizePlayers");
+    return;
+  }
+
+  const previousActive = G.activePlayer;
+  const currentPlayerID = ctx.currentPlayer;
+  G.activePlayer = currentPlayerID === '0' ? 'red' : 'black';
+  G.inactivePlayer = currentPlayerID === '0' ? 'black' : 'red';
+
+  const playerChanged = previousActive !== G.activePlayer;
+
+  if (ENABLE_LOGGING || playerChanged) {
+    console.log(`Active player ${playerChanged ? 'changed from ' + previousActive + ' to ' : 'is'} ${G.activePlayer} (ctx.currentPlayer=${currentPlayerID})`);
+  }
+
+  // When Red is the active player (Human's turn), enable game logging
+  // When Black is the active player (AI's turn), suppress AI-related logging
+  if (G.activePlayer === 'red') {
+    enableGameLogging();
+    showAILogs(); // Show all logs during human turns
+  } else {
+    disableGameLogging();
+    suppressAILogs(); // Filter AI logs during AI turns
+  }
+};
+
 export const CozenGame: Game<CozenState> = {
   name: 'cozen',
-  
+
   // Setup function initializes the game state
   setup: setupGame,
-  
+
   // Move definitions
   moves: moves,
-  
+
   // Phases for game flow
   phases: {
     play: {
       start: true,
       next: 'roundEnd',
+      onBegin: (G: CozenState, ctx: Ctx) => {
+        // Only synchronize if ctx is valid (handles initial setup case)
+        if (ctx && typeof ctx.currentPlayer !== 'undefined') {
+          // Ensure our internal state matches boardgame.io's turn state
+          synchronizePlayers(G, ctx);
+        } else {
+          console.log("Phase onBegin: ctx is missing currentPlayer, skipping synchronization");
+        }
+      },
       endIf: (G: CozenState, ctx: Ctx) => {
-        // Null safety check 
+        // Null safety check
         if (!G || !G.players) return false;
-        
-        
+
+
         // Simple check - just look at the round state that's set in the move functions
         if (G.roundState !== 'complete') {
           // Additional safety checks for when a round should end
-          
+
           // Both players have no cards
           if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0) {
             G.roundState = 'complete';
           }
-          // In last_play state and active player has no cards 
+          // In last_play state and active player has no cards
           else if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0) {
             G.roundState = 'complete';
           }
@@ -375,62 +520,88 @@ export const CozenGame: Game<CozenState> = {
             G.roundState = 'complete';
           }
         }
-        
+
         // Simple boolean return
         const shouldEndPhase = G.roundState === 'complete';
-        
+
         if (ENABLE_LOGGING) {
           console.log(`[DEBUG] Phase change decision: ${shouldEndPhase ? 'YES - Moving to roundEnd' : 'NO - Staying in play phase'}`);
         }
-        
+
         return shouldEndPhase;
       },
       turn: {
-        // Use our own turn order system in the game state
+        // Use the standard two-player alternating turn order
         order: {
-          // Start with current active player (0=red, 1=black)
-          first: (G: CozenState, ctx: Ctx) => {
-            return G.activePlayer === 'red' ? 0 : 1;
-          },
+          // Start with black player (1) according to game rules
+          first: () => 1,
           // Always alternate between players
           next: (G: CozenState, ctx: Ctx) => {
-            // Safely handle missing context during AI simulations
-            if (ctx && typeof ctx.playOrderPos !== 'undefined') {
-              return ctx.playOrderPos === 0 ? 1 : 0;
+            // Guard against missing context
+            if (!ctx || typeof ctx.playOrderPos === 'undefined') {
+              console.error("Invalid ctx or missing playOrderPos in turn order next");
+              return 0; // Default to red player
             }
-            // Default fallback if playOrderPos is missing
-            return G.activePlayer === 'red' ? 1 : 0;
+            return ctx.playOrderPos === 0 ? 1 : 0;
           }
         },
-        // We're going to handle turn switching in our move functions
-        moveLimit: 1,
-        // No onBegin or onEnd handlers - they can cause serialization issues
-        // Just let boardgame.io handle the turn transitions
+        // Add an onEnd handler to synchronize our G.activePlayer with ctx
+        onEnd: (G: CozenState, ctx: Ctx) => {
+          // Guard against invalid context
+          if (!ctx || typeof ctx.playOrderPos === 'undefined') {
+            console.error("Invalid ctx or missing playOrderPos in turn onEnd");
+            return;
+          }
+
+          // IMPORTANT: Force our activePlayer to match what boardgame.io expects next
+          // Store previous active player for logging
+          const previousActivePlayer = G.activePlayer;
+          const currentPlayerID = ctx.currentPlayer === '0' ? 'red' : 'black';
+
+          // Calculate the next player - if current is red (0), next is black (1) and vice versa
+          const nextPlayerID = currentPlayerID === 'red' ? 'black' : 'red';
+
+          // Update our game state to match
+          G.activePlayer = nextPlayerID;
+          G.inactivePlayer = currentPlayerID;
+
+          console.log(`Turn ended for ${currentPlayerID}. Next player: ${G.activePlayer}`);
+
+          // Extra debug logging for turn changes
+          console.log(`Turn change: ${previousActivePlayer} -> ${G.activePlayer} (ctx.currentPlayer=${ctx.currentPlayer}, ctx.playOrderPos=${ctx.playOrderPos})`);
+        },
       },
     },
-    
+
     roundEnd: {
       moves: {},
       next: 'play',
       // Instead of using onBegin, use a move that is automatically triggered
       // Move executed at the start of the roundEnd phase
       onBegin: (G: CozenState, ctx: Ctx) => {
+        // Only synchronize if ctx is valid (handles initial setup case)
+        if (ctx && typeof ctx.currentPlayer !== 'undefined') {
+          // Ensure our internal state matches boardgame.io's turn state
+          synchronizePlayers(G, ctx);
+        } else {
+          console.log("Phase onBegin: ctx is missing currentPlayer, skipping synchronization");
+        }
         // Process round end logic without returning G
         // Just do the work and let boardgame.io handle state updates
-        
-        
+
+
         // Score the board and determine winners of contested columns
         scoreBoard(G);
-        
+
         // Check for game winner
         const winner = checkVictory(G);
-        
-        
+
+
         // If no winner, set up the next round
         if (!winner) {
           setupNextRound(G);
         }
-        
+
         // Don't return anything
       },
       endIf: (G: CozenState, ctx: Ctx) => {
@@ -440,12 +611,12 @@ export const CozenGame: Game<CozenState> = {
       },
     },
   },
-  
+
   // Game ends when a player reaches 70 victory points
   endIf: (G: CozenState, ctx: Ctx) => {
     // Add null checks for test environments
     if (!G || !G.players) return false;
-    
+
     if (G.players.red?.victory_points >= 70) {
       return { winner: 'red' };
     }
@@ -454,13 +625,13 @@ export const CozenGame: Game<CozenState> = {
     }
     return false;
   },
-  
+
   /**
-   * playerView function 
-   * 
+   * playerView function
+   *
    * This function controls what parts of the game state are visible to each player.
    * It receives the raw game state (G) directly from boardgame.io (not nested).
-   * 
+   *
    * @param G - The complete game state (CozenState)
    * @param ctx - The game context from boardgame.io
    * @param playerID - The ID of the player viewing the state ('0' for red, '1' for black)
@@ -469,23 +640,23 @@ export const CozenGame: Game<CozenState> = {
   playerView: (G: CozenState, ctx: Ctx, playerID: string) => {
     // Handle potential G.G nesting (workaround for boardgame.io issue)
     const gameState = (G as any).G ? (G as any).G : G;
-    
+
     // Basic validation of game state
     if (!gameState || !gameState.players) {
       return G; // Return what we received as a fallback
     }
-    
+
     // In developer mode, show the complete state to all players
     if (gameState.developerMode) {
       return gameState;
     }
-    
+
     // Create player-specific views (hide opponent's cards)
     if (playerID === '0' || playerID === '1') {
       // Convert numeric ID to color
       const playerColor = playerID === '0' ? 'red' : 'black';
       const opponentColor = playerID === '0' ? 'black' : 'red';
-      
+
       // Create a filtered copy of the state
       const playerVisibleState = {
         ...gameState,
@@ -498,14 +669,14 @@ export const CozenGame: Game<CozenState> = {
           }
         }
       };
-      
+
       return playerVisibleState;
     }
-    
+
     // For spectators or AI, return the complete state
     return gameState;
   },
-  
+
   // AI move enumeration
   ai: {
     enumerate: enumerate

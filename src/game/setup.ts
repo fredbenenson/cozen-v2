@@ -84,6 +84,14 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       },
     };
     
+    // Log initial state for debugging
+    console.log("Game setup complete. Initial state:", { 
+      activePlayer: initialState.activePlayer,
+      redCards: initialState.players.red.hand.length,
+      blackCards: initialState.players.black.hand.length,
+      board: initialState.board.length
+    });
+    
     // Return the initial state
     return initialState;
   } catch (error) {
