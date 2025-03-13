@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { CozenState, Card, Position } from '../types/game';
-import { Color, Rank, Suit } from '../types/game';
 import './Board.css';
 import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
-import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
-import { getCardDisplayValue, getCardRankSymbol } from '../utils/cardUtils';
+import { CardComponent } from './CardComponent';
+import { CardArrayComponent } from './CardArrayComponent';
+import { CustomCursorComponent } from './CustomCursorComponent';
+import { GameInfoComponent } from './GameInfoComponent';
+import { GridCellComponent } from './GridCellComponent';
+import { OpponentInfoComponent } from './OpponentInfoComponent';
+import { PlayerInfoComponent } from './PlayerInfoComponent';
+import { RoundEndOverlayComponent } from './RoundEndOverlayComponent';
 
 // Define the structure of props received from boardgame.io
-// The boardgame.io framework passes these props to our Board component
 interface BoardgameIOProps {
-  // G contains our game's state (type defined by CozenState)
   G: CozenState;
-  // ctx contains boardgame.io's game context (turn info, phases, etc.)
   ctx: any;
-  // playerID identifies the current player ('0' for red, '1' for black)
   playerID: string;
-  // moves contains functions to update the game state
   moves: Record<string, Function>;
-  // events contains boardgame.io event triggers
   events: Record<string, Function>;
-  // Other props might be present too
   [key: string]: any;
 }
 
@@ -348,199 +346,17 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     setSelectedColumn(null);
   };
 
-  // Render a card (face up or card back) with flipping capability
-  const renderCard = (card: Card | null, showBack: boolean = false) => {
-    if (!card) return null;
-    
-    // Handle hidden cards (opponent's hand)
-    if ('hidden' in card) {
-      // When 'peeking', make up a random card to display
-      const rank = Math.floor(Math.random() * 13) + 1; // 1-13
-      const rankSymbol = getCardRankSymbol(rank);
-      const suit = ["♠", "♥", "♦", "♣"][Math.floor(Math.random() * 4)];
-      
-      // Generate a display value for the corner
-      const displayValue = `${rankSymbol}${suit}`;
-      
-      return (
-        <div className="card-container">
-          <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
-            <div className="card-back" />
-            <div className={`card-front card black-card`} data-value={displayValue}>
-              <div className="card-center-value">{rankSymbol}</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
-    // Regular card with values
-    const cardValue = getCardDisplayValue(card);
-    const rankSymbol = getCardRankSymbol(card.number);
-    
-    // For opponent's cards (black cards on the board)
-    if (showBack && card.color === Color.Black) {
-      return (
-        <div className="card-container">
-          <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
-            <div className="card-back" />
-            <div className={`card-front card black-card`} data-value={cardValue}>
-              <div className="card-center-value">{rankSymbol}</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
-    // For regular back cards (not flippable)
-    if (showBack) {
-      return (
-        <div
-          key={card.id}
-          className="card-back"
-        />
-      );
-    }
-    
-    // For regular face-up cards
-    return (
-      <div
-        key={card.id}
-        className={`card ${card.color === Color.Red ? 'red-card' : 'black-card'}`}
-        data-value={cardValue}
-      >
-        <div className="card-center-value">{rankSymbol}</div>
-      </div>
-    );
-  };
 
-  // Render a card for display
-  const renderCardArray = (cards: Card[] | Card | undefined, showBack: boolean = false) => {
-    if (!cards) return null;
-    
-    // Even though we now only store single cards per position,
-    // keep this function to handle any legacy data format 
-    // or future changes
-    if (Array.isArray(cards)) {
-      if (cards.length === 0) return null;
-      return renderCard(cards[0], showBack);
-    } else {
-      return renderCard(cards, showBack);
-    }
-  };
 
-  // Render player hand
-  const renderHand = () => {
-    if (!player?.hand) return null;
-
-    return player.hand.map((card: Card) => {
-      if (!card) return null;
-      
-      // Use our utility function for consistent card display
-      const cardValue = getCardDisplayValue(card);
-      const rankSymbol = getCardRankSymbol(card.number);
-      
-      return (
-        <div
-          key={card.id}
-          className={`card ${card.color === Color.Red ? 'red-card' : 'black-card'} ${selectedCards.some(c => c.id === card.id) ? 'selected' : ''}`}
-          data-value={cardValue}
-          onClick={() => toggleCardSelection(card)}
-        >
-          <div className="card-center-value">{rankSymbol}</div>
-        </div>
-      );
-    });
-  };
-  
-  // Render custom cursor for selected cards
-  const renderCustomCursor = () => {
-    if (!isCursorVisible || selectedCards.length === 0) return null;
-    
-    const showStack = selectedCards.length > 1;
-    const maxVisibleCards = Math.min(selectedCards.length, 3);
-    const firstCard = selectedCards[0];
-    
-    // Use our utility function to get the card rank symbol
-    const cardValue = getCardRankSymbol(firstCard.number);
-    const isRed = firstCard.color === Color.Red;
-
-    return (
-      <div 
-        className="custom-cursor"
-        style={{
-          display: isCursorVisible ? 'block' : 'none',
-          left: `${cursorPosition.x}px`,
-          top: `${cursorPosition.y}px`,
-        }}
-      >
-        <div className={`cursor-card-stack ${showStack ? 'has-stack' : ''}`}>
-          {/* Render up to 3 cards in the stack, with the first card on top */}
-          {showStack && Array.from({ length: Math.min(2, maxVisibleCards - 1) }).map((_, i) => (
-            <div 
-              key={`stack-${i}`}
-              className={`cursor-card-element ${isRed ? 'cursor-card-red' : 'cursor-card-black'}`}
-            />
-          ))}
-          
-          {/* Main (top) card */}
-          <div 
-            className={`cursor-card-element ${isRed ? 'cursor-card-red' : 'cursor-card-black'}`}
-          >
-            {cardValue}
-          </div>
-          
-          {/* Count badge for more than 3 cards */}
-          {selectedCards.length > 3 && (
-            <div className="cursor-card-count">{selectedCards.length}</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Calculate if player can stake - player is always red ('0')
-  const canStake = () => {
-    const isPlayersTurn = ctx.currentPlayer === '0'; // '0' corresponds to red player
-    return isPlayersTurn && selectedCards.length === 1 && player?.availableStakes?.length > 0;
-  };
-
-  // Calculate if player can wager - player is always red ('0')
-  const canWager = () => {
-    const isPlayersTurn = ctx.currentPlayer === '0'; // '0' corresponds to red player
-    return isPlayersTurn && selectedCards.length > 0 && selectedColumn !== null;
-  };
-
-  // Get card at position for a given column and player color
-  // Used to find the topmost or bottommost card in a column for a player
-  const getCardAtPosition = (columnIndex: number, owner: 'red' | 'black') => {
-    // Check if we can access the positions in this column
-    if (!G?.board?.[columnIndex]?.positions) return null;
-
-    // For each player side, we need the row closest to the stake row that has a card
-    // Filter positions to only include those owned by the specified player that have cards
-    const positions = G.board[columnIndex].positions
-      .filter((p: Position) => p.owner === owner && p.card !== undefined);
-    
-    // Return null if no matching positions found
-    if (positions.length === 0) return null;
-    
-    // Sort based on owner - red positions are closer to bottom, black positions closer to top
-    const sortedPositions = [...positions].sort((a, b) => {
-      if (owner === 'red') {
-        return b.coord[0] - a.coord[0]; // Red closest to stake (lowest row number first)
-      } else {
-        return a.coord[0] - b.coord[0]; // Black closest to stake (highest row number first)
-      }
-    });
-    
-    // Return the card from the position closest to the stake
-    return sortedPositions[0].card;
-  };
-
-  // Add a state to track when we're in between rounds
+  // State for round transitions
   const [showRoundEnd, setShowRoundEnd] = useState(false);
-  const [roundEndData, setRoundEndData] = useState<any>(null);
+  const [roundEndData, setRoundEndData] = useState<{
+    redVP: number;
+    blackVP: number;
+    redVPGained: number;
+    blackVPGained: number;
+    nextPlayer: string;
+  } | null>(null);
   
   // Watch for phase changes and show messages
   // This effect runs whenever the game phase or state changes
@@ -597,151 +413,114 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   }, [ctx.currentPlayer, G.activePlayer, props.isActive, G.board]);
   
   // Render the grid-based board
-  // This function creates the visual grid representation of our game board
   const renderGrid = () => {
-    // First check if we have a board to render
-    // G.board is an array of columns, each with positions and possibly a staked card
     if (!G?.board) return null;
-
-    // Create the grid cells that will make up our board
     const gridCells = [];
 
-    // Add 5 rows for Black player (rows 1-5)
+    // Black player rows (0-4)
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 10; col++) {
-        const gridRow = row + 1; // Starting from row 1
-        
-        // Get the position for this exact grid cell from our game state
-        // Each column in G.board has a positions array with objects like:
-        // { owner: 'black', coord: [0, 3], card: {...} }
         const position = G.board[col]?.positions?.find(
           (p: Position) => p.owner === 'black' && p.coord[0] === row
         );
         
-        // Check if this position has a card
         const hasCard = position?.card !== undefined;
-        
-        // Check if this position is valid for wagering (Black territory)
-        const canWager = selectedCards.length > 0 && 
-                         position && 
-                         isWagerablePosition(row, col, 'black');
+        const canWager = selectedCards.length > 0 && position && isWagerablePosition(row, col, 'black');
         const showWagerHighlight = canWager && ctx.currentPlayer === '0';
 
         gridCells.push(
-          <div
+          <GridCellComponent
             key={`black-${row}-${col}`}
-            className={`grid-cell black-cell 
-                       ${selectedColumn === col ? 'selected-cell' : ''}
-                       ${showWagerHighlight ? 'wager-highlight' : ''}`}
-            style={{
-              gridColumn: col + 1,
-              gridRow: gridRow,
-              cursor: (canWager || hasCard) ? 'pointer' : 'default'
+            row={row}
+            col={col}
+            position={position}
+            G={{
+              board: G.board,
+              players: { red: G.players.red }
             }}
-            onClick={() => {
+            selectedColumn={selectedColumn}
+            selectedCards={selectedCards}
+            canWager={canWager}
+            showWagerHighlight={showWagerHighlight}
+            hasCard={hasCard}
+            showOpponentCards={showOpponentCards}
+            cellType="black"
+            handleClick={() => {
               if (canWager) {
                 console.log(`Trying to wager on column ${col} (Black position, row ${row})`);
                 wagerCards(col);
               } else if (hasCard && G.board[col].stakedCard) {
-                // Allow selecting a column if it has a staked card
                 selectColumn(col);
               }
             }}
-          >
-            {hasCard && renderCardArray(position.card, true)}
-            
-            {/* Drop here indicator */}
-            {canWager && (
-              <div className="drop-here">Wager Here</div>
-            )}
-          </div>
+          />
         );
       }
     }
 
-    // Add stake row (row 6)
+    // Stake row (5)
     for (let col = 0; col < 10; col++) {
       const isAvailableForStake = player?.availableStakes?.includes(col);
-      const isNextStakeForRed = currentColor === 'red' && player?.availableStakes?.length > 0 && 
-        col === Math.min(...player.availableStakes);
-      const isNextStakeForBlack = opponent?.availableStakes?.length > 0 && 
-        col === Math.max(...opponent.availableStakes);
-      const isNextStakeColumn = isNextStakeForRed || isNextStakeForBlack;
-      
-      // Check if this column is valid for the current selection
       const canStakeHere = selectedCards.length === 1 && isAvailableForStake;
       
-      // No wagering allowed on the stake row itself
-      const canWagerHere = false;
-      
-      const showWagerHighlight = canWagerHere && ctx.currentPlayer === '0';
-      const showStakeHighlight = canStakeHere && ctx.currentPlayer === '0';
-      
       gridCells.push(
-        <div
+        <GridCellComponent
           key={`stake-${col}`}
-          className={`grid-cell stake-cell 
-                      ${selectedColumn === col ? 'selected-cell' : ''} 
-                      ${isNextStakeColumn ? 'next-stake' : ''}`}
-          style={{
-            gridColumn: col + 1,
-            gridRow: 6,
-            cursor: (canStakeHere || canWagerHere) ? 'pointer' : 'default'
+          row={0}
+          col={col}
+          G={{
+            board: G.board,
+            players: { red: G.players.red }
           }}
-          onClick={() => {
+          selectedColumn={selectedColumn}
+          selectedCards={selectedCards}
+          canWager={false}
+          showWagerHighlight={false}
+          hasCard={G.board[col]?.stakedCard !== undefined}
+          showOpponentCards={showOpponentCards}
+          cellType="stake"
+          handleClick={() => {
             if (canStakeHere) {
               stakeCard(col);
             } else if (G.board[col].stakedCard) {
-              // Only select column for stake row, no wagering
               selectColumn(col);
             }
           }}
-        >
-          {G.board[col].stakedCard && renderCard(G.board[col].stakedCard || null)}
-          {/* Drop here indicator - only for staking */}
-          {canStakeHere && (
-            <div className="drop-here">
-              Stake Here
-            </div>
-          )}
-        </div>
+        />
       );
     }
 
-    // Add 5 rows for Red player (rows 7-11)
+    // Red player rows (6-10)
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 10; col++) {
-        const gridRow = row + 7; // Starting from row 7 (after stake row)
-        
-        // Find the actual game board row (6-10)
         const boardRow = row + 6;
         
-        // Get the position for this exact grid cell
         const position = G.board[col]?.positions?.find(
           (p: Position) => p.owner === 'red' && p.coord[0] === boardRow
         );
         
-        // Check if this position has a card
         const hasCard = position?.card !== undefined;
-        
-        // Check if this position is valid for wagering (Red territory)
-        const canWager = selectedCards.length > 0 && 
-                         position && 
-                         isWagerablePosition(boardRow, col, 'red');
+        const canWager = selectedCards.length > 0 && position && isWagerablePosition(boardRow, col, 'red');
         const showWagerHighlight = canWager && ctx.currentPlayer === '0';
 
         gridCells.push(
-          <div
+          <GridCellComponent
             key={`red-${row}-${col}`}
-            className={`grid-cell red-cell 
-                       ${selectedColumn === col ? 'selected-cell' : ''}
-                       ${showWagerHighlight ? 'wager-highlight' : ''}`}
-            style={{
-              gridColumn: col + 1,
-              gridRow: gridRow,
-              cursor: (canWager || hasCard) ? 'pointer' : 'default'
+            row={row}
+            col={col}
+            position={position}
+            G={{
+              board: G.board,
+              players: { red: G.players.red }
             }}
-            onClick={() => {
+            selectedColumn={selectedColumn}
+            selectedCards={selectedCards}
+            canWager={canWager}
+            showWagerHighlight={showWagerHighlight}
+            hasCard={hasCard}
+            showOpponentCards={showOpponentCards}
+            cellType="red"
+            handleClick={() => {
               if (canWager) {
                 console.log(`Trying to wager on column ${col} (Red position, row ${boardRow})`);
                 wagerCards(col);
@@ -749,13 +528,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
                 selectColumn(col);
               }
             }}
-          >
-            {hasCard && renderCardArray(position.card)}
-            {/* Drop here indicator */}
-            {canWager && (
-              <div className="drop-here">Wager Here</div>
-            )}
-          </div>
+          />
         );
       }
     }
@@ -763,129 +536,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     return gridCells;
   };
 
-  // Render the main game board contents first
-  const gameBoard = (
-    <div className="board">
-      {/* Opponent info with toggleable card display */}
-      <div className="player-info" style={{ backgroundColor: '#e0e0e0' }}>
-        <div className="toggle-cards-container">
-          <label className="form-switch">
-            <input 
-              type="checkbox" 
-              checked={showOpponentCards}
-              onChange={toggleOpponentCards}
-            />
-            <i></i>
-            <span className="toggle-label">{showOpponentCards ? "Hide Opponent Cards" : "Show Opponent Cards"}</span>
-          </label>
-        </div>
-        <h3 key="opponent-title">Black - {opponent?.victory_points || 0} VP</h3>
-        <div className="opponent-hand">
-          {opponent?.hand && opponent.hand.map((card: any, i: number) => {
-            // Default to question marks for hidden cards
-            let cardValue = "?";
-            let rankSymbol = "?";
-            
-            // With developer mode enabled, we'll have full card data
-            if (card.number !== undefined) {
-              cardValue = getCardDisplayValue(card);
-              rankSymbol = getCardRankSymbol(card.number);
-            }
-            
-            return (
-              <div className="card-container" key={`opponent-card-${i}`}>
-                <div className={`card-flip ${showOpponentCards ? 'flipped' : ''}`}>
-                  <div className="card-back opponent-card"></div>
-                  <div className={`card-front card black-card`} data-value={cardValue}>
-                    <div className="card-center-value">{rankSymbol}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Grid-based board */}
-      <div className="game-grid">
-        {renderGrid()}
-      </div>
-
-      {/* Player's hand - minimal */}
-      <div className="player-info" style={{ backgroundColor: '#ffe6e6' }}>
-        <h3 key="player-title">Red - {player?.victory_points || 0} VP</h3>
-        <div className="hand" key="player-hand">
-          {renderHand()}
-        </div>
-      </div>
-
-      {/* Game info with debugging information */}
-      <div className="game-info">
-        <div key="active-player">
-          {ctx && ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
-        </div>
-        {/* Display information about the current game state */}
-        <div key="round-state" style={{ marginTop: '5px', fontSize: '12px' }}>
-          Round State: <span style={{ fontWeight: 'bold' }}>{G?.roundState || 'unknown'}</span>
-        </div>
-        <div key="phase" style={{ fontSize: '12px' }}>
-          Game Phase: <span style={{ fontWeight: 'bold' }}>{ctx?.phase || 'unknown'}</span>
-        </div>
-        <div key="player-cards" style={{ fontSize: '12px' }}>
-          Cards Left - Red: <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{G?.players?.red?.hand?.length || 0}</span>, 
-          Black: <span style={{ color: '#000099', fontWeight: 'bold' }}>{G?.players?.black?.hand?.length || 0}</span>
-        </div>
-        {message && <div key="message" style={{ color: 'red', fontWeight: 'bold', marginTop: '10px' }}>{message}</div>}
-        {G?.roundState === 'complete' && <div key="round-complete" style={{ color: 'green', fontWeight: 'bold', marginTop: '10px' }}>Round Complete!</div>}
-        {G?.roundState === 'last_play' && <div key="last-play" style={{ color: 'orange', fontWeight: 'bold', marginTop: '10px' }}>Final Plays!</div>}
-      </div>
-
-      {/* Custom cursor for cards */}
-      {renderCustomCursor()}
-    </div>
-  );
-
-  // Define the round end overlay component for later use
-  const roundEndOverlay = (
-    showRoundEnd && roundEndData && (
-      <div className="round-transition-overlay">
-        <div className="round-transition">
-          <h2>Round Complete!</h2>
-          <p>Scoring the board and preparing the next round...</p>
-          
-          <div style={{ marginTop: '1rem', fontSize: '1.1rem' }}>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ color: '#ff7777', fontWeight: 'bold' }}>
-                Red: {roundEndData.redVP} VP
-              </span>
-              {roundEndData.redVPGained > 0 && 
-                <span style={{ color: '#77ff77', marginLeft: '0.5rem' }}>
-                  (+{roundEndData.redVPGained} this round)
-                </span>
-              }
-            </div>
-            
-            <div>
-              <span style={{ color: '#7777ff', fontWeight: 'bold' }}>
-                Black: {roundEndData.blackVP} VP
-              </span>
-              {roundEndData.blackVPGained > 0 && 
-                <span style={{ color: '#77ff77', marginLeft: '0.5rem' }}>
-                  (+{roundEndData.blackVPGained} this round)
-                </span>
-              }
-            </div>
-          </div>
-          
-          <p style={{ marginTop: '1rem', color: '#aaa', fontStyle: 'italic' }}>
-            {roundEndData.nextPlayer === 'red' ? 'Red' : 'Black'} will go first in the next round
-          </p>
-        </div>
-      </div>
-    )
-  );
-  
-  // Function to manually trigger round end screen (for debugging)
+  // Debug trigger
   const triggerRoundEnd = () => {
     setRoundEndData({
       redVP: G.players.red.victory_points,
@@ -897,14 +548,12 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     setShowRoundEnd(true);
     console.log("Manual round end screen triggered");
     
-    // For testing, hide after 5 seconds
     setTimeout(() => {
       setShowRoundEnd(false);
       console.log("Round end screen hidden");
     }, 5000);
   };
 
-  // Add a button to manually trigger round end (for testing)
   const debugTrigger = (
     <button
       onClick={triggerRoundEnd}
@@ -926,12 +575,50 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     </button>
   );
 
-  // Final return statement with all components
   return (
     <>
       {debugTrigger}
-      {gameBoard}
-      {roundEndOverlay}
+      <div className="board">
+        <OpponentInfoComponent 
+          opponent={opponent} 
+          showOpponentCards={showOpponentCards} 
+          toggleOpponentCards={toggleOpponentCards} 
+        />
+
+        <div className="game-grid">
+          {renderGrid()}
+        </div>
+
+        <PlayerInfoComponent 
+          player={player} 
+          color="red" 
+          selectedCards={selectedCards} 
+          toggleCardSelection={toggleCardSelection} 
+        />
+
+        <GameInfoComponent 
+          ctx={ctx} 
+          G={{
+            roundState: G.roundState,
+            players: {
+              red: { hand: G.players.red.hand },
+              black: { hand: G.players.black.hand }
+            }
+          }} 
+          message={message} 
+        />
+
+        <CustomCursorComponent 
+          isCursorVisible={isCursorVisible} 
+          selectedCards={selectedCards} 
+          cursorPosition={cursorPosition} 
+        />
+      </div>
+      
+      <RoundEndOverlayComponent 
+        showRoundEnd={showRoundEnd} 
+        roundEndData={roundEndData} 
+      />
     </>
   );
 }
