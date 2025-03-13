@@ -30,12 +30,10 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   // - ctx: { currentPlayer: "0", phase: "play", turn: 1, ... }
   // - moves: { stakeCard: Function, wagerCards: Function }
   const { G, ctx, moves, events } = props;
-  
-  // No need for logging every render
-  
+
   // IMPORTANT: G already contains our CozenState, no need for additional variable
   // We'll use G directly throughout this component
-  
+
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -43,40 +41,37 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   const [isCursorVisible, setIsCursorVisible] = useState(false);
   const [showOpponentCards, setShowOpponentCards] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-  
-  // State to track if we're peeking at opponent cards
-  // We'll use this for visual hiding only, since all card data will still come to the client
-  
+
   // Force a re-render after a short delay to ensure proper initialization
   useEffect(() => {
     const timer = setTimeout(() => {
       setHasInitialized(true);
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, []);
-  
+
   // Enable game logging once the board component mounts
   useEffect(() => {
     // Wait a short time to ensure all initial AI calculations are done
     const timer = setTimeout(() => {
       enableGameLogging();
     }, 1000);
-    
+
     return () => clearTimeout(timer);
   }, []);
-  
+
   // Simple toggle to flip cards visually (purely client-side)
   const toggleOpponentCards = () => {
     // Just toggle the UI state for the card flip animation
     setShowOpponentCards(!showOpponentCards);
     console.log(`Card peek mode ${!showOpponentCards ? "enabled" : "disabled"}`);
   };
-  
+
   // Monitor for turn changes and manage logging
   useEffect(() => {
     if (!ctx) return; // Add defensive check
-    
+
     // Is it the AI's turn? (player '1' is AI/Black)
     if (ctx.currentPlayer === '1') {
       disableGameLogging();
@@ -84,28 +79,28 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
       enableGameLogging();
     }
   }, [ctx?.currentPlayer]);
-  
+
   // Track mouse movement for custom cursor
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setCursorPosition({ x: e.clientX, y: e.clientY });
       setIsCursorVisible(true);
     };
-    
+
     const handleMouseLeave = () => {
       setIsCursorVisible(false);
     };
-    
+
     if (selectedCards.length > 0) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseleave', handleMouseLeave);
-      
+
       // Add a class to the body to hide the default cursor
       document.body.classList.add('cursor-card');
     } else {
       document.body.classList.remove('cursor-card');
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
@@ -121,37 +116,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
 
   // Keep a reference to direct player objects for easier access later
   let playerRed, playerBlack;
-  
-  // Defensive check to see if we can access the players
-  try {
-    if (G && G.players) {
-      // Direct property access to store references to player objects
-      playerRed = G.players.red;
-      playerBlack = G.players.black;
-    }
-  } catch (err) {
-    console.error("Error getting player objects:", err);
-  }
 
-  // Add defensive checks for when game state might be transitioning between rounds
-  if (!G) {
-    console.error("Game state is undefined or null");
-    return <div className="board">Loading game state... (game state is missing)</div>;
-  }
-  
-  // No need for verbose game state structure logging now that the issue is fixed
-  
-  // Skip the verbose property descriptor checks now that we know the structure is correct
-  
-  // Check if the players property exists in the game state
-  const hasPlayers = G.players !== undefined;
-  
-  // If we don't have the players property, show a loading state
-  if (!hasPlayers) {
-    console.error("Game state missing players object:", { gameState: G });
-    return <div className="board">Loading game state... (players missing)</div>;
-  }
-  
   // Get player objects directly from the game state
   // We'll store references to the current player and opponent
   let player: any, opponent: any;
@@ -160,29 +125,9 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     // Get player objects based on color
     player = currentColor === 'red' ? G.players.red : G.players.black;
     opponent = opponentColor === 'black' ? G.players.black : G.players.red;
-    
-    // Fallback to prebaked references if needed
-    if (!player || !opponent) {
-      player = player || playerRed;
-      opponent = opponent || playerBlack;
-    }
   } catch (error) {
     console.error("Error while getting player objects:", error);
   }
-  
-  // Another defensive check for player objects
-  if (!player || !opponent) {
-    console.error("Could not retrieve player objects:", { 
-      hasPlayers: G && !!G.players,
-      player, 
-      opponent,
-      prebakedRed: playerRed,
-      prebakedBlack: playerBlack
-    });
-    return <div className="board">Initializing players...</div>;
-  }
-  
-  // Players successfully retrieved, continue with the component
 
   // Show message
   const showMessage = (msg: string) => {
@@ -198,7 +143,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     // Red stakes columns from left to right (5, 6, 7, 8, 9)
     return player.availableStakes.sort((a: number, b: number) => a - b)[0];
   };
-  
+
   // Check if a column is valid for wagering (must have a stake card)
   const isWagerableColumn = (columnIndex: number): boolean => {
     // Column must have a stake card to be wagerable
@@ -206,17 +151,17 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     const hasStakedCard = G.board[columnIndex]?.stakedCard !== undefined;
     return hasStakedCard;
   };
-  
+
   // Check if a specific position is valid for wagering for the current player
   const isWagerablePosition = (rowIndex: number, columnIndex: number, playerColor: 'red' | 'black'): boolean => {
     // Current human player is always red ('0')
     const currentPlayerColor = 'red'; // Human player is always red
-    
+
     // Column must have a stake card
     if (!isWagerableColumn(columnIndex)) {
       return false;
     }
-    
+
     // Position must be empty and belong to the current player
     // For red player, check red positions (6-10)
     // For black player, check black positions (0-4)
@@ -224,7 +169,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     const position = G.board[columnIndex]?.positions?.find(
       (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
     );
-    
+
     return !!position && !position.card;
   };
 
@@ -280,7 +225,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
 
     // Get next column that will be staked (always left-to-right for red, starting from column 5)
     // If a specific column was clicked, use that if it's available
-    let nextStakeColumn = columnIndex !== undefined && player.availableStakes.includes(columnIndex) 
+    let nextStakeColumn = columnIndex !== undefined && player.availableStakes.includes(columnIndex)
       ? columnIndex
       : Math.min(...player.availableStakes);
 
@@ -337,7 +282,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     // Execute the wager move
     console.log(`Executing wagerCards move with cards:`, selectedCards.map(c => c.id), `and column:`, targetColumn);
     moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
-    
+
     // We can't actually check the result in strict mode since it returns void
     // The game state will update automatically via boardgame.io
 
@@ -345,8 +290,6 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     setSelectedCards([]);
     setSelectedColumn(null);
   };
-
-
 
   // State for round transitions
   const [showRoundEnd, setShowRoundEnd] = useState(false);
@@ -357,18 +300,18 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     blackVPGained: number;
     nextPlayer: string;
   } | null>(null);
-  
+
   // Watch for phase changes and show messages
   // This effect runs whenever the game phase or state changes
   useEffect(() => {
     console.log(`Phase changed to: ${ctx.phase}`);
-    
+
     // When the round ends, we want to show a transition screen
     if (ctx.phase === 'roundEnd') {
       console.log('Phase is roundEnd! Should display transition screen');
       console.log('Round state:', G.roundState);
       console.log('Victory points:', G.players.red.victory_points, G.players.black.victory_points);
-      
+
       // Save current state data for the round end screen
       // This data will be displayed in the transition overlay
       setRoundEndData({
@@ -378,28 +321,28 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
         blackVPGained: G.victoryPointScores?.black || 0,
         nextPlayer: G.activePlayer
       });
-      
+
       // Set our UI state to show the round end screen
       setShowRoundEnd(true);
-      
+
       // Keep this screen visible for at least 5 seconds
       setTimeout(() => {
         setShowRoundEnd(false);
       }, 5000);
-      
+
       showMessage('Round Complete! Starting next round...');
     }
   }, [ctx.phase, G]);
-  
+
   // Effect to handle AI moves - force UI update after AI moves
   useEffect(() => {
     // This ensures the board updates when players change
     const isAITurn = !props.isActive && ctx.currentPlayer === '1';
-    
+
     if (isAITurn) {
       console.log("Detected AI turn, board state:", G.board?.length || 0, "columns");
       console.log("AI active:", G.activePlayer === 'black');
-      
+
       // Force a full board re-render after AI's turn
       const boardElement = document.querySelector('.game-board');
       if (boardElement) {
@@ -411,7 +354,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
       }
     }
   }, [ctx.currentPlayer, G.activePlayer, props.isActive, G.board]);
-  
+
   // Render the grid-based board
   const renderGrid = () => {
     if (!G?.board) return null;
@@ -423,7 +366,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
         const position = G.board[col]?.positions?.find(
           (p: Position) => p.owner === 'black' && p.coord[0] === row
         );
-        
+
         const hasCard = position?.card !== undefined;
         const canWager = selectedCards.length > 0 && position && isWagerablePosition(row, col, 'black');
         const showWagerHighlight = canWager && ctx.currentPlayer === '0';
@@ -462,7 +405,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     for (let col = 0; col < 10; col++) {
       const isAvailableForStake = player?.availableStakes?.includes(col);
       const canStakeHere = selectedCards.length === 1 && isAvailableForStake;
-      
+
       gridCells.push(
         <GridCellComponent
           key={`stake-${col}`}
@@ -494,11 +437,11 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 10; col++) {
         const boardRow = row + 6;
-        
+
         const position = G.board[col]?.positions?.find(
           (p: Position) => p.owner === 'red' && p.coord[0] === boardRow
         );
-        
+
         const hasCard = position?.card !== undefined;
         const canWager = selectedCards.length > 0 && position && isWagerablePosition(boardRow, col, 'red');
         const showWagerHighlight = canWager && ctx.currentPlayer === '0';
@@ -547,7 +490,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     });
     setShowRoundEnd(true);
     console.log("Manual round end screen triggered");
-    
+
     setTimeout(() => {
       setShowRoundEnd(false);
       console.log("Round end screen hidden");
@@ -579,45 +522,45 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     <>
       {debugTrigger}
       <div className="board">
-        <OpponentInfoComponent 
-          opponent={opponent} 
-          showOpponentCards={showOpponentCards} 
-          toggleOpponentCards={toggleOpponentCards} 
+        <OpponentInfoComponent
+          opponent={opponent}
+          showOpponentCards={showOpponentCards}
+          toggleOpponentCards={toggleOpponentCards}
         />
 
         <div className="game-grid">
           {renderGrid()}
         </div>
 
-        <PlayerInfoComponent 
-          player={player} 
-          color="red" 
-          selectedCards={selectedCards} 
-          toggleCardSelection={toggleCardSelection} 
+        <PlayerInfoComponent
+          player={player}
+          color="red"
+          selectedCards={selectedCards}
+          toggleCardSelection={toggleCardSelection}
         />
 
-        <GameInfoComponent 
-          ctx={ctx} 
+        <GameInfoComponent
+          ctx={ctx}
           G={{
             roundState: G.roundState,
             players: {
               red: { hand: G.players.red.hand },
               black: { hand: G.players.black.hand }
             }
-          }} 
-          message={message} 
+          }}
+          message={message}
         />
 
-        <CustomCursorComponent 
-          isCursorVisible={isCursorVisible} 
-          selectedCards={selectedCards} 
-          cursorPosition={cursorPosition} 
+        <CustomCursorComponent
+          isCursorVisible={isCursorVisible}
+          selectedCards={selectedCards}
+          cursorPosition={cursorPosition}
         />
       </div>
-      
-      <RoundEndOverlayComponent 
-        showRoundEnd={showRoundEnd} 
-        roundEndData={roundEndData} 
+
+      <RoundEndOverlayComponent
+        showRoundEnd={showRoundEnd}
+        roundEndData={roundEndData}
       />
     </>
   );
