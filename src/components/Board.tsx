@@ -575,6 +575,27 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     }
   }, [ctx.phase, G]);
   
+  // Effect to handle AI moves - force UI update after AI moves
+  useEffect(() => {
+    // This ensures the board updates when players change
+    const isAITurn = !props.isActive && ctx.currentPlayer === '1';
+    
+    if (isAITurn) {
+      console.log("Detected AI turn, board state:", G.board?.length || 0, "columns");
+      console.log("AI active:", G.activePlayer === 'black');
+      
+      // Force a full board re-render after AI's turn
+      const boardElement = document.querySelector('.game-board');
+      if (boardElement) {
+        // Apply a tiny visual change to force React to update the DOM
+        boardElement.classList.add('ai-turn');
+        setTimeout(() => {
+          boardElement.classList.remove('ai-turn');
+        }, 100);
+      }
+    }
+  }, [ctx.currentPlayer, G.activePlayer, props.isActive, G.board]);
+  
   // Render the grid-based board
   // This function creates the visual grid representation of our game board
   const renderGrid = () => {

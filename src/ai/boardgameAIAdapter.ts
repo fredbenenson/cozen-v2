@@ -236,14 +236,23 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Array<{mo
     return [];
   }
   
+  // When called from the AI debug panel's "Play" button, only generate moves for Black
+  // But during internal MCTSBot simulations, allow moves for both players
+  const isDirectAIPlay = !ctx.turn && playerID === '0';
+  if (isDirectAIPlay) {
+    console.log("enumerate: Not red's turn");
+    return [];
+  }
+  
+  // If no playerID, use current player from context but prioritize black
   if (!playerID) {
     // For MCTSBot simulations, use current player from context
-    playerID = ctx.currentPlayer;
-    if (!playerID) {
-      console.error("enumerate: playerID is missing and couldn't be determined from context!");
-      return [];
-    }
+    playerID = ctx.currentPlayer || '1';
+    console.log(`enumerate: Using playerID ${playerID} from context`);
   }
+  
+  // For logging/debugging
+  console.log(`enumerate: Generating moves for player ${playerID === '0' ? 'red' : 'black'}`);
   
   try {
     // Convert to our Round format
@@ -262,6 +271,9 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Array<{mo
     // Generate wager moves
     const wagerMoves = generateWagerMoves(round, player);
     moves = moves.concat(wagerMoves);
+    
+    // For debugging
+    console.log(`enumerate: Generated ${moves.length} moves for player ${player.color.toLowerCase()}`);
     
     // Convert to boardgame.io format
     return convertAIMovesToBoardgameMoves(moves, playerID);

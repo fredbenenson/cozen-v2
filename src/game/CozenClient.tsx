@@ -110,16 +110,20 @@ export const CozenAIClient = Client({
   numPlayers: 2,
   // Use MCTSBot with our custom AI implementation
   ai: {
-    // Create an MCTSBot with our custom enumerate function and objective
-    bot: new MCTSBot({
-      game: CozenGame,
-      enumerate: enumerate,
-      objectives: {
-        '1': minimaxObjective // Player ID 1 (black) uses our minimax objective
-      },
-      iterations: 200, // Reduced iterations to avoid simulation errors
-      playoutDepth: 5, // Reduced depth to avoid deep recursion issues
-    })
+    // Only apply AI to black player (playerID: 1)
+    '1': {
+      // Create an MCTSBot with our custom enumerate function and objective
+      bot: new MCTSBot({
+        game: CozenGame,
+        enumerate: enumerate,
+        objectives: {
+          '0': (G, ctx) => -minimaxObjective(G, ctx) + 1, // Inverse for Red
+          '1': minimaxObjective // Direct for Black
+        },
+        iterations: 100, // Reduced iterations to avoid simulation errors
+        playoutDepth: 3, // Reduced depth to avoid deep recursion issues
+      })
+    }
   },
 });
 
