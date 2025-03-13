@@ -102,6 +102,20 @@ const SafeCozenGame = {
   }
 };
 
+// Function to create a new MCTSBot - this allows us to get a fresh instance each time
+const createMCTSBot = () => {
+  return new MCTSBot({
+    game: CozenGame,
+    enumerate: enumerate,
+    objectives: {
+      '0': (G, ctx) => -minimaxObjective(G, ctx) + 1, // Inverse for Red
+      '1': minimaxObjective // Direct for Black
+    },
+    iterations: 100, // Reduced iterations to avoid simulation errors
+    playoutDepth: 3, // Reduced depth to avoid deep recursion issues,
+  });
+};
+
 // Create a client with AI opponent using our minimax algorithm
 export const CozenAIClient = Client({
   game: CozenGame,
@@ -112,17 +126,8 @@ export const CozenAIClient = Client({
   ai: {
     // Only apply AI to black player (playerID: 1)
     '1': {
-      // Create an MCTSBot with our custom enumerate function and objective
-      bot: new MCTSBot({
-        game: CozenGame,
-        enumerate: enumerate,
-        objectives: {
-          '0': (G, ctx) => -minimaxObjective(G, ctx) + 1, // Inverse for Red
-          '1': minimaxObjective // Direct for Black
-        },
-        iterations: 100, // Reduced iterations to avoid simulation errors
-        playoutDepth: 3, // Reduced depth to avoid deep recursion issues
-      })
+      // Create a fresh MCTSBot for each move
+      bot: createMCTSBot()
     }
   },
 });

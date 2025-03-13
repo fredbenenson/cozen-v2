@@ -11,7 +11,7 @@ import { CozenAI } from './cozenAI';
 import { AIDifficulty } from './aiTypes';
 import { Color } from '../types/game';
 import { Round, Column as RoundColumn, Position as RoundPosition } from '../types/round';
-import { generateStakeMoves, generateWagerMoves } from './aiUtils';
+import { generateStakeMoves, generateWagerMoves, evaluateGameState } from './aiUtils';
 
 // This will hold our CozenAI instance
 let aiInstance: CozenAI | null = null;
@@ -164,7 +164,7 @@ function convertAIMovesToBoardgameMoves(aiMoves: any[], playerID: string): Array
 }
 
 /**
- * Objective function for MCTSBot that uses our minimax evaluation
+ * Objective function for MCTSBot that uses our existing CozenAI minimax evaluation
  * 
  * @param G The game state
  * @param ctx The game context
@@ -196,27 +196,35 @@ export function minimaxObjective(G: CozenState, ctx: Ctx): number {
       reset: () => {}    // Dummy function
     };
     
-    // Initialize the AI with medium difficulty
+    // Initialize the AI with easy difficulty and a shallow search depth
+    // to make evaluations fast enough for the MCTSBot
     if (!aiInstance) {
-      aiInstance = new CozenAI(player, AIDifficulty.MEDIUM);
+      aiInstance = new CozenAI(player, AIDifficulty.EASY, 2);
     }
     
-    // Use the current value of black player's victory points for evaluation
-    // Alternative would be to convert to Round and use the CozenAI's evaluation
-    const score = gameState.players.black.victory_points || 0;
-    
-    // Add a bonus for cards in hand (1 point per card)
-    const handBonus = (gameState.players.black.hand?.length || 0) * 0.5;
-    
-    // Normalize to 0-1 range (70 is the winning score)
-    // Calculate difference between black and red scores to favor moves that increase lead
-    const blackScore = score + handBonus;
-    const redScore = gameState.players.red?.victory_points || 0;
-    const scoreDifference = blackScore - redScore;
-    
-    // Normalize to 0-1 range, clamping between 0 and 1
-    const normalizedScore = 0.5 + (scoreDifference / 140);
-    return Math.max(0, Math.min(1, normalizedScore));
+    try {
+      // Convert to our Round format for evaluation
+      const round = convertToRound(gameState);
+      
+      // For simple evaluations, don't use the full minimax - just evaluate current state
+      const score = evaluateGameState(round, "Black");
+      
+      // Normalize the score to 0-1 range
+      // Minimax scores are usually between -100 and 100, so we map that to 0-1
+      const normalizedScore = 0.5 + (score / 200);
+      return Math.max(0, Math.min(1, normalizedScore));
+    } catch (evalError) {
+      console.error("Error evaluating game state:", evalError);
+      
+      // Fallback to simple victory point difference
+      const blackScore = gameState.players.black.victory_points || 0;
+      const redScore = gameState.players.red?.victory_points || 0;
+      const scoreDifference = blackScore - redScore;
+      
+      // Normalize to 0-1 range, clamping between 0 and 1
+      const normalizedScore = 0.5 + (scoreDifference / 140);
+      return Math.max(0, Math.min(1, normalizedScore));
+    }
   } catch (error) {
     console.error("Error in minimaxObjective:", error);
     return 0.5; // Return neutral score on error
@@ -236,11 +244,29 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Array<{mo
     return [];
   }
   
-  // When called from the AI debug panel's "Play" button, only generate moves for Black
-  // But during internal MCTSBot simulations, allow moves for both players
-  const isDirectAIPlay = !ctx.turn && playerID === '0';
-  if (isDirectAIPlay) {
+  // When called from the debug "Play" button, we need to ensure we generate moves for BLACK
+  // Also verify if it's actually Black's turn in the game
+  const currentTurn = gameState.activePlayer; // 'red' or 'black'
+  
+  // Debug object to inspect what's going on
+  console.log("AI enumerate called with:", {
+    hasG: !!gameState,
+    hasPlayers: !!gameState.players,
+    playerID,
+    ctx: ctx,
+    currentTurn,
+    blackHand: gameState.players.black?.hand?.length
+  });
+  
+  // Always force black moves when pressing "Play" in the AI panel
+  if (playerID === '0') {
     console.log("enumerate: Not red's turn");
+    return [];
+  }
+  
+  // If it's not Black's turn in the real game, don't generate moves
+  if (currentTurn !== 'black' && !ctx.turn) {
+    console.log(`enumerate: Not black's turn in the game (current turn: ${currentTurn})`);
     return [];
   }
   
