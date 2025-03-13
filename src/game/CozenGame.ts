@@ -357,11 +357,6 @@ export const CozenGame: Game<CozenState> = {
         // Null safety check 
         if (!G || !G.players) return false;
         
-        // Only log during actual gameplay, not AI simulations
-        if (ENABLE_LOGGING) {
-          console.log(`[DEBUG] Phase endIf check: roundState=${G.roundState}`);
-          console.log(`[DEBUG] Red cards: ${G.players.red.hand.length}, Black cards: ${G.players.black.hand.length}`);
-        }
         
         // Simple check - just look at the round state that's set in the move functions
         if (G.roundState !== 'complete') {
@@ -369,17 +364,14 @@ export const CozenGame: Game<CozenState> = {
           
           // Both players have no cards
           if (G.players.red.hand.length === 0 && G.players.black.hand.length === 0) {
-            if (ENABLE_LOGGING) console.log('[DEBUG] FORCED COMPLETE: Both players have no cards');
             G.roundState = 'complete';
           }
           // In last_play state and active player has no cards 
           else if (G.roundState === 'last_play' && G.players[G.activePlayer].hand.length === 0) {
-            if (ENABLE_LOGGING) console.log('[DEBUG] FORCED COMPLETE: Active player has no cards in last_play state');
             G.roundState = 'complete';
           }
           // One player has no cards after a few turns have been played
           else if ((G.players.red.hand.length === 0 || G.players.black.hand.length === 0) && ctx.turn > 2) {
-            if (ENABLE_LOGGING) console.log('[DEBUG] DETECTED INCOMPLETE ROUND: One player has no cards');
             G.roundState = 'complete';
           }
         }
@@ -426,11 +418,6 @@ export const CozenGame: Game<CozenState> = {
         // Process round end logic without returning G
         // Just do the work and let boardgame.io handle state updates
         
-        if (ENABLE_LOGGING) {
-          console.log('ENTERING ROUND END PHASE');
-          console.log(`Round state: ${G.roundState}`);
-          console.log(`Red cards left: ${G.players.red.hand.length}, Black cards left: ${G.players.black.hand.length}`);
-        }
         
         // Score the board and determine winners of contested columns
         scoreBoard(G);
@@ -438,18 +425,10 @@ export const CozenGame: Game<CozenState> = {
         // Check for game winner
         const winner = checkVictory(G);
         
-        if (ENABLE_LOGGING) {
-          console.log(`After scoring: Red VP=${G.players.red.victory_points}, Black VP=${G.players.black.victory_points}`);
-          console.log(`Winner check: ${winner || 'No winner yet'}`);
-        }
         
         // If no winner, set up the next round
         if (!winner) {
           setupNextRound(G);
-          if (ENABLE_LOGGING) {
-            console.log('Next round setup complete');
-            console.log(`New active player: ${G.activePlayer}`);
-          }
         }
         
         // Don't return anything
@@ -457,9 +436,6 @@ export const CozenGame: Game<CozenState> = {
       endIf: (G: CozenState, ctx: Ctx) => {
         // Wait 3 seconds in roundEnd phase before continuing
         // This ensures the client has time to update and show the transition screen
-        console.log('[DEBUG] Starting roundEnd timeout (3 seconds)');
-        // Return true directly rather than using a Promise
-        // Note: This would need a different implementation for true delay
         return true;
       },
     },

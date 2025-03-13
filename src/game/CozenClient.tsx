@@ -55,53 +55,6 @@ export const CozenLocalClient = Client({
   multiplayer: Local(),
 });
 
-// Create a client with AI opponent
-// Wrap the CozenGame to provide better error handling
-const SafeCozenGame = {
-  ...CozenGame,
-  setup: (ctx: any, setupData?: any) => {
-    try {
-      console.log("SafeCozenGame setup called with:", { ctx, setupData });
-      const result = CozenGame.setup(ctx, setupData);
-      console.log("SafeCozenGame setup successful, state keys:", Object.keys(result));
-      return result;
-    } catch (error) {
-      console.error("CRITICAL ERROR in game setup:", error);
-      // Return a minimal valid state instead of crashing that matches the CozenState type
-      return {
-        players: {
-          red: {
-            hand: [],
-            jail: [],
-            cards: [],
-            victory_points: 0,
-            availableStakes: [],
-            stake_offset: 1
-          },
-          black: {
-            hand: [],
-            jail: [],
-            cards: [],
-            victory_points: 0,
-            availableStakes: [],
-            stake_offset: -1
-          }
-        },
-        board: [],
-        firstStakes: { red: [], black: [] },
-        roundState: 'running' as 'running',
-        activePlayer: 'black' as 'black',
-        inactivePlayer: 'red' as 'red',
-        cardsJailed: 0,
-        isFirstRound: true,
-        turnCount: 1,
-        developerMode: true,
-        victoryPointScores: { red: 0, black: 0 }
-      };
-    }
-  }
-};
-
 // Function to create a new MCTSBot - this allows us to get a fresh instance each time
 const createMCTSBot = () => {
   return new MCTSBot({

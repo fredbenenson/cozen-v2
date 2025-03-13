@@ -72,7 +72,6 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   useEffect(() => {
     if (G?.developerMode !== undefined) {
       setShowOpponentCards(G.developerMode);
-      console.log("Developer mode state changed:", G.developerMode);
     }
   }, [G]);
 
@@ -116,23 +115,14 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     };
   }, [selectedCards]);
 
-  // Always set the human player to Red and the AI to Black for consistent UI
-  // Note: playerID is "0" for first player, "1" for second player
-  // Use type assertions to avoid string literal type issues
-  const currentColor = 'red' as string;  // Human player is always red
-  const opponentColor = 'black' as string; // AI/opponent is always black
-
-  // Keep a reference to direct player objects for easier access later
-  let playerRed, playerBlack;
-
+  // The human player is always red, AI is always black
   // Get player objects directly from the game state
-  // We'll store references to the current player and opponent
   let player: any, opponent: any;
 
   try {
-    // Get player objects based on color
-    player = currentColor === 'red' ? G.players.red : G.players.black;
-    opponent = opponentColor === 'black' ? G.players.black : G.players.red;
+    // Access player objects directly
+    player = G.players.red;
+    opponent = G.players.black;
   } catch (error) {
     console.error("Error while getting player objects:", error);
   }
@@ -143,39 +133,22 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     setTimeout(() => setMessage(''), 3000);
   };
 
-  // Get next available stake column - player is always red
-  const getNextStakeColumn = (): number | undefined => {
-    if (!player?.availableStakes || player.availableStakes.length === 0) return undefined;
-
-    // Always use the Red staking pattern since player is always Red
-    // Red stakes columns from left to right (5, 6, 7, 8, 9)
-    return player.availableStakes.sort((a: number, b: number) => a - b)[0];
-  };
 
   // Check if a column is valid for wagering (must have a stake card)
   const isWagerableColumn = (columnIndex: number): boolean => {
-    // Column must have a stake card to be wagerable
-    // G.board[columnIndex] is a Column object that may have a stakedCard
-    const hasStakedCard = G.board[columnIndex]?.stakedCard !== undefined;
-    return hasStakedCard;
+    return G.board[columnIndex]?.stakedCard !== undefined;
   };
 
   // Check if a specific position is valid for wagering for the current player
   const isWagerablePosition = (rowIndex: number, columnIndex: number, playerColor: 'red' | 'black'): boolean => {
-    // Current human player is always red ('0')
-    const currentPlayerColor = 'red'; // Human player is always red
-
     // Column must have a stake card
     if (!isWagerableColumn(columnIndex)) {
       return false;
     }
 
-    // Position must be empty and belong to the current player
-    // For red player, check red positions (6-10)
-    // For black player, check black positions (0-4)
-    // The position's owner field should match the current player
+    // Position must be empty and belong to the player (always red)
     const position = G.board[columnIndex]?.positions?.find(
-      (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
+      (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === 'red'
     );
 
     return !!position && !position.card;
@@ -210,8 +183,6 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
 
     // Toggle selection
     setSelectedColumn(columnIndex === selectedColumn ? null : columnIndex);
-
-    console.log(`Selected column: ${columnIndex}`);
   };
 
   // Stake a card
@@ -237,10 +208,6 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
       ? columnIndex
       : Math.min(...player.availableStakes);
 
-    // Display debug info
-    console.log("Staking card:", selectedCards[0]);
-    console.log("Will stake in column:", nextStakeColumn);
-    console.log("Available stakes:", player.availableStakes);
 
     // Show where the stake will be placed
     showMessage(`Staking in column ${nextStakeColumn}`);
@@ -283,12 +250,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
       return;
     }
 
-    // Display debug info
-    console.log("Wagering cards:", selectedCards);
-    console.log("Selected column:", targetColumn);
-
     // Execute the wager move
-    console.log(`Executing wagerCards move with cards:`, selectedCards.map(c => c.id), `and column:`, targetColumn);
     moves.wagerCards(selectedCards.map(c => c.id), targetColumn);
 
     // We can't actually check the result in strict mode since it returns void
@@ -487,48 +449,10 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     return gridCells;
   };
 
-  // Debug trigger
-  const triggerRoundEnd = () => {
-    setRoundEndData({
-      redVP: G.players.red.victory_points,
-      blackVP: G.players.black.victory_points,
-      redVPGained: G.victoryPointScores?.red || 0,
-      blackVPGained: G.victoryPointScores?.black || 0,
-      nextPlayer: G.activePlayer
-    });
-    setShowRoundEnd(true);
-    console.log("Manual round end screen triggered");
 
-    setTimeout(() => {
-      setShowRoundEnd(false);
-      console.log("Round end screen hidden");
-    }, 5000);
-  };
-
-  const debugTrigger = (
-    <button
-      onClick={triggerRoundEnd}
-      style={{
-        position: 'fixed',
-        bottom: '10px',
-        right: '10px',
-        zIndex: 999,
-        padding: '5px 10px',
-        backgroundColor: '#333',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '12px'
-      }}
-    >
-      Test Round End
-    </button>
-  );
 
   return (
     <>
-      {debugTrigger}
       <div className="board">
         <OpponentInfoComponent
           opponent={opponent}
