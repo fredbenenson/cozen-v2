@@ -1,12 +1,11 @@
 import React from 'react';
-// Try alternative import in case there's an issue with current imports
 import { Client } from 'boardgame.io/react';
 import { Local } from 'boardgame.io/multiplayer';
 import { SocketIO } from 'boardgame.io/multiplayer';
-import { RandomBot } from 'boardgame.io/ai'; // Using RandomBot instead of MCTSBot which isn't in our typedef
+import { MCTSBot } from 'boardgame.io/ai'; // Now using MCTSBot with our minimax algorithm
 import { CozenGame } from './CozenGame';
 import { Board as OriginalBoard } from '../components/Board';
-import { enumerate } from '../ai/enumerate';
+import { enumerate, minimaxObjective } from '../ai/boardgameAIAdapter';
 
 /**
  * BoardWrapper Component
@@ -103,15 +102,24 @@ const SafeCozenGame = {
   }
 };
 
-// Directly use the unmodified game object for consistency
+// Create a client with AI opponent using our minimax algorithm
 export const CozenAIClient = Client({
-  game: CozenGame, // Use the original game object directly 
+  game: CozenGame,
   board: Board,
-  debug: true, // Enable debug to see more information
+  debug: true, // Enable debug panel to see more information
   numPlayers: 2,
-  // Simpler AI configuration
+  // Use MCTSBot with our custom AI implementation
   ai: {
-    enumerate,
+    // Create an MCTSBot with our custom enumerate function and objective
+    bot: new MCTSBot({
+      game: CozenGame,
+      enumerate: enumerate,
+      objectives: {
+        '1': minimaxObjective // Player ID 1 (black) uses our minimax objective
+      },
+      iterations: 200, // Reduced iterations to avoid simulation errors
+      playoutDepth: 5, // Reduced depth to avoid deep recursion issues
+    })
   },
 });
 

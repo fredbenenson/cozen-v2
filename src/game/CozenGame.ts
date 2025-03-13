@@ -391,7 +391,12 @@ export const CozenGame: Game<CozenState> = {
           },
           // Always alternate between players
           next: (G: CozenState, ctx: Ctx) => {
-            return ctx.playOrderPos === 0 ? 1 : 0;
+            // Safely handle missing context during AI simulations
+            if (ctx && typeof ctx.playOrderPos !== 'undefined') {
+              return ctx.playOrderPos === 0 ? 1 : 0;
+            }
+            // Default fallback if playOrderPos is missing
+            return G.activePlayer === 'red' ? 1 : 0;
           }
         },
         // We're going to handle turn switching in our move functions

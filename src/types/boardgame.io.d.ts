@@ -157,6 +157,18 @@ declare module 'boardgame.io/ai' {
     strategy: (G: any, ctx: any) => { action: any; metadata: any };
     setOpts: (options: any) => void;
   };
+  
+  export class MCTSBot {
+    constructor(opts: {
+      game: any;
+      enumerate: (G: any, ctx: any, playerID?: string) => Array<{move: string, args: any[]}>;
+      iterations?: number;
+      playoutDepth?: number;
+      objectives?: {
+        [key: string]: (G: any, ctx: any) => number;
+      };
+    });
+  }
 }
 
 declare module 'boardgame.io/multiplayer' {
