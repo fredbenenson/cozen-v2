@@ -9,10 +9,10 @@ import { enumerate, minimaxObjective } from '../ai/boardgameAIAdapter';
 
 /**
  * BoardWrapper Component
- * 
+ *
  * This component wraps the Board component to intercept and debug props from boardgame.io.
  * It also handles a special case where G might be nested inside itself.
- * 
+ *
  * The normal props structure from boardgame.io is:
  * {
  *   G: { players: {...}, board: [...], ... },  // Our game state (CozenState)
@@ -23,7 +23,7 @@ import { enumerate, minimaxObjective } from '../ai/boardgameAIAdapter';
  */
 /**
  * BoardWrapper Component
- * 
+ *
  * Handles the case where boardgame.io might provide a doubly-nested G structure.
  */
 const BoardWrapper = (props: any) => {
@@ -34,10 +34,10 @@ const BoardWrapper = (props: any) => {
       ...props,
       G: props.G.G // Unwrap the nested G
     };
-    
+
     return <OriginalBoard {...fixedProps} />;
   }
-  
+
   // Pass props directly to the Board component
   return <OriginalBoard {...props} />;
 };
@@ -169,7 +169,7 @@ export const AIGameComponent = () => {
     try {
       console.log("AIGameComponent mounted");
       setIsLoading(false);
-      
+
       // Set a loading timeout to detect if the game isn't initializing properly
       // But only if the game really isn't loading
       const timeoutId = setTimeout(() => {
@@ -183,7 +183,7 @@ export const AIGameComponent = () => {
           console.log("Game elements found on page, not showing timeout warning");
         }
       }, 8000); // 8 seconds timeout (increase from 5s to 8s to give more time)
-      
+
       return () => clearTimeout(timeoutId);
     } catch (err: any) {
       console.error("Error initializing game:", err);
@@ -207,191 +207,10 @@ export const AIGameComponent = () => {
     );
   }
 
-  // Show a message if loading takes too long
-  if (loadingTimeout) {
-    // Check if the game board is visible but the message is still showing
-    const boardElements = document.querySelectorAll('.board, .hand, .game-grid, .player-info');
-    const isGameVisible = boardElements.length > 0;
-    
-    // If game is visible, show a smaller notification instead of full screen message
-    if (isGameVisible) {
-      return (
-        <>
-          <div style={{ 
-            position: 'fixed', 
-            top: '10px', 
-            right: '10px', 
-            background: 'rgba(255,240,200,0.95)', 
-            padding: '10px 15px',
-            borderRadius: '5px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-            zIndex: 1000,
-            maxWidth: '300px'
-          }}>
-            <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>
-              Game is loading, but taking longer than expected...
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setLoadingTimeout(false)} 
-                style={{ 
-                  padding: '3px 8px', 
-                  fontSize: '12px',
-                  background: '#fff',
-                  border: '1px solid #ccc',
-                  borderRadius: '3px',
-                  cursor: 'pointer'
-                }}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-          
-          {/* Render the game normally */}
-          <div>
-            <h2 style={{ 
-              textAlign: 'center', 
-              color: '#444',
-              margin: '0 0 20px 0',
-              fontWeight: 'normal'
-            }}>
-              Playing against AI
-            </h2>
-            <div className="controls" style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <button 
-                onClick={() => window.location.reload()} 
-                style={{ padding: '8px 16px', marginRight: '10px' }}
-              >
-                Reload Game
-              </button>
-            </div>
-            
-            {/* Add a custom debug wrapper component */}
-            <GameClientDebugWrapper>
-              <CozenAIClient playerID="0" key={`cozen-client-${Date.now()}`} />
-            </GameClientDebugWrapper>
-          </div>
-        </>
-      );
-    }
-    
-    // Otherwise, show the full screen message
-    return (
-      <div style={{ color: 'orange', padding: '20px', textAlign: 'center' }}>
-        <h2>Game Initialization Taking Longer Than Expected</h2>
-        <p>The game is taking longer than usual to load. This might be due to:</p>
-        <ul style={{ textAlign: 'left', display: 'inline-block' }}>
-          <li>AI processing initial game state</li>
-          <li>Issues with game initialization</li>
-          <li>Problems with board rendering</li>
-        </ul>
-        <div style={{ marginTop: '20px' }}>
-          <button onClick={() => window.location.reload()} style={{ marginRight: '10px', padding: '8px 16px' }}>
-            Reload Page
-          </button>
-          <button onClick={() => setLoadingTimeout(false)} style={{ padding: '8px 16px' }}>
-            Continue Waiting
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Render the game
   return (
     <div>
-      <h2 style={{ 
-        textAlign: 'center', 
-        color: '#444',
-        margin: '0 0 20px 0',
-        fontWeight: 'normal'
-      }}>
-        Playing against AI
-      </h2>
-      <div className="controls" style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <button 
-          onClick={() => window.location.reload()} 
-          style={{ padding: '8px 16px', marginRight: '10px' }}
-        >
-          Reload Game
-        </button>
-      </div>
-      
-      {/* Add a custom debug wrapper component */}
-      <GameClientDebugWrapper>
-        <CozenAIClient playerID="0" key={`cozen-client-${Date.now()}`} />
-      </GameClientDebugWrapper>
-    </div>
-  );
-};
-
-// Debug wrapper component to monitor props passed to children
-const GameClientDebugWrapper: React.FC<{children: React.ReactNode}> = ({children}) => {
-  const [hasChildren, setHasChildren] = React.useState(false);
-  const [debugInfo, setDebugInfo] = React.useState<any>(null);
-  
-  // Check if a valid child is rendered
-  React.useEffect(() => {
-    const childrenArr = React.Children.toArray(children);
-    console.log("GameClientDebugWrapper children:", childrenArr.length);
-    
-    // Access any props for debugging
-    React.Children.forEach(children, (child) => {
-      if (React.isValidElement(child)) {
-        console.log("Child element props:", child.props);
-        try {
-          const type = typeof child.type === 'function' 
-            ? child.type.name || 'FunctionComponent'
-            : String(child.type);
-            
-          setDebugInfo({
-            type,
-            hasProps: Object.keys(child.props).length > 0,
-            propKeys: Object.keys(child.props)
-          });
-        } catch (err) {
-          console.error("Error processing child element:", err);
-          setDebugInfo({
-            type: "Unknown",
-            hasProps: false,
-            propKeys: []
-          });
-        }
-      }
-    });
-    
-    setHasChildren(childrenArr.length > 0);
-  }, [children]);
-  
-  return (
-    <div className="debug-wrapper">
-      {/* Debug info */}
-      {debugInfo && (
-        <div style={{ 
-          margin: '10px 0', 
-          padding: '10px', 
-          backgroundColor: '#f9f9f9', 
-          border: '1px solid #ddd', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontFamily: 'monospace'
-        }}>
-          <div>Client Type: {debugInfo.type}</div>
-          <div>Has Props: {String(debugInfo.hasProps)}</div>
-          <div>Prop Keys: {debugInfo.propKeys.join(', ')}</div>
-        </div>
-      )}
-      
-      {/* Render the actual children */}
-      {children}
-      
-      {/* Fallback if no children */}
-      {!hasChildren && (
-        <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>
-          Error: No valid game client component found!
-        </div>
-      )}
+      <CozenAIClient playerID="0" key={`cozen-client-${Date.now()}`} />
     </div>
   );
 };
@@ -399,7 +218,7 @@ const GameClientDebugWrapper: React.FC<{children: React.ReactNode}> = ({children
 // Component for joining an online game
 export const OnlineGameComponent = ({ matchID, playerID, serverURI }: { matchID: string; playerID: string; serverURI: string }) => {
   const CozenClient = CozenOnlineClient(serverURI);
-  
+
   return (
     <div>
       <h1>Cozen - Online Game</h1>

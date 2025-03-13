@@ -29,6 +29,17 @@ interface MoveContext {
 
 // Move implementations
 const moves = {
+  // Toggle visibility of opponent cards (for debugging)
+  toggleOpponentCards: ({ G, ctx }: MoveContext) => {
+    // Toggle the developer mode flag
+    G.developerMode = !G.developerMode;
+    
+    // Log the change
+    console.log(`Opponent cards ${G.developerMode ? 'revealed' : 'hidden'} (dev mode ${G.developerMode ? 'on' : 'off'})`);
+    
+    // Return the modified game state
+    return G;
+  },
   
   // Stake a card in the stakes row
   stakeCard: ({ G, ctx }: MoveContext, cardId: string) => {

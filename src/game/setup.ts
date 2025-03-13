@@ -77,7 +77,7 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       cardsJailed: 0,
       isFirstRound: true,
       turnCount: 1,
-      developerMode: true, // Enable developer mode by default during development
+      developerMode: false, // Developer mode disabled by default, toggle via debug panel
       victoryPointScores: {
         red: 0,
         black: 0,

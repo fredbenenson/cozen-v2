@@ -61,12 +61,20 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Simple toggle to flip cards visually (purely client-side)
+  // Toggle dev mode to reveal opponent cards (will be called from debug panel)
+  // We need to keep this function since moves are accessed via the debug panel
   const toggleOpponentCards = () => {
-    // Just toggle the UI state for the card flip animation
-    setShowOpponentCards(!showOpponentCards);
-    console.log(`Card peek mode ${!showOpponentCards ? "enabled" : "disabled"}`);
+    // Call the move to toggle opponent cards visibility in the game state
+    moves.toggleOpponentCards();
   };
+  
+  // Monitor for developerMode changes in game state
+  useEffect(() => {
+    if (G?.developerMode !== undefined) {
+      setShowOpponentCards(G.developerMode);
+      console.log("Developer mode state changed:", G.developerMode);
+    }
+  }, [G]);
 
   // Monitor for turn changes and manage logging
   useEffect(() => {
@@ -525,7 +533,6 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
         <OpponentInfoComponent
           opponent={opponent}
           showOpponentCards={showOpponentCards}
-          toggleOpponentCards={toggleOpponentCards}
         />
 
         <div className="game-grid">
