@@ -463,60 +463,67 @@ export const CozenGame: Game<CozenState> = {
     return false;
   },
   
-  // Define what parts of state are private to each player
+  /**
+   * playerView function 
+   * 
+   * This function controls what parts of the game state are visible to each player.
+   * It receives the raw game state (G) directly from boardgame.io (not nested).
+   * 
+   * @param G - The complete game state (CozenState)
+   * @param ctx - The game context from boardgame.io
+   * @param playerID - The ID of the player viewing the state ('0' for red, '1' for black)
+   * @returns A potentially filtered version of the state for the player
+   */
   playerView: (G: CozenState, ctx: Ctx, playerID: string) => {
-    // Add debugging to see what's coming in
+    // Debug log to understand what we're receiving
     console.log("playerView called with:", { 
-      hasG: !!G, 
       hasPlayers: G && !!G.players,
       playerID,
-      ctx: ctx ? Object.keys(ctx) : [],
-      gameKeys: G ? Object.keys(G) : []
+      stateKeys: G ? Object.keys(G) : []
     });
     
-    // Handle the case where G might be nested inside itself (debugging)
-    const actualState = (G as any).G ? (G as any).G : G;
+    // Handle potential G.G nesting (workaround for boardgame.io issue)
+    // Get the real game state, handling potential nesting
+    const gameState = (G as any).G ? (G as any).G : G;
     
-    // Add null checks for test environments
-    if (!actualState || !actualState.players) {
-      console.error("playerView received incomplete state:", G);
-      return G;
+    // Basic validation of game state
+    if (!gameState || !gameState.players) {
+      console.error("playerView received incomplete game state");
+      return G; // Return what we received as a fallback
     }
     
-    // If developer mode is enabled, show all cards
-    if (actualState.developerMode) {
+    // In developer mode, show the complete state to all players
+    if (gameState.developerMode) {
       console.log("Developer mode enabled, returning full state");
-      return actualState;
+      return gameState;
     }
     
-    // Hide opponent's hand - only if playerID is provided
+    // Create player-specific views (hide opponent's cards)
     if (playerID === '0' || playerID === '1') {
-      // Map numeric player IDs to colors
+      // Convert numeric ID to color
       const playerColor = playerID === '0' ? 'red' : 'black';
       const opponentColor = playerID === '0' ? 'black' : 'red';
       
       console.log(`Creating filtered view for ${playerColor} player`);
       
-      const filteredState = {
-        ...actualState,
+      // Create a filtered copy of the state
+      const playerVisibleState = {
+        ...gameState,
         players: {
-          ...actualState.players,
+          ...gameState.players,
+          // Hide opponent's hand cards (replace with placeholder objects)
           [opponentColor]: {
-            ...actualState.players[opponentColor],
-            // Replace actual cards with hidden placeholders
-            hand: actualState.players[opponentColor].hand.map((_: Card) => ({ hidden: true } as any)),
+            ...gameState.players[opponentColor],
+            hand: gameState.players[opponentColor].hand.map((_: Card) => ({ hidden: true } as any)),
           }
         }
       };
       
-      console.log("Returning filtered state with keys:", Object.keys(filteredState));
-      console.log("Filtered state has players:", !!filteredState.players);
-      
-      return filteredState;
+      return playerVisibleState;
     }
     
-    console.log("No filtering applied, returning original state");
-    return actualState;
+    // For spectators or AI, return the complete state
+    return gameState;
   },
   
   // AI move enumeration

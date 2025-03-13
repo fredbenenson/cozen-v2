@@ -8,36 +8,49 @@ import { CozenGame } from './CozenGame';
 import { Board as OriginalBoard } from '../components/Board';
 import { enumerate } from '../ai/enumerate';
 
-// Simple wrapper to debug boardgame.io props 
+/**
+ * BoardWrapper Component
+ * 
+ * This component wraps the Board component to intercept and debug props from boardgame.io.
+ * It also handles a special case where G might be nested inside itself.
+ * 
+ * The normal props structure from boardgame.io is:
+ * {
+ *   G: { players: {...}, board: [...], ... },  // Our game state (CozenState)
+ *   ctx: { ... },                             // Game context (turns, phases, etc.)
+ *   moves: { ... },                           // Functions to update the game state
+ *   ...other props
+ * }
+ */
 const BoardWrapper = (props: any) => {
-  console.log("BoardWrapper props:", { 
+  console.log("BoardWrapper props received:", { 
     hasG: !!props.G, 
     hasPlayers: props.G && !!props.G.players,
     playerKeys: props.G?.players ? Object.keys(props.G.players) : [],
     gameState: props.G ? Object.keys(props.G) : []
   });
   
-  // Direct debugging of G object properties
+  // Check and validate the G object
   if (props.G) {
     try {
-      // Check direct property descriptors
-      const playerDesc = Object.getOwnPropertyDescriptor(props.G, 'players');
-      console.log("players property descriptor:", playerDesc);
+      // Verify the expected structure
+      console.log("G properties:", {
+        roundState: props.G.roundState,
+        activePlayer: props.G.activePlayer,
+        hasBoard: Array.isArray(props.G.board)
+      });
       
-      // Check if G has expected properties from CozenState
-      console.log("G.roundState:", props.G.roundState);
-      console.log("G.activePlayer:", props.G.activePlayer);
-      console.log("G.board:", Array.isArray(props.G.board));
-      
-      // Special handling for deeply nested G structure
+      // Handle case where G is incorrectly nested (G.G instead of just G)
+      // This is a workaround for a boardgame.io issue
       if (!props.G.players && props.G.G) {
-        console.log("Detected nested G structure! Fixing props...");
-        // Create a new props object with unwrapped G
+        console.log("Fixed nested G structure (G.G -> G)");
+        
+        // Create a new props object with the corrected structure
         const fixedProps = {
           ...props,
-          G: props.G.G
+          G: props.G.G  // Use the nested G as the main G
         };
-        // Pass the fixed props to the board component
+        
         return <OriginalBoard {...fixedProps} />;
       }
     } catch (err) {
@@ -45,7 +58,7 @@ const BoardWrapper = (props: any) => {
     }
   }
   
-  // Pass props directly to the board component
+  // Pass props through to the Board component
   return <OriginalBoard {...props} />;
 };
 
@@ -174,10 +187,18 @@ export const AIGameComponent = () => {
       setIsLoading(false);
       
       // Set a loading timeout to detect if the game isn't initializing properly
+      // But only if the game really isn't loading
       const timeoutId = setTimeout(() => {
-        console.warn("Game initialization timeout reached - possible stuck state");
-        setLoadingTimeout(true);
-      }, 5000); // 5 seconds timeout
+        // Check if there are any game-related elements on the page
+        const boardElements = document.querySelectorAll('.board, .hand, .game-grid, .player-info');
+        if (boardElements.length === 0) {
+          // Only show timeout if no game elements are found
+          console.warn("Game initialization timeout reached - possible stuck state");
+          setLoadingTimeout(true);
+        } else {
+          console.log("Game elements found on page, not showing timeout warning");
+        }
+      }, 8000); // 8 seconds timeout (increase from 5s to 8s to give more time)
       
       return () => clearTimeout(timeoutId);
     } catch (err: any) {
@@ -204,6 +225,74 @@ export const AIGameComponent = () => {
 
   // Show a message if loading takes too long
   if (loadingTimeout) {
+    // Check if the game board is visible but the message is still showing
+    const boardElements = document.querySelectorAll('.board, .hand, .game-grid, .player-info');
+    const isGameVisible = boardElements.length > 0;
+    
+    // If game is visible, show a smaller notification instead of full screen message
+    if (isGameVisible) {
+      return (
+        <>
+          <div style={{ 
+            position: 'fixed', 
+            top: '10px', 
+            right: '10px', 
+            background: 'rgba(255,240,200,0.95)', 
+            padding: '10px 15px',
+            borderRadius: '5px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+            zIndex: 1000,
+            maxWidth: '300px'
+          }}>
+            <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>
+              Game is loading, but taking longer than expected...
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setLoadingTimeout(false)} 
+                style={{ 
+                  padding: '3px 8px', 
+                  fontSize: '12px',
+                  background: '#fff',
+                  border: '1px solid #ccc',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+          
+          {/* Render the game normally */}
+          <div>
+            <h2 style={{ 
+              textAlign: 'center', 
+              color: '#444',
+              margin: '0 0 20px 0',
+              fontWeight: 'normal'
+            }}>
+              Playing against AI
+            </h2>
+            <div className="controls" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{ padding: '8px 16px', marginRight: '10px' }}
+              >
+                Reload Game
+              </button>
+            </div>
+            
+            {/* Add a custom debug wrapper component */}
+            <GameClientDebugWrapper>
+              <CozenAIClient playerID="0" key={`cozen-client-${Date.now()}`} />
+            </GameClientDebugWrapper>
+          </div>
+        </>
+      );
+    }
+    
+    // Otherwise, show the full screen message
     return (
       <div style={{ color: 'orange', padding: '20px', textAlign: 'center' }}>
         <h2>Game Initialization Taking Longer Than Expected</h2>
