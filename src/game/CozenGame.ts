@@ -465,12 +465,28 @@ export const CozenGame: Game<CozenState> = {
   
   // Define what parts of state are private to each player
   playerView: (G: CozenState, ctx: Ctx, playerID: string) => {
+    // Add debugging to see what's coming in
+    console.log("playerView called with:", { 
+      hasG: !!G, 
+      hasPlayers: G && !!G.players,
+      playerID,
+      ctx: ctx ? Object.keys(ctx) : [],
+      gameKeys: G ? Object.keys(G) : []
+    });
+    
+    // Handle the case where G might be nested inside itself (debugging)
+    const actualState = (G as any).G ? (G as any).G : G;
+    
     // Add null checks for test environments
-    if (!G || !G.players) return G;
+    if (!actualState || !actualState.players) {
+      console.error("playerView received incomplete state:", G);
+      return G;
+    }
     
     // If developer mode is enabled, show all cards
-    if (G.developerMode) {
-      return G;
+    if (actualState.developerMode) {
+      console.log("Developer mode enabled, returning full state");
+      return actualState;
     }
     
     // Hide opponent's hand - only if playerID is provided
@@ -479,19 +495,28 @@ export const CozenGame: Game<CozenState> = {
       const playerColor = playerID === '0' ? 'red' : 'black';
       const opponentColor = playerID === '0' ? 'black' : 'red';
       
-      return {
-        ...G,
+      console.log(`Creating filtered view for ${playerColor} player`);
+      
+      const filteredState = {
+        ...actualState,
         players: {
-          ...G.players,
+          ...actualState.players,
           [opponentColor]: {
-            ...G.players[opponentColor],
+            ...actualState.players[opponentColor],
             // Replace actual cards with hidden placeholders
-            hand: G.players[opponentColor].hand.map((_: Card) => ({ hidden: true } as any)),
+            hand: actualState.players[opponentColor].hand.map((_: Card) => ({ hidden: true } as any)),
           }
         }
       };
+      
+      console.log("Returning filtered state with keys:", Object.keys(filteredState));
+      console.log("Filtered state has players:", !!filteredState.players);
+      
+      return filteredState;
     }
-    return G;
+    
+    console.log("No filtering applied, returning original state");
+    return actualState;
   },
   
   // AI move enumeration

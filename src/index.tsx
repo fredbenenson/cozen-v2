@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { LocalGameComponent, AIGameComponent } from './game/CozenClient';
 
@@ -46,8 +46,21 @@ class SimpleErrorBoundary extends React.Component<
   }
 }
 
-// Basic app component
+// Improved App component with version display
 const App = () => {
+  // Add a version number to make it easier to verify you're seeing the latest code
+  const appVersion = `v${Date.now().toString().substring(6)}`; // Simple version based on timestamp
+  
+  useEffect(() => {
+    console.log(`Cozen Game ${appVersion} initialized at ${new Date().toISOString()}`);
+    console.log("React version:", React.version);
+    
+    // Debug boardgame.io client information
+    if (window) {
+      console.log("Window object keys:", Object.keys(window));
+    }
+  }, []);
+
   return (
     <SimpleErrorBoundary>
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
@@ -58,7 +71,7 @@ const App = () => {
           paddingBottom: '10px',
           marginBottom: '20px'
         }}>
-          Cozen - Card Game
+          Cozen - Card Game <small style={{ fontSize: '0.5em', color: '#999' }}>{appVersion}</small>
         </h1>
         
         {/* Directly start the game against AI */}

@@ -1,14 +1,6 @@
 import { Document, Types } from 'mongoose';
 import { Round } from './round';
 
-// Declare boardgame.io modules to prevent TypeScript errors
-declare module 'boardgame.io';
-declare module 'boardgame.io/server';
-declare module 'boardgame.io/react';
-declare module 'boardgame.io/ai';
-declare module 'boardgame.io/multiplayer';
-declare module 'boardgame.io/core';
-
 export enum Color {
   Red = 'red',
   Black = 'black'

@@ -7,19 +7,52 @@ import { enableGameLogging, disableGameLogging } from '../game/CozenGame';
 import { BOARD, isValidWagerPosition } from '../utils/moveValidation';
 import { getCardDisplayValue, getCardRankSymbol } from '../utils/cardUtils';
 
-export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
+// Define a structure for the actual state received from boardgame.io
+// which nests our CozenState inside a G property
+interface BoardgameIOState {
+  G: CozenState;
+  ctx: any;
+  playerID: string;
+  [key: string]: any;
+}
+
+// Define the expected structure of the game state as received by the component
+export function Board(props: BoardProps<BoardgameIOState>) {
+  // Destructure props to access G, ctx, moves, events
+  const { G, ctx, moves, events } = props;
+  console.log("Board component rendering with props:", { 
+    G: G ? Object.keys(G) : "missing",
+    ctx: ctx ? Object.keys(ctx) : "missing",
+    moveKeys: moves ? Object.keys(moves) : "missing"
+  });
+  
+  // Extract the actual game state from the G property
+  const actualGameState = G;
+  
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
   const [message, setMessage] = useState<string>('');
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isCursorVisible, setIsCursorVisible] = useState(false);
   const [showOpponentCards, setShowOpponentCards] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   
   // State to track if we're peeking at opponent cards
   // We'll use this for visual hiding only, since all card data will still come to the client
   
+  // Initialization check
+  useEffect(() => {
+    console.log("Board mounted with G:", actualGameState);
+    // Force a re-render after a short delay to ensure proper initialization
+    const timer = setTimeout(() => {
+      setHasInitialized(true);
+      console.log("Board initialized, state refreshed");
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [actualGameState]);
+  
   // Enable game logging once the board component mounts
-  // This way, AI's initial moves won't flood the console
   useEffect(() => {
     // Wait a short time to ensure all initial AI calculations are done
     const timer = setTimeout(() => {
@@ -28,8 +61,6 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     
     return () => clearTimeout(timer);
   }, []);
-  
-  // No need to sync with game state as we're using a purely client-side approach now
   
   // Simple toggle to flip cards visually (purely client-side)
   const toggleOpponentCards = () => {
@@ -40,13 +71,15 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
   
   // Monitor for turn changes and manage logging
   useEffect(() => {
+    if (!ctx) return; // Add defensive check
+    
     // Is it the AI's turn? (player '1' is AI/Black)
     if (ctx.currentPlayer === '1') {
       disableGameLogging();
     } else {
       enableGameLogging();
     }
-  }, [ctx.currentPlayer]);
+  }, [ctx?.currentPlayer]);
   
   // Track mouse movement for custom cursor
   useEffect(() => {
@@ -78,21 +111,116 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
 
   // Always set the human player to Red and the AI to Black for consistent UI
   // Note: playerID is "0" for first player, "1" for second player
-  const currentColor = 'red';  // Human player is always red
-  const opponentColor = 'black'; // AI/opponent is always black
+  // Use type assertions to avoid string literal type issues
+  const currentColor = 'red' as string;  // Human player is always red
+  const opponentColor = 'black' as string; // AI/opponent is always black
 
-  // Add defensive checks for when G might be transitioning between rounds
-  if (!G || !G.players) {
-    return <div className="board">Loading game state...</div>;
+  // Keep a reference to direct player objects for easier access later
+  let playerRed, playerBlack;
+  
+  // Defensive check to see if we can access the players
+  try {
+    if (actualGameState && actualGameState.players) {
+      // Direct property access
+      playerRed = actualGameState.players.red;
+      playerBlack = actualGameState.players.black;
+    }
+  } catch (err) {
+    console.error("Error getting player objects:", err);
   }
 
-  const player = G.players[currentColor];
-  const opponent = G.players[opponentColor];
+  // Add defensive checks for when game state might be transitioning between rounds
+  if (!actualGameState) {
+    console.error("Game state is undefined or null");
+    return <div className="board">Loading game state... (game state is missing)</div>;
+  }
+  
+  // Basic debugging of game state structure
+  console.log("Board: Game state structure", {
+    wrapper: G,
+    actualGame: actualGameState,
+    keys: actualGameState ? Object.keys(actualGameState) : [],
+    hasPlayers: actualGameState && 'players' in actualGameState,
+    playersType: actualGameState && actualGameState.players ? typeof actualGameState.players : 'undefined'
+  });
+  
+  // Verify the game state has the expected players property
+  if (actualGameState) {
+    try {
+      // Inspect players property descriptor
+      const playersDesc = Object.getOwnPropertyDescriptor(actualGameState, 'players');
+      console.log("players property descriptor:", playersDesc);
+      
+      console.log("Player access check:", {
+        "players property exists": actualGameState.players !== undefined,
+        "red player exists": actualGameState.players?.red !== undefined,
+        "black player exists": actualGameState.players?.black !== undefined
+      });
+    } catch (err) {
+      console.error("Error inspecting game state:", err);
+    }
+  }
+  
+  // Check if the players property exists in the actual game state
+  const hasPlayers = actualGameState && actualGameState.players !== undefined;
+  
+  // If we don't have the players property, show a loading state
+  if (!hasPlayers) {
+    console.error("Game state missing players object:", { 
+      originalG: G, 
+      actualGameState 
+    });
+    return <div className="board">Loading game state... (players missing)</div>;
+  }
+  
+  // Get player objects directly from the actual game state
+  let player: any, opponent: any;
+
+  try {
+    // Simple direct access now that we've identified the correct structure
+    console.log("Accessing players from actualGameState:", actualGameState.players);
+    
+    // Use type assertion to fix index signature issue 
+    player = currentColor === 'red' ? actualGameState.players.red : actualGameState.players.black;
+    opponent = opponentColor === 'black' ? actualGameState.players.black : actualGameState.players.red;
+    
+    // Fallback to prebaked references if needed
+    if (!player || !opponent) {
+      console.log("Using prebaked player references as fallback");
+      player = player || playerRed;
+      opponent = opponent || playerBlack;
+    }
+  } catch (error) {
+    console.error("Error while getting player objects:", error);
+  }
   
   // Another defensive check for player objects
   if (!player || !opponent) {
+    console.error("Could not retrieve player objects:", { 
+      hasPlayers: actualGameState && !!actualGameState.players,
+      player, 
+      opponent,
+      prebakedRed: playerRed,
+      prebakedBlack: playerBlack
+    });
     return <div className="board">Initializing players...</div>;
   }
+  
+  // Log successful player object retrieval
+  console.log("Successfully retrieved player objects:", {
+    redHand: player.hand?.length,
+    blackHand: opponent.hand?.length
+  });
+  
+  // Additional debugging info using actualGameState
+  console.log("Game state loaded:", { 
+    roundState: actualGameState.roundState,
+    activePlayer: actualGameState.activePlayer,
+    // Access player hands via our successfully retrieved player objects
+    redCards: player?.hand?.length || 0,
+    blackCards: opponent?.hand?.length || 0,
+    board: actualGameState.board ? actualGameState.board.length : 0
+  });
 
   // Show message
   const showMessage = (msg: string) => {
@@ -112,7 +240,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
   // Check if a column is valid for wagering
   const isWagerableColumn = (columnIndex: number): boolean => {
     // Column must have a stake card to be wagerable
-    const hasStakedCard = G.board[columnIndex]?.stakedCard !== undefined;
+    const hasStakedCard = actualGameState.board[columnIndex]?.stakedCard !== undefined;
     return hasStakedCard;
   };
   
@@ -130,7 +258,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     // For red player, check red positions (6-10)
     // For black player, check black positions (0-4)
     // The position's owner field should match the current player
-    const position = G.board[columnIndex]?.positions?.find(
+    const position = actualGameState.board[columnIndex]?.positions?.find(
       (p: { coord: [number, number]; owner: string }) => p.coord[0] === rowIndex && p.coord[1] === columnIndex && p.owner === currentPlayerColor
     );
     
@@ -159,7 +287,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     }
 
     // Check if this column has a stake card
-    if (!G.board[columnIndex].stakedCard) {
+    if (!actualGameState.board[columnIndex].stakedCard) {
       showMessage("Can't select a column without a stake card!");
       return;
     }
@@ -420,10 +548,10 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
 
   // Get card at position 
   const getCardAtPosition = (columnIndex: number, owner: 'red' | 'black') => {
-    if (!G?.board?.[columnIndex]?.positions) return null;
+    if (!actualGameState?.board?.[columnIndex]?.positions) return null;
 
     // For each player side, we need the row closest to the stake row that has a card
-    const positions = G.board[columnIndex].positions
+    const positions = actualGameState.board[columnIndex].positions
       .filter((p: Position) => p.owner === owner && p.card !== undefined);
     
     if (positions.length === 0) return null;
@@ -451,16 +579,16 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
     
     if (ctx.phase === 'roundEnd') {
       console.log('Phase is roundEnd! Should display transition screen');
-      console.log('Round state:', G.roundState);
-      console.log('Victory points:', G.players.red.victory_points, G.players.black.victory_points);
+      console.log('Round state:', actualGameState.roundState);
+      console.log('Victory points:', actualGameState.players.red.victory_points, actualGameState.players.black.victory_points);
       
       // Save current state data for the round end screen
       setRoundEndData({
-        redVP: G.players.red.victory_points,
-        blackVP: G.players.black.victory_points,
-        redVPGained: G.victoryPointScores?.red || 0,
-        blackVPGained: G.victoryPointScores?.black || 0,
-        nextPlayer: G.activePlayer
+        redVP: actualGameState.players.red.victory_points,
+        blackVP: actualGameState.players.black.victory_points,
+        redVPGained: actualGameState.victoryPointScores?.red || 0,
+        blackVPGained: actualGameState.victoryPointScores?.black || 0,
+        nextPlayer: actualGameState.activePlayer
       });
       
       // Set our UI state to show the round end screen
@@ -473,11 +601,11 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
       
       showMessage('Round Complete! Starting next round...');
     }
-  }, [ctx.phase, G]);
+  }, [ctx.phase, actualGameState]);
   
   // Render the grid-based board
   const renderGrid = () => {
-    if (!G?.board) return null;
+    if (!actualGameState?.board) return null;
 
     // Create the grid cells
     const gridCells = [];
@@ -488,8 +616,8 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
         const gridRow = row + 1; // Starting from row 1
         
         // Get the position for this exact grid cell
-        const position = G.board[col]?.positions?.find(
-          p => p.owner === 'black' && p.coord[0] === row
+        const position = actualGameState.board[col]?.positions?.find(
+          (p: Position) => p.owner === 'black' && p.coord[0] === row
         );
         
         // Check if this position has a card
@@ -516,7 +644,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
               if (canWager) {
                 console.log(`Trying to wager on column ${col} (Black position, row ${row})`);
                 wagerCards(col);
-              } else if (hasCard && G.board[col].stakedCard) {
+              } else if (hasCard && actualGameState.board[col].stakedCard) {
                 selectColumn(col);
               }
             }}
@@ -564,13 +692,13 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
           onClick={() => {
             if (canStakeHere) {
               stakeCard(col);
-            } else if (G.board[col].stakedCard) {
+            } else if (actualGameState.board[col].stakedCard) {
               // Only select column for stake row, no wagering
               selectColumn(col);
             }
           }}
         >
-          {G.board[col].stakedCard && renderCard(G.board[col].stakedCard || null)}
+          {actualGameState.board[col].stakedCard && renderCard(actualGameState.board[col].stakedCard || null)}
           {/* Drop here indicator - only for staking */}
           {canStakeHere && (
             <div className="drop-here">
@@ -590,8 +718,8 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
         const boardRow = row + 6;
         
         // Get the position for this exact grid cell
-        const position = G.board[col]?.positions?.find(
-          p => p.owner === 'red' && p.coord[0] === boardRow
+        const position = actualGameState.board[col]?.positions?.find(
+          (p: Position) => p.owner === 'red' && p.coord[0] === boardRow
         );
         
         // Check if this position has a card
@@ -618,7 +746,7 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
               if (canWager) {
                 console.log(`Trying to wager on column ${col} (Red position, row ${boardRow})`);
                 wagerCards(col);
-              } else if (hasCard && G.board[col].stakedCard) {
+              } else if (hasCard && actualGameState.board[col].stakedCard) {
                 selectColumn(col);
               }
             }}
@@ -698,18 +826,18 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
           {ctx && ctx.currentPlayer === '0' ? 'Your Turn' : 'AI\'s Turn'}
         </div>
         <div key="round-state" style={{ marginTop: '5px', fontSize: '12px' }}>
-          Round State: <span style={{ fontWeight: 'bold' }}>{G?.roundState || 'unknown'}</span>
+          Round State: <span style={{ fontWeight: 'bold' }}>{actualGameState?.roundState || 'unknown'}</span>
         </div>
         <div key="phase" style={{ fontSize: '12px' }}>
           Game Phase: <span style={{ fontWeight: 'bold' }}>{ctx?.phase || 'unknown'}</span>
         </div>
         <div key="player-cards" style={{ fontSize: '12px' }}>
-          Cards Left - Red: <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{G?.players?.red?.hand?.length || 0}</span>, 
-          Black: <span style={{ color: '#000099', fontWeight: 'bold' }}>{G?.players?.black?.hand?.length || 0}</span>
+          Cards Left - Red: <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{actualGameState?.players?.red?.hand?.length || 0}</span>, 
+          Black: <span style={{ color: '#000099', fontWeight: 'bold' }}>{actualGameState?.players?.black?.hand?.length || 0}</span>
         </div>
         {message && <div key="message" style={{ color: 'red', fontWeight: 'bold', marginTop: '10px' }}>{message}</div>}
-        {G?.roundState === 'complete' && <div key="round-complete" style={{ color: 'green', fontWeight: 'bold', marginTop: '10px' }}>Round Complete!</div>}
-        {G?.roundState === 'last_play' && <div key="last-play" style={{ color: 'orange', fontWeight: 'bold', marginTop: '10px' }}>Final Plays!</div>}
+        {actualGameState?.roundState === 'complete' && <div key="round-complete" style={{ color: 'green', fontWeight: 'bold', marginTop: '10px' }}>Round Complete!</div>}
+        {actualGameState?.roundState === 'last_play' && <div key="last-play" style={{ color: 'orange', fontWeight: 'bold', marginTop: '10px' }}>Final Plays!</div>}
       </div>
 
       {/* Custom cursor for cards */}
@@ -760,11 +888,11 @@ export function Board({ G, ctx, moves, events }: BoardProps<CozenState>) {
   // Function to manually trigger round end screen (for debugging)
   const triggerRoundEnd = () => {
     setRoundEndData({
-      redVP: G.players.red.victory_points,
-      blackVP: G.players.black.victory_points,
-      redVPGained: G.victoryPointScores?.red || 0,
-      blackVPGained: G.victoryPointScores?.black || 0,
-      nextPlayer: G.activePlayer
+      redVP: actualGameState.players.red.victory_points,
+      blackVP: actualGameState.players.black.victory_points,
+      redVPGained: actualGameState.victoryPointScores?.red || 0,
+      blackVPGained: actualGameState.victoryPointScores?.black || 0,
+      nextPlayer: actualGameState.activePlayer
     });
     setShowRoundEnd(true);
     console.log("Manual round end screen triggered");

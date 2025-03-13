@@ -10,46 +10,79 @@ interface Move {
  * Generate all possible moves for AI
  */
 export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
-  if (!playerID) return [];
-  const playerColor = playerID === '0' ? 'red' : 'black';
-  const player = G.players[playerColor];
-  const moves: Move[] = [];
+  console.log("AI enumerate called with:", { 
+    hasG: !!G,
+    hasPlayers: G && !!G.players,
+    playerID,
+    ctx
+  });
   
-  // Check if it's this player's turn
-  if (G.activePlayer !== playerColor) return [];
+  if (!G || !G.players) {
+    console.error("enumerate: G or G.players is missing!");
+    return [];
+  }
   
-  // If in running state, allow staking or wagering
-  if (G.roundState === 'running' || G.roundState === 'last_play') {
-    // Option 1: Stake a card
-    if (player.hand.length > 0 && player.availableStakes.length > 0) {
-      player.hand.forEach((card: Card) => {
-        moves.push({
-          move: 'stakeCard',
-          args: [card.id]
-        });
-      });
+  if (!playerID) {
+    console.error("enumerate: playerID is missing!");
+    return [];
+  }
+  
+  try {
+    const playerColor = playerID === '0' ? 'red' : 'black';
+    
+    if (!G.players[playerColor]) {
+      console.error(`enumerate: Player ${playerColor} is missing in G.players!`);
+      return [];
     }
     
-    // Option 2: Wager cards
-    // Get all possible combinations of cards to wager
-    if (player.hand.length > 0) {
-      const cardCombinations = generateCardCombinations(player.hand);
+    const player = G.players[playerColor];
+    const moves: Move[] = [];
+    
+    // Check if it's this player's turn
+    if (G.activePlayer !== playerColor) {
+      console.log(`enumerate: Not ${playerColor}'s turn`);
+      return [];
+    }
+    
+    // If in running state, allow staking or wagering
+    if (G.roundState === 'running' || G.roundState === 'last_play') {
+      // Option 1: Stake a card
+      if (player.hand && player.hand.length > 0 && player.availableStakes && player.availableStakes.length > 0) {
+        player.hand.forEach((card: Card) => {
+          moves.push({
+            move: 'stakeCard',
+            args: [card.id]
+          });
+        });
+      }
       
-      // For each combination, try each column with a stake
-      cardCombinations.forEach((cards: Card[]) => {
-        G.board.forEach((column, index: number) => {
-          if (column.stakedCard) {
-            moves.push({
-              move: 'wagerCards',
-              args: [cards.map((c: Card) => c.id), index]
+      // Option 2: Wager cards
+      // Get all possible combinations of cards to wager
+      if (player.hand && player.hand.length > 0) {
+        const cardCombinations = generateCardCombinations(player.hand);
+        
+        // For each combination, try each column with a stake
+        cardCombinations.forEach((cards: Card[]) => {
+          if (G.board) {
+            G.board.forEach((column, index: number) => {
+              if (column && column.stakedCard) {
+                moves.push({
+                  move: 'wagerCards',
+                  args: [cards.map((c: Card) => c.id), index]
+                });
+              }
             });
           }
         });
-      });
+      }
     }
+    
+    console.log(`enumerate: Generated ${moves.length} moves for player ${playerColor}`);
+    return moves;
+  } catch (error) {
+    console.error("Error in enumerate function:", error);
+    return [];
   }
-  
-  return moves;
 }
 
 /**
