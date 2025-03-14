@@ -99,6 +99,13 @@ export function disableGameLogging() {
   originalLog("Game logging disabled");
 }
 
+// Function to get detailed diagnostics about why a move is invalid
+function logMoveValidationFailure(moveType: string, args: any[], reason: string) {
+  if (ENABLE_LOGGING && !SUPPRESS_AI_LOGS) {
+    console.log(`[MCTS Debug] Invalid ${moveType}: ${JSON.stringify(args)} - Reason: ${reason}`);
+  }
+}
+
 // Turn AI logging on/off
 export function suppressAILogs() {
   SUPPRESS_AI_LOGS = true;
@@ -155,20 +162,20 @@ const moves = {
 
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      if (ENABLE_LOGGING && !SUPPRESS_AI_LOGS) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      logMoveValidationFailure('stakeCard', [cardId], `Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
 
     // Find the card in player's hand
     const cardIndex = player.hand.findIndex((card: Card) => card.id === cardId);
     if (cardIndex === -1) {
-      if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
+      logMoveValidationFailure('stakeCard', [cardId], `Card ${cardId} not found in ${playerColor}'s hand`);
       return INVALID_MOVE;
     }
 
     // Check if player has any available stake columns
     if (player.availableStakes.length === 0) {
-      if (ENABLE_LOGGING) console.log(`No available stake columns for ${playerColor}`);
+      logMoveValidationFailure('stakeCard', [cardId], `No available stake columns for ${playerColor}`);
       return INVALID_MOVE;
     }
 
@@ -241,13 +248,13 @@ const moves = {
 
     // Check if it's this player's turn in our game state
     if (G.activePlayer !== playerColor) {
-      if (ENABLE_LOGGING && !SUPPRESS_AI_LOGS) console.log(`Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
+      logMoveValidationFailure('wagerCards', [cardIds, column], `Not ${playerColor}'s turn, it's ${G.activePlayer}'s turn`);
       return INVALID_MOVE;
     }
 
     // Check if column has a stake
     if (!G.board[column] || !G.board[column].stakedCard) {
-      if (ENABLE_LOGGING) console.log(`Column ${column} does not have a stake`);
+      logMoveValidationFailure('wagerCards', [cardIds, column], `Column ${column} does not have a stake`);
       return INVALID_MOVE;
     }
 
@@ -257,7 +264,7 @@ const moves = {
 
     // Then check if player has valid wager positions in this column
     if (!hasValidWagerPositions(G, column, playerColor)) {
-      if (ENABLE_LOGGING) console.log(`No valid wager positions for ${playerColor} in column ${column}`);
+      logMoveValidationFailure('wagerCards', [cardIds, column], `No valid wager positions for ${playerColor} in column ${column}`);
       return INVALID_MOVE;
     }
 
@@ -265,10 +272,24 @@ const moves = {
     const cardsToPlay: Card[] = [];
     const indicesToRemove: number[] = [];
 
+    // Validate that we have card IDs to play
+    if (!cardIds || !Array.isArray(cardIds) || cardIds.length === 0) {
+      logMoveValidationFailure('wagerCards', [cardIds, column], `No cards provided`);
+      return INVALID_MOVE;
+    }
+
+    // Verify each card is in player's hand
     for (const cardId of cardIds) {
       const index = player.hand.findIndex(card => card.id === cardId);
       if (index === -1) {
-        if (ENABLE_LOGGING) console.log(`Card ${cardId} not found in ${playerColor}'s hand`);
+        logMoveValidationFailure('wagerCards', [cardIds, column], `Card ${cardId} not found in ${playerColor}'s hand`);
+        return INVALID_MOVE;
+      }
+
+      // Verify card color matches player color
+      if (player.hand[index].color !== playerColor) {
+        logMoveValidationFailure('wagerCards', [cardIds, column], 
+          `Card ${cardId} is ${player.hand[index].color}, but player is ${playerColor}`);
         return INVALID_MOVE;
       }
 
@@ -280,14 +301,15 @@ const moves = {
     }
 
     if (cardsToPlay.length === 0) {
-      if (ENABLE_LOGGING) console.log(`No cards to play`);
+      logMoveValidationFailure('wagerCards', [cardIds, column], `No valid cards to play`);
       return INVALID_MOVE;
     }
 
     // Check if we have enough valid positions for all cards
     const validPositions = getSortedPositionsForColumn(G, column, playerColor);
     if (cardsToPlay.length > validPositions.length) {
-      if (ENABLE_LOGGING) console.log(`Not enough positions (${validPositions.length}) for all cards (${cardsToPlay.length})`);
+      logMoveValidationFailure('wagerCards', [cardIds, column], 
+        `Not enough positions (${validPositions.length}) for all cards (${cardsToPlay.length})`);
       return INVALID_MOVE;
     }
 

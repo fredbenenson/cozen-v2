@@ -62,17 +62,41 @@ const getMCTSConfig = (difficulty: AIDifficulty): MCTSConfig => {
   // Configure MCTS parameters based on difficulty
   switch(difficulty) {
     case AIDifficulty.NOVICE:
-      return { iterations: 150, playoutDepth: 10 };
+      return { 
+        iterations: 50,        // Fewer iterations = weaker AI
+        playoutDepth: 5,       // Shorter playouts
+        seed: 'cozen-novice'   // Fixed seed for consistency
+      };
     case AIDifficulty.EASY:
-      return { iterations: 300, playoutDepth: 20 };
+      return { 
+        iterations: 150, 
+        playoutDepth: 10,
+        seed: 'cozen-easy'
+      };
     case AIDifficulty.MEDIUM:
-      return { iterations: 600, playoutDepth: 30 };
+      return { 
+        iterations: 300, 
+        playoutDepth: 15,
+        seed: 'cozen-medium'
+      };
     case AIDifficulty.HARD:
-      return { iterations: 1000, playoutDepth: 40 };
+      return { 
+        iterations: 500, 
+        playoutDepth: 20,
+        seed: 'cozen-hard'
+      };
     case AIDifficulty.NIGHTMARE:
-      return { iterations: 2000, playoutDepth: 50 };
+      return { 
+        iterations: 1000, 
+        playoutDepth: 30,
+        seed: 'cozen-nightmare'
+      };
     default:
-      return { iterations: 600, playoutDepth: 30 }; // Default to MEDIUM
+      return { 
+        iterations: 300, 
+        playoutDepth: 15,
+        seed: 'cozen-default'
+      }; // Default to MEDIUM
   }
 };
 

@@ -71,34 +71,66 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
 
     // If in running state, allow staking or wagering
     if (G.roundState === 'running' || G.roundState === 'last_play') {
-      // Option 1: Stake a card
+      // Option 1: Stake a card - ONLY INCLUDE CARDS OF THE PLAYER'S COLOR
       if (player.hand && player.hand.length > 0 && player.availableStakes && player.availableStakes.length > 0) {
-        player.hand.forEach((card: Card) => {
-          moves.push({
-            move: 'stakeCard',
-            args: [card.id]
+        // Filter for cards that match the player's color
+        const colorMatchedCards = player.hand.filter((card: Card) => {
+          // Make sure card has color property and it's the right color
+          return card.color === playerColor;
+        });
+        
+        // Generate moves only for valid stake columns for this player
+        colorMatchedCards.forEach((card: Card) => {
+          // For each available stake column
+          player.availableStakes.forEach((column: number) => {
+            // Create a stake move
+            moves.push({
+              move: 'stakeCard',
+              args: [card.id]
+            });
           });
         });
       }
 
-      // Option 2: Wager cards
-      // Get all possible combinations of cards to wager
+      // Option 2: Wager cards - ONLY FOR POSITIONS PLAYER CAN LEGALLY WAGER
       if (player.hand && player.hand.length > 0) {
-        const cardCombinations = generateCardCombinations(player.hand);
+        // Only use cards of the player's color
+        const playerCards = player.hand.filter((card: Card) => card.color === playerColor);
+        
+        // Skip if no player cards
+        if (playerCards.length > 0) {
+          const cardCombinations = generateCardCombinations(playerCards);
 
-        // For each combination, try each column with a stake
-        cardCombinations.forEach((cards: Card[]) => {
+          // For each column with a stake, check if the player can wager there
           if (G.board) {
-            G.board.forEach((column, index: number) => {
+            G.board.forEach((column, columnIndex: number) => {
+              // Only consider columns with stakes
               if (column && column.stakedCard) {
-                moves.push({
-                  move: 'wagerCards',
-                  args: [cards.map((c: Card) => c.id), index]
+                // Count how many positions player has in this column
+                let playerPositionCount = 0;
+                
+                // Check if the column has positions and count available slots
+                if (column.positions) {
+                  // Count empty positions owned by the player
+                  playerPositionCount = column.positions.filter(pos => 
+                    pos.owner === playerColor && pos.card === undefined
+                  ).length;
+                }
+                
+                // For each combination of cards, check if it can be placed
+                cardCombinations.forEach((cards: Card[]) => {
+                  // Only include combinations that fit within available positions
+                  if (cards.length <= playerPositionCount) {
+                    moves.push({
+                      move: 'wagerCards',
+                      args: [cards.map((c: Card) => c.id), columnIndex]
+                    });
+                  }
                 });
               }
             });
           }
-        });
+        }
       }
     }
 
