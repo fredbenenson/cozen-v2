@@ -12,35 +12,35 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
     // Create and shuffle decks
     const redDeck = shuffleDeck(createDeck(Color.Red));
     const blackDeck = shuffleDeck(createDeck(Color.Black));
-    
+
     // Initialize player hands (first 5 cards)
     const redHand = redDeck.slice(0, 5);
     const blackHand = blackDeck.slice(0, 5);
-    
+
     // Initialize player decks (remaining cards)
     const redCards = redDeck.slice(5);
     const blackCards = blackDeck.slice(5);
-    
+
     // Create initial stakes
     const redStake = redCards.shift()!;
     const blackStake = blackCards.shift()!;
-    
+
     // Create the board with columns
     const board = createInitialBoard();
-    
+
     // Mark initial stake positions
     if (redStake) {
       board[5].stakedCard = redStake;
       redStake.played = true;
       redStake.owner = 'red';
     }
-    
+
     if (blackStake) {
       board[4].stakedCard = blackStake;
       blackStake.played = true;
       blackStake.owner = 'black';
     }
-    
+
     // Create player objects
     const redPlayer = {
       hand: redHand,
@@ -50,7 +50,7 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       availableStakes: [6, 7, 8, 9], // Exclude column 5 which already has a stake
       stake_offset: 1,
     };
-    
+
     const blackPlayer = {
       hand: blackHand,
       jail: [],
@@ -59,7 +59,7 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
       availableStakes: [0, 1, 2, 3], // Exclude column 4 which already has a stake
       stake_offset: -1,
     };
-    
+
     // Create initial state
     const initialState: CozenState = {
       players: {
@@ -83,15 +83,25 @@ export function setupGame(ctx: any, setupData?: any): CozenState {
         black: 0,
       },
     };
-    
-    // Log initial state for debugging
-    console.log("Game setup complete. Initial state:", { 
-      activePlayer: initialState.activePlayer,
-      redCards: initialState.players.red.hand.length,
-      blackCards: initialState.players.black.hand.length,
-      board: initialState.board.length
-    });
-    
+
+    // Log initial state for debugging once, but only during actual gameplay, not AI simulations
+    try {
+      // Check if we should suppress this log based on AI simulation status
+      const shouldLog = typeof window !== 'undefined' && 
+                       !(window as any).SUPPRESS_AI_LOGS;
+      
+      if (shouldLog) {
+        console.log(`Game setup complete [${Date.now()}]. Initial state:`, {
+          activePlayer: initialState.activePlayer,
+          redCards: initialState.players.red.hand.length,
+          blackCards: initialState.players.black.hand.length,
+          board: initialState.board.length
+        });
+      }
+    } catch (e) {
+      // If window is not defined or any other error, just continue silently
+    }
+
     // Return the initial state
     return initialState;
   } catch (error) {

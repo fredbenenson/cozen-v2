@@ -14,21 +14,15 @@ import { enumerate } from '../ai/enumerate';
  *
  * This component wraps the Board component to intercept and debug props from boardgame.io.
  * It also handles a special case where G might be nested inside itself.
- *
- * The normal props structure from boardgame.io is:
- * {
- *   G: { players: {...}, board: [...], ... },  // Our game state (CozenState)
- *   ctx: { ... },                             // Game context (turns, phases, etc.)
- *   moves: { ... },                           // Functions to update the game state
- *   ...other props
- * }
- */
-/**
- * BoardWrapper Component
- *
- * Handles the case where boardgame.io might provide a doubly-nested G structure.
  */
 const BoardWrapper = (props: any) => {
+  // Debug information about the current game state - helps with turn management debugging
+  React.useEffect(() => {
+    if (props.ctx && props.ctx.currentPlayer) {
+      console.log(`BoardWrapper: Player ${props.ctx.currentPlayer}, Turn ${props.ctx.turn}, Phase ${props.ctx.phase}`);
+    }
+  }, [props.ctx?.currentPlayer, props.ctx?.turn, props.ctx?.phase]);
+  
   // Handle case where G is incorrectly nested (G.G instead of just G)
   if (props.G && !props.G.players && props.G.G) {
     // Create a new props object with the corrected structure
@@ -53,60 +47,30 @@ const Board = BoardWrapper;
 export const CozenLocalClient = Client({
   game: CozenGame,
   board: Board,
-  debug: false,
+  debug: true,
   multiplayer: Local(),
 });
 
 // Function to get MCTS configuration based on difficulty
 const getMCTSConfig = (difficulty: AIDifficulty): MCTSConfig => {
-  // Configure MCTS parameters based on difficulty
-  // We're using much lower values to restrict the search space
-  // This makes the AI faster and generates fewer invalid moves
-  switch(difficulty) {
-    case AIDifficulty.NOVICE:
-      return { 
-        iterations: 30,        // Minimal iterations for very weak play
-        playoutDepth: 3,       // Very short playouts
-        seed: 'cozen-novice'   // Fixed seed for consistency
-      };
-    case AIDifficulty.EASY:
-      return { 
-        iterations: 60, 
-        playoutDepth: 4,
-        seed: 'cozen-easy'
-      };
-    case AIDifficulty.MEDIUM:
-      return { 
-        iterations: 100, 
-        playoutDepth: 5,
-        seed: 'cozen-medium'
-      };
-    case AIDifficulty.HARD:
-      return { 
-        iterations: 150, 
-        playoutDepth: 7,
-        seed: 'cozen-hard'
-      };
-    case AIDifficulty.NIGHTMARE:
-      return { 
-        iterations: 250, 
-        playoutDepth: 10,
-        seed: 'cozen-nightmare'
-      };
-    default:
-      return { 
-        iterations: 100, 
-        playoutDepth: 5,
-        seed: 'cozen-default'
-      };
-  }
+  // Use much simpler AI settings while debugging
+  // These minimalist settings will make the AI faster and less likely to hang
+  // We can increase complexity once the basic functionality works
+  
+  // Every difficulty now uses minimal settings to ensure stability
+  return {
+    iterations: 20,        // Very low iterations for fast response
+    playoutDepth: 2,       // Minimal playout depth
+    seed: 'cozen-debug',   // Fixed seed for consistency
+    timeout: 1500          // Short timeout to prevent hanging
+  };
 };
 
 // Create a client with AI opponent using boardgame.io's MCTS bot
 export const CozenAIClient = Client({
   game: CozenGame,
   board: Board,
-  debug: false, // Disable debug panel by default to reduce console noise
+  debug: true, // Keep debug panel enabled for testing
   numPlayers: 2,
   // Use boardgame.io's MCTS bot
   ai: {
@@ -117,7 +81,10 @@ export const CozenAIClient = Client({
       objectives: {
         '1': aiUtils.mctsObjective
       },
-      ...getMCTSConfig(AIDifficulty.MEDIUM)
+      // Use easier settings with lower iterations for faster play while testing
+      ...getMCTSConfig(AIDifficulty.EASY),
+      // Add an explicit timeout to ensure AI doesn't hang
+      timeout: 2000
     }
   },
 });
@@ -159,22 +126,6 @@ export const AIGameComponent = () => {
     try {
       console.log("AIGameComponent mounted");
       setIsLoading(false);
-
-      // Set a loading timeout to detect if the game isn't initializing properly
-      // But only if the game really isn't loading
-      const timeoutId = setTimeout(() => {
-        // Check if there are any game-related elements on the page
-        const boardElements = document.querySelectorAll('.board, .hand, .game-grid, .player-info');
-        if (boardElements.length === 0) {
-          // Only show timeout if no game elements are found
-          console.warn("Game initialization timeout reached - possible stuck state");
-          setLoadingTimeout(true);
-        } else {
-          console.log("Game elements found on page, not showing timeout warning");
-        }
-      }, 8000); // 8 seconds timeout (increase from 5s to 8s to give more time)
-
-      return () => clearTimeout(timeoutId);
     } catch (err: any) {
       console.error("Error initializing game:", err);
       setError(err);

@@ -10,40 +10,48 @@ interface Move {
  * Generate all possible moves for AI
  */
 export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
-  // Import SUPPRESS_AI_LOGS from global context if available
-  let SUPPRESS_AI_LOGS = true;
+  // Global try-catch to ensure we never crash the simulation
   try {
-    if (typeof window !== 'undefined' && (window as any).SUPPRESS_AI_LOGS !== undefined) {
-      SUPPRESS_AI_LOGS = (window as any).SUPPRESS_AI_LOGS;
-    } else if (typeof global !== 'undefined' && (global as any).SUPPRESS_AI_LOGS !== undefined) {
-      SUPPRESS_AI_LOGS = (global as any).SUPPRESS_AI_LOGS;
+    // Nested try to handle specific errors in a controlled way
+    try {
+    // Static variable for logging - only log once
+    if (!(enumerate as any).hasLogged) {
+      console.log("MCTS enumerate initialized");
+      (enumerate as any).hasLogged = true;
     }
-  } catch (e) {
-    // Default to true if we can't access global/window
-  }
-  
-  // Only log if AI logging is enabled
-  const debug = !SUPPRESS_AI_LOGS;
-  
-  // CRITICAL CHECK: Must have game state and context
-  if (!G || !G.players) {
-    if (debug) console.error("enumerate: G or G.players is missing!");
-    return [];
-  }
-  
-  // CRITICAL CHECK: Must have playerID
-  if (!playerID) {
-    if (debug) console.error("enumerate: playerID is missing!");
-    return [];
-  }
-  
-  // CRITICAL CHECK: Must be a valid phase where moves are allowed
-  if (ctx.phase !== 'play') {
-    if (debug) console.log(`enumerate: Not in play phase (current: ${ctx.phase})`);
-    return [];
-  }
-  
-  try {
+    
+    // Suppress logs by default
+    const debug = false;
+    
+    // Defensive checks for all required parameters
+    if (!G || !G.players) {
+      return []; // Empty moves
+    }
+    
+    if (!ctx) {
+      return []; // Empty moves
+    }
+    
+    // Handle missing playerID
+    if (playerID === undefined) {
+      // Try to get from ctx
+      if (ctx && typeof ctx.currentPlayer !== 'undefined') {
+        playerID = ctx.currentPlayer;
+      } else {
+        // Default to black player (AI is player 1)
+        playerID = '1';
+      }
+    }
+    
+    // Make sure we have a valid playerID
+    if (!playerID) {
+      return [];
+    }
+    
+    // Only enumerate moves in play phase
+    if (ctx.phase !== 'play') {
+      return [];
+    }
     // Convert playerID to color
     const playerColor = playerID === '0' ? 'red' : 'black';
     
@@ -66,6 +74,12 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
     // For MCTS simulations, we need to strictly enforce turn order
     if (G.activePlayer !== playerColor) {
       if (debug) console.log(`enumerate: Not ${playerColor}'s turn (activePlayer: ${G.activePlayer})`);
+      return [];
+    }
+    
+    // ADDITIONAL CHECK: Verify that boardgame.io's current player matches our active player
+    if (ctx.currentPlayer !== (playerColor === 'red' ? '0' : '1')) {
+      if (debug) console.log(`enumerate: ctx.currentPlayer (${ctx.currentPlayer}) doesn't match ${playerColor}`);
       return [];
     }
     
@@ -176,14 +190,19 @@ export function enumerate(G: CozenState, ctx: Ctx, playerID?: string): Move[] {
       }
     }
 
-    if (!SUPPRESS_AI_LOGS) {
+    // Always use debug flag instead of SUPPRESS_AI_LOGS
+    if (debug) {
       console.log(`enumerate: Generated ${moves.length} moves for player ${playerColor}`);
     }
     return moves;
-  } catch (error) {
-    if (!SUPPRESS_AI_LOGS) {
-      console.error("Error in enumerate function:", error);
+    } catch (innerError) {
+      // Handle specific errors inside the enumeration process
+      console.error("Error in enumerate inner function:", innerError);
+      return [];
     }
+  } catch (outerError) {
+    // Last resort error handler
+    console.error("Critical error in enumerate:", outerError);
     return [];
   }
 }

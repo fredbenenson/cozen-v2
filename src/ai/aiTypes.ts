@@ -33,6 +33,7 @@ export interface MCTSConfig {
   iterations?: number;    // Number of iterations for MCTS
   playoutDepth?: number;  // Depth of playouts
   seed?: string;          // Random seed
+  timeout?: number;       // Maximum computation time in ms
 }
 
 /**

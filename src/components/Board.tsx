@@ -51,15 +51,7 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Enable game logging once the board component mounts
-  useEffect(() => {
-    // Wait a short time to ensure all initial AI calculations are done
-    const timer = setTimeout(() => {
-      enableGameLogging();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  // Removed duplicate enableGameLogging effect - we'll handle this in the turn change effect only
 
   // Toggle dev mode to reveal opponent cards (will be called from debug panel)
   // We need to keep this function since moves are accessed via the debug panel
@@ -274,14 +266,8 @@ export function Board(props: BoardProps<BoardgameIOProps>) {
   // Watch for phase changes and show messages
   // This effect runs whenever the game phase or state changes
   useEffect(() => {
-    console.log(`Phase changed to: ${ctx.phase}`);
-
     // When the round ends, we want to show a transition screen
     if (ctx.phase === 'roundEnd') {
-      console.log('Phase is roundEnd! Should display transition screen');
-      console.log('Round state:', G.roundState);
-      console.log('Victory points:', G.players.red.victory_points, G.players.black.victory_points);
-
       // Save current state data for the round end screen
       // This data will be displayed in the transition overlay
       setRoundEndData({
