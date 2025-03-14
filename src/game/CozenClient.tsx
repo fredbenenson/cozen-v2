@@ -60,43 +60,45 @@ export const CozenLocalClient = Client({
 // Function to get MCTS configuration based on difficulty
 const getMCTSConfig = (difficulty: AIDifficulty): MCTSConfig => {
   // Configure MCTS parameters based on difficulty
+  // We're using much lower values to restrict the search space
+  // This makes the AI faster and generates fewer invalid moves
   switch(difficulty) {
     case AIDifficulty.NOVICE:
       return { 
-        iterations: 50,        // Fewer iterations = weaker AI
-        playoutDepth: 5,       // Shorter playouts
+        iterations: 30,        // Minimal iterations for very weak play
+        playoutDepth: 3,       // Very short playouts
         seed: 'cozen-novice'   // Fixed seed for consistency
       };
     case AIDifficulty.EASY:
       return { 
-        iterations: 150, 
-        playoutDepth: 10,
+        iterations: 60, 
+        playoutDepth: 4,
         seed: 'cozen-easy'
       };
     case AIDifficulty.MEDIUM:
       return { 
-        iterations: 300, 
-        playoutDepth: 15,
+        iterations: 100, 
+        playoutDepth: 5,
         seed: 'cozen-medium'
       };
     case AIDifficulty.HARD:
       return { 
-        iterations: 500, 
-        playoutDepth: 20,
+        iterations: 150, 
+        playoutDepth: 7,
         seed: 'cozen-hard'
       };
     case AIDifficulty.NIGHTMARE:
       return { 
-        iterations: 1000, 
-        playoutDepth: 30,
+        iterations: 250, 
+        playoutDepth: 10,
         seed: 'cozen-nightmare'
       };
     default:
       return { 
-        iterations: 300, 
-        playoutDepth: 15,
+        iterations: 100, 
+        playoutDepth: 5,
         seed: 'cozen-default'
-      }; // Default to MEDIUM
+      };
   }
 };
 
@@ -104,7 +106,7 @@ const getMCTSConfig = (difficulty: AIDifficulty): MCTSConfig => {
 export const CozenAIClient = Client({
   game: CozenGame,
   board: Board,
-  debug: true, // Enable debug panel to see more information
+  debug: false, // Disable debug panel by default to reduce console noise
   numPlayers: 2,
   // Use boardgame.io's MCTS bot
   ai: {
