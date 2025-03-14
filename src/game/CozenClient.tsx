@@ -2,10 +2,11 @@ import React from 'react';
 import { Client } from 'boardgame.io/react';
 import { Local } from 'boardgame.io/multiplayer';
 import { SocketIO } from 'boardgame.io/multiplayer';
+import { MCTSBot } from 'boardgame.io/ai';
 import { CozenGame } from './CozenGame';
 import { Board as OriginalBoard } from '../components/Board';
-import { CozenBot } from '../ai/CozenBot';
-import { AIDifficulty } from '../ai/aiTypes';
+import { AIDifficulty, MCTSConfig } from '../ai/aiTypes';
+import * as aiUtils from '../ai/aiUtils';
 
 /**
  * BoardWrapper Component
@@ -55,31 +56,41 @@ export const CozenLocalClient = Client({
   multiplayer: Local(),
 });
 
-// Function to create a fresh CozenBot instance
-// This allows us to get a new AI instance for each move, avoiding state corruption
-const createCozenBot = () => {
-  console.log("===============================");
-  console.log("CREATING NEW COZEN BOT INSTANCE");
-  console.log("Time:", new Date().toISOString());
-  console.log("===============================");
-  
-  // Create a new bot for the black player (1) with medium difficulty
-  const bot = new CozenBot('1', AIDifficulty.MEDIUM, true);
-  return bot;
+// Function to get MCTS configuration based on difficulty
+const getMCTSConfig = (difficulty: AIDifficulty): MCTSConfig => {
+  // Configure MCTS parameters based on difficulty
+  switch(difficulty) {
+    case AIDifficulty.NOVICE:
+      return { iterations: 150, playoutDepth: 10 };
+    case AIDifficulty.EASY:
+      return { iterations: 300, playoutDepth: 20 };
+    case AIDifficulty.MEDIUM:
+      return { iterations: 600, playoutDepth: 30 };
+    case AIDifficulty.HARD:
+      return { iterations: 1000, playoutDepth: 40 };
+    case AIDifficulty.NIGHTMARE:
+      return { iterations: 2000, playoutDepth: 50 };
+    default:
+      return { iterations: 600, playoutDepth: 30 }; // Default to MEDIUM
+  }
 };
 
-// Create a client with AI opponent using our minimax algorithm
+// Create a client with AI opponent using boardgame.io's MCTS bot
 export const CozenAIClient = Client({
   game: CozenGame,
   board: Board,
   debug: true, // Enable debug panel to see more information
   numPlayers: 2,
-  // Use our custom CozenBot implementation
+  // Use boardgame.io's MCTS bot
   ai: {
     // Only apply AI to black player (playerID: 1)
     '1': {
-      // Use our custom CozenBot instead of MCTSBot
-      bot: createCozenBot
+      bot: MCTSBot,
+      enumerate: CozenGame.ai.enumerate,
+      objectives: {
+        '1': aiUtils.mctsObjective
+      },
+      ...getMCTSConfig(AIDifficulty.MEDIUM)
     }
   },
 });

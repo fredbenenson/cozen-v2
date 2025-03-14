@@ -5,6 +5,7 @@ import { CozenState, Card, PlayerID } from '../types/game';
 import { setupGame } from './setup';
 import { checkVictory, scoreBoard, setupNextRound } from '../utils/boardUtils';
 import { enumerate } from '../ai/enumerate';
+import * as aiUtils from '../ai/aiUtils';
 import { getSortedPositionsForColumn, hasValidWagerPositions, isValidWagerPosition, BOARD } from '../utils/moveValidation';
 
 // Flags to control logging
@@ -677,8 +678,12 @@ export const CozenGame: Game<CozenState> = {
     return gameState;
   },
 
-  // AI move enumeration
+  // AI configuration for boardgame.io's MCTS bot
   ai: {
-    enumerate: enumerate
+    enumerate: enumerate,
+    // Use our custom objective function for MCTS
+    objectives: {
+      'black': aiUtils.mctsObjective
+    }
   }
 };

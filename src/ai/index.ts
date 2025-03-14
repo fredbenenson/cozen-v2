@@ -1,16 +1,13 @@
 // Main exports for AI package
-import { CozenAI } from './cozenAI';
-import { AIDifficulty, AIMove, AIDecisionResult } from './aiTypes';
+import { AIDifficulty, AIMove, MCTSConfig } from './aiTypes';
 import * as aiUtils from './aiUtils';
+import { enumerate } from './enumerate';
 
-// Export the AI classes and types
+// Export the AI types and functions
 export {
-  CozenAI,
   AIDifficulty,
   AIMove,
-  AIDecisionResult,
-  aiUtils
+  MCTSConfig,
+  aiUtils,
+  enumerate
 };
-
-// Export default CozenAI for convenience
-export default CozenAI;
