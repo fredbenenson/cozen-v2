@@ -18,6 +18,12 @@ export interface AIMove {
   cards: string[];     // Card IDs
   column: number;      // Target column
   isStake: boolean;    // Whether this is a stake move
+  score?: number;      // Computed score for moves
+  didStake?: boolean;  // Legacy compatibility
+  splitPair?: boolean; // Whether this move splits a pair
+  playerId?: string;   // ID of the player making the move
+  gameId?: string;     // ID of the game
+  playerName?: string; // Name of the player
 }
 
 /**
@@ -27,4 +33,38 @@ export interface MCTSConfig {
   iterations?: number;    // Number of iterations for MCTS
   playoutDepth?: number;  // Depth of playouts
   seed?: string;          // Random seed
+}
+
+/**
+ * Represents a node in the minimax visualization tree
+ * Kept for compatibility with visualization tools
+ */
+export interface GameNode {
+  source: string;
+  target: string;
+  depth: number;
+  score: number;
+  cards: string;
+  column: number;
+  isStake: boolean;
+  n: number;
+  minimaxResult?: number;
+  childState?: string;
+  alphaBeta?: string;
+  beatAlphaBeta?: boolean;
+  maximizing?: boolean;
+  label?: string;
+  cardColor?: string;
+}
+
+/**
+ * Result of AI decision-making process
+ * Kept for compatibility with existing code
+ */
+export interface AIDecisionResult {
+  move: AIMove | null;
+  searchDepth: number;
+  nodesExplored: number;
+  timeElapsed: number;
+  candidateMoves: number;
 }

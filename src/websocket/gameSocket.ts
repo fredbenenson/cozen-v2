@@ -1,11 +1,10 @@
 // src/websocket/gameSocket.ts
 import { Server, Socket } from 'socket.io';
 import http from 'http';
-import { AIMove } from '../ai/aiTypes';
+import { AIMove, AIDifficulty } from '../ai/aiTypes';
 import { GameModel } from '../models/Game';
 import { GameService } from '../services/gameService';
 import { AIService } from '../services/ai/aiService';
-import { AIDifficulty } from '../ai/cozenAI';
 
 // Extend the Move interface to include gameId
 interface GameMove {
