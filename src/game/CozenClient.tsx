@@ -7,6 +7,7 @@ import { CozenGame } from './CozenGame';
 import { Board as OriginalBoard } from '../components/Board';
 import { AIDifficulty, MCTSConfig } from '../ai/aiTypes';
 import * as aiUtils from '../ai/aiUtils';
+import { enumerate } from '../ai/enumerate';
 
 /**
  * BoardWrapper Component
@@ -86,7 +87,7 @@ export const CozenAIClient = Client({
     // Only apply AI to black player (playerID: 1)
     '1': {
       bot: MCTSBot,
-      enumerate: CozenGame.ai.enumerate,
+      enumerate: enumerate,
       objectives: {
         '1': aiUtils.mctsObjective
       },

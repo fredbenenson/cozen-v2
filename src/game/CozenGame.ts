@@ -680,10 +680,9 @@ export const CozenGame: Game<CozenState> = {
 
   // AI configuration for boardgame.io's MCTS bot
   ai: {
-    enumerate: enumerate,
-    // Use our custom objective function for MCTS
-    objectives: {
-      'black': aiUtils.mctsObjective
-    }
+    enumerate: enumerate
   }
+  
+  // Note: The objectives are defined in the CozenClient.tsx file
+  // when creating the client with the MCTSBot
 };

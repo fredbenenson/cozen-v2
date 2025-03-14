@@ -128,6 +128,7 @@ When working on this project:
    - Readability matters more than brevity
    - Avoid introducing external dependencies when possible
    - Remove dead/commented code rather than leaving it in
+   - When removing code, remove the dependencies on the component instead of creating compatibility stubs.
 
 5. **Communication style**:
    - Direct and concise explanations are preferred

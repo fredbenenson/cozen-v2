@@ -1,8 +1,7 @@
-import { Card, Color, Suit } from '../types/game';
+import { Card, Color, Suit, CozenState, PlayerID } from '../types/game';
 import { Player } from '../types/player';
 import { Round } from '../types/round';
 import { CardEvaluation } from '../services/cardEvaluation';
-import { CozenState } from '../types/game';
 import { Ctx } from 'boardgame.io';
 
 /**
@@ -11,11 +10,11 @@ import { Ctx } from 'boardgame.io';
  */
 export function evaluateGameState(G: CozenState, perspectivePlayerID: string): number {
   // Convert player ID to color
-  const perspectiveColor = perspectivePlayerID === '0' ? 'red' : 'black';
+  const perspectiveColor = perspectivePlayerID === '0' ? 'red' as PlayerID : 'black' as PlayerID;
   
   // Get player objects
   const myPlayer = G.players[perspectiveColor];
-  const opponent = G.players[perspectiveColor === 'red' ? 'black' : 'red'];
+  const opponent = G.players[perspectiveColor === 'red' ? 'black' as PlayerID : 'red' as PlayerID];
   
   if (!myPlayer || !opponent) {
     return 0; // Neutral score if players aren't properly defined
@@ -34,8 +33,10 @@ export function evaluateGameState(G: CozenState, perspectivePlayerID: string): n
  * Evaluates a player's position in the game
  */
 function evaluatePosition(G: CozenState, perspectiveColor: string): number {
-  const myPlayer = G.players[perspectiveColor];
-  const opponent = G.players[perspectiveColor === 'red' ? 'black' : 'red'];
+  const color = perspectiveColor as PlayerID;
+  const myPlayer = G.players[color];
+  const opponentColor = color === 'red' ? 'black' as PlayerID : 'red' as PlayerID;
+  const opponent = G.players[opponentColor];
   
   if (!myPlayer || !opponent) {
     return 0;
@@ -47,7 +48,7 @@ function evaluatePosition(G: CozenState, perspectiveColor: string): number {
   positionScore += evaluateHandStrength(myPlayer.hand);
   
   // Evaluate jail cards (captured cards)
-  positionScore += myPlayer.jail.reduce((total, card) => total + card.victoryPoints * 0.1, 0);
+  positionScore += myPlayer.jail.reduce((total: number, card: Card) => total + card.victoryPoints * 0.1, 0);
   
   // Evaluate opponent's hand for poison Kings
   const poisonKings = opponent.hand.filter(card => 
