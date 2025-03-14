@@ -170,7 +170,7 @@ const moves = {
       console.error('stakeCard: ctx or ctx.currentPlayer is undefined');
       return INVALID_MOVE;
     }
-    
+
     // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
@@ -257,7 +257,7 @@ const moves = {
       console.error('wagerCards: ctx or ctx.currentPlayer is undefined');
       return INVALID_MOVE;
     }
-    
+
     // Map numeric player IDs to red/black colors
     const playerColor = ctx.currentPlayer === '0' ? 'red' as PlayerID : 'black' as PlayerID;
     const player = G.players[playerColor];
@@ -298,7 +298,7 @@ const moves = {
 
       // Verify card color matches player color
       if (player.hand[index].color !== playerColor) {
-        logMoveValidationFailure('wagerCards', [cardIds, column], 
+        logMoveValidationFailure('wagerCards', [cardIds, column],
           `Card ${cardId} is ${player.hand[index].color}, but player is ${playerColor}`);
         return INVALID_MOVE;
       }
@@ -318,7 +318,7 @@ const moves = {
     // Check if we have enough valid positions for all cards
     const validPositions = getSortedPositionsForColumn(G, column, playerColor);
     if (cardsToPlay.length > validPositions.length) {
-      logMoveValidationFailure('wagerCards', [cardIds, column], 
+      logMoveValidationFailure('wagerCards', [cardIds, column],
         `Not enough positions (${validPositions.length}) for all cards (${cardsToPlay.length})`);
       return INVALID_MOVE;
     }
@@ -484,7 +484,7 @@ const updateLogging = (playerID: string) => {
   try {
     // Default to filtering AI logs unless we know it's the human player
     const isHuman = playerID === '0'; // Red/Human is player 0
-    
+
     if (isHuman) {
       enableGameLogging();
       showAILogs(); // Show all logs during human turns
@@ -516,13 +516,13 @@ export const CozenGame: Game<CozenState> = {
       onBegin: (G: CozenState, ctx: Ctx) => {
         // Log phase beginning
         console.log(`Phase 'play' started`);
-        
+
         // Update convenience references and logging
         if (ctx && ctx.currentPlayer) {
           const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
           G.activePlayer = playerColor;
           G.inactivePlayer = playerColor === 'red' ? 'black' : 'red';
-          
+
           // Update logging based on who's active
           updateLogging(ctx.currentPlayer);
         }
@@ -567,12 +567,12 @@ export const CozenGame: Game<CozenState> = {
             try {
               // Use a try/catch to prevent ANY errors from crashing the game
               // During AI simulation, ctx might be incomplete
-              
+
               // If ctx is missing, just alternate based on turn number
               if (!ctx) {
                 return Math.floor(Math.random() * 2); // Fallback to random player
               }
-              
+
               // If currentPlayer is missing, alternate based on playOrderPos if available
               if (typeof ctx.currentPlayer === 'undefined') {
                 if (typeof ctx.playOrderPos !== 'undefined') {
@@ -581,7 +581,7 @@ export const CozenGame: Game<CozenState> = {
                 // If both are missing, just pick a player randomly
                 return Math.floor(Math.random() * 2);
               }
-              
+
               // Normal case - simple alternating: 0->1, 1->0
               return ctx.currentPlayer === '0' ? 1 : 0;
             } catch (e) {
@@ -591,26 +591,24 @@ export const CozenGame: Game<CozenState> = {
             }
           }
         },
-        
+
         // One move per turn - this is the key to automate turn advancement
         moveLimit: 1,
-        
+
         // Ultra-defensive onBegin handler
         onBegin: (G, ctx) => {
           try {
             if (ctx && typeof ctx.currentPlayer !== 'undefined') {
               const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
               console.log(`Turn started: Player ${playerColor} (${ctx.currentPlayer})`);
-              
+
               // Update our references for convenience only
               G.activePlayer = playerColor;
               G.inactivePlayer = playerColor === 'red' ? 'black' : 'red';
-              
+
               // Update logging based on current player
               updateLogging(ctx.currentPlayer);
             } else {
-              // If ctx is missing, just use the existing activePlayer
-              console.log(`Turn started with incomplete context. Using existing activePlayer: ${G.activePlayer}`);
             }
           } catch (e) {
             console.error("Error in turn onBegin:", e);
@@ -624,15 +622,15 @@ export const CozenGame: Game<CozenState> = {
       next: 'play',
       // Phase handler for round end
       onBegin: (G: CozenState, ctx: Ctx) => {
-        // Log phase beginning  
+        // Log phase beginning
         console.log(`Phase 'roundEnd' started`);
-        
+
         // Update references if ctx is available
         if (ctx && ctx.currentPlayer) {
           const playerColor = ctx.currentPlayer === '0' ? 'red' : 'black';
           G.activePlayer = playerColor;
           G.inactivePlayer = playerColor === 'red' ? 'black' : 'red';
-          
+
           // Update logging based on who's active
           updateLogging(ctx.currentPlayer);
         }
@@ -731,7 +729,7 @@ export const CozenGame: Game<CozenState> = {
   ai: {
     enumerate: enumerate
   }
-  
+
   // Note: The objectives are defined in the CozenClient.tsx file
   // when creating the client with the MCTSBot
   // Note: We're using ctx.events.endTurn() in our move functions to explicitly
